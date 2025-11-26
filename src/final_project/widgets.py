@@ -1,9 +1,15 @@
+# pyright: reportUnknownMemberType=false
+# pyright: reportUnknownLambdaType=false
+# ruff: noqa: I001
+
 """Custom CTK widget implementations."""
 
 from __future__ import annotations
 
-# pyright: reportUnknownMemberType=false
-# pyright: reportUnknownLambdaType=false
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, field
+from typing import Any
+
 import customtkinter as ctk  # type: ignore[import-untyped]
 from lazi.core import lazi
 
@@ -18,7 +24,6 @@ with lazi:  # type: ignore[attr-defined]
     import re
     import textwrap
     import tkinter as tk
-    from collections.abc import Callable
     from functools import cache
     from html import escape
     from html import unescape
@@ -26,7 +31,6 @@ with lazi:  # type: ignore[attr-defined]
     from pathlib import Path
     from tkinter import Event
     from tkinter import messagebox
-    from typing import Any
     from typing import ClassVar
     from typing import cast
 
@@ -44,6 +48,71 @@ logger = structlog.getLogger("final_project")
 # disable debug in pillow
 pil_logger = logging.getLogger("PIL")
 pil_logger.setLevel(logging.INFO)
+
+
+def _dict_str_any() -> dict[str, Any]:
+    return {}
+
+
+@dataclass(slots=True)
+class ButtonSpec:
+    """Describe a menu/button widget using simple data."""
+
+    text: str
+    handler: Callable[[], None]
+    disabled: bool = False
+    config: dict[str, Any] = field(default_factory=_dict_str_any)
+
+
+@dataclass(slots=True)
+class DropdownSpec:
+    """Describe a dropdown widget including its options and callbacks."""
+
+    label: str
+    options: tuple[str, ...]
+    on_change: Callable[[str], None] | None = None
+    initial: str | None = None
+    state: str = "readonly"
+    width: int = 140
+    config: dict[str, Any] = field(default_factory=_dict_str_any)
+
+
+def make_button(
+    text: str,
+    handler: Callable[[], None],
+    *,
+    disabled: bool = False,
+    **kwargs: Any,
+) -> ButtonSpec:
+    """Return a button spec so layout code stays declarative."""
+    return ButtonSpec(
+        text=text,
+        handler=handler,
+        disabled=disabled,
+        config=dict(kwargs),
+    )
+
+
+def make_dropdown(
+    label: str,
+    options: Sequence[str],
+    *,
+    on_change: Callable[[str], None] | None = None,
+    initial: str | None = None,
+    **kwargs: Any,
+) -> DropdownSpec:
+    """Return a dropdown spec capturing display text and callbacks."""
+    width = kwargs.pop("width", 140)
+    state = kwargs.pop("state", "readonly")
+    return DropdownSpec(
+        label=label,
+        options=tuple(options),
+        on_change=on_change,
+        initial=initial,
+        state=state,
+        width=width,
+        config=dict(kwargs),
+    )
 
 
 class AppMenuBar(ctk.CTkFrame):
@@ -147,33 +216,43 @@ class AppMenuBar(ctk.CTkFrame):
 
         # --------------------- RIGHT-SIDE DROPDOWNS -----------------------------
         types = get_types()
-        self.entry_type_var: tk.StringVar = tk.StringVar(
-            value=types[0],
-        )
-        self.entry_type_combo: ctk.CTkComboBox = ctk.CTkComboBox(
-            self,
-            values=types,
-            variable=self.entry_type_var,
-            width=120,
-            state="readonly",
-            font=base_font,
-            command=self._on_type_change,
-        )
-        self.entry_type_combo.pack(side="right", padx=(0, 8), pady=2)
+        self.entry_type_var: tk.StringVar = tk.StringVar(value=types[0])
         campaigns = get_campaigns()
         combo_values = [*(campaigns or ["No Campaigns"]), "New Campaign"]
         initial_campaign = campaigns[0] if campaigns else "No Campaigns"
         self.campaign_var: tk.StringVar = tk.StringVar(value=initial_campaign)
-        self.campaign_combo: ctk.CTkComboBox = ctk.CTkComboBox(
-            self,
-            values=combo_values,
-            variable=self.campaign_var,
+
+        entry_type_spec = make_dropdown(
+            "Entry Type",
+            types,
+            on_change=self._on_type_change,
+            initial=types[0],
+            width=120,
+            state="readonly",
+            font=base_font,
+            variable=self.entry_type_var,
+        )
+        campaign_spec = make_dropdown(
+            "Campaign",
+            combo_values,
+            on_change=self._on_campaign_change,
+            initial=initial_campaign,
             width=140,
             state="readonly",
             font=base_font,
-            command=self._on_campaign_change,
+            variable=self.campaign_var,
         )
-        self.campaign_combo.pack(side="right", padx=5, pady=2)
+
+        self.entry_type_combo: ctk.CTkComboBox = self._create_dropdown(
+            self,
+            entry_type_spec,
+            pack_kwargs={"side": "right", "padx": (0, 8), "pady": 2},
+        )
+        self.campaign_combo: ctk.CTkComboBox = self._create_dropdown(
+            self,
+            campaign_spec,
+            pack_kwargs={"side": "right", "padx": 5, "pady": 2},
+        )
         self._campaign_dialog: CampaignDialog | None = None
         self._suppress_campaign_callback = False
         self._last_campaign_value = initial_campaign
@@ -199,102 +278,40 @@ class AppMenuBar(ctk.CTkFrame):
         )
 
         # File menu items
-        self.file_save_btn: ctk.CTkButton = ctk.CTkButton(
-            self.file_menu_frame,
-            text="Save",
-            width=160,
-            height=26,
-            fg_color="transparent",
-            corner_radius=4,
-            anchor="w",
-            text_color=menu_text,
-            hover_color=menu_hover,
-            font=base_font,
-            command=lambda: (self._hide_all_menus(), self._on_save()),
-        )
-        self.file_save_btn.pack(fill="x", padx=4, pady=(4, 2))
-
-        self.file_settings_btn: ctk.CTkButton = ctk.CTkButton(
-            self.file_menu_frame,
-            text="Settings",
-            width=160,
-            height=26,
-            fg_color="transparent",
-            corner_radius=4,
-            anchor="w",
-            text_color=menu_text,
-            hover_color=menu_hover,
-            font=base_font,
-            command=lambda: (self._hide_all_menus(), self._on_show_settings()),
-        )
-        self.file_settings_btn.pack(fill="x", padx=4, pady=(0, 2))
-
-        self.file_delete_campaign_btn: ctk.CTkButton = ctk.CTkButton(
-            self.file_menu_frame,
-            text="Delete Campaign…",
-            width=160,
-            height=26,
-            fg_color="transparent",
-            corner_radius=4,
-            anchor="w",
-            text_color=menu_text,
-            hover_color=menu_hover,
-            font=base_font,
-            command=lambda: (
-                self._hide_all_menus(),
-                self._confirm_delete_current_campaign(),
+        file_menu_specs = [
+            make_button("Save", self._menu_action(self._on_save)),
+            make_button("Settings", self._menu_action(self._on_show_settings)),
+            make_button(
+                "Delete Campaign…",
+                self._menu_action(self._confirm_delete_current_campaign),
             ),
-        )
-        self.file_delete_campaign_btn.pack(fill="x", padx=4, pady=(0, 2))
-
-        self.file_exit_btn: ctk.CTkButton = ctk.CTkButton(
+            make_button("Exit", self._menu_action(self._on_exit)),
+        ]
+        self._file_menu_buttons = self._build_menu_buttons(
             self.file_menu_frame,
-            text="Exit",
-            width=160,
-            height=26,
-            fg_color="transparent",
-            corner_radius=4,
-            anchor="w",
-            text_color=menu_text,
-            hover_color=menu_hover,
+            file_menu_specs,
+            menu_text=menu_text,
+            menu_hover=menu_hover,
             font=base_font,
-            command=lambda: (self._hide_all_menus(), self._on_exit()),
         )
-        self.file_exit_btn.pack(fill="x", padx=4, pady=(0, 4))
 
         # Help menu items
-        self.help_readme_btn: ctk.CTkButton = ctk.CTkButton(
+        help_menu_specs = [
+            make_button("View README", self._menu_action(self._on_show_readme)),
+            make_button("About", self._menu_action(self._on_about)),
+        ]
+        self._help_menu_buttons = self._build_menu_buttons(
             self.help_menu_frame,
-            text="View README",
-            width=160,
-            height=26,
-            fg_color="transparent",
-            corner_radius=4,
-            anchor="w",
-            text_color=menu_text,
-            hover_color=menu_hover,
+            help_menu_specs,
+            menu_text=menu_text,
+            menu_hover=menu_hover,
             font=base_font,
-            command=lambda: (self._hide_all_menus(), self._on_show_readme()),
         )
-        self.help_readme_btn.pack(fill="x", padx=4, pady=(4, 2))
-
-        self.help_about_btn: ctk.CTkButton = ctk.CTkButton(
-            self.help_menu_frame,
-            text="About",
-            width=160,
-            height=26,
-            fg_color="transparent",
-            corner_radius=4,
-            anchor="w",
-            text_color=menu_text,
-            hover_color=menu_hover,
-            font=base_font,
-            command=lambda: (self._hide_all_menus(), self._on_about()),
-        )
-        self.help_about_btn.pack(fill="x", padx=4, pady=(0, 4))
 
         # --------------------- MENU NAV STATE -----------------------------------
         self._active_menu: str | None = None
+        self._file_menu_buttons: list[ctk.CTkButton] = []
+        self._help_menu_buttons: list[ctk.CTkButton] = []
         self._menu_items: list[ctk.CTkButton] = []
         self._menu_index: int = -1
 
@@ -343,6 +360,72 @@ class AppMenuBar(ctk.CTkFrame):
 
         for seq in ("<Up>", "<Down>", "<Return>", "<Escape>"):
             self._root_win.unbind_all(seq)
+
+    def _menu_action(self, action: Callable[[], None]) -> Callable[[], None]:
+        """Wrap a menu callback so popups close before execution."""
+
+        def _runner() -> None:
+            self._hide_all_menus()
+            action()
+
+        return _runner
+
+    def _build_menu_buttons(
+        self,
+        parent: ctk.CTkFrame,
+        specs: Sequence[ButtonSpec],
+        *,
+        menu_text: str | tuple[str, str] | None,
+        menu_hover: str | tuple[str, str] | None,
+        font: ctk.CTkFont,
+    ) -> list[ctk.CTkButton]:
+        buttons: list[ctk.CTkButton] = []
+        total = len(specs)
+        for index, spec in enumerate(specs):
+            btn = ctk.CTkButton(
+                parent,
+                text=spec.text,
+                width=160,
+                height=26,
+                fg_color="transparent",
+                corner_radius=4,
+                anchor="w",
+                text_color=menu_text,
+                hover_color=menu_hover,
+                font=font,
+                state="disabled" if spec.disabled else "normal",
+                command=spec.handler,
+                **spec.config,
+            )
+            pady = (4, 2) if index == 0 else (0, 4) if index == total - 1 else (0, 2)
+            btn.pack(fill="x", padx=4, pady=pady)
+            buttons.append(btn)
+        return buttons
+
+    def _create_dropdown(
+        self,
+        parent: tk.Misc,
+        spec: DropdownSpec,
+        *,
+        pack_kwargs: dict[str, Any],
+    ) -> ctk.CTkComboBox:
+        combo = ctk.CTkComboBox(
+            parent,
+            values=list(spec.options),
+            width=spec.width,
+            state=spec.state,
+            **spec.config,
+        )
+        variable = spec.config.get("variable")
+        if spec.initial is not None:
+            if isinstance(variable, tk.StringVar):
+                variable.set(spec.initial)
+            else:
+                combo.set(spec.initial)
+        if spec.on_change is not None:
+            combo.configure(command=spec.on_change)
+        combo.pack(**pack_kwargs)
+        return combo
 
     def _refresh_campaign_options(
         self,
@@ -458,15 +541,7 @@ class AppMenuBar(ctk.CTkFrame):
         self.file_menu_frame.lift()
         self._animate_drop(self.file_menu_frame, start_y, y)
 
-        self._open_menu(
-            "file",
-            [
-                self.file_save_btn,
-                self.file_settings_btn,
-                self.file_delete_campaign_btn,
-                self.file_exit_btn,
-            ],
-        )
+        self._open_menu("file", self._file_menu_buttons)
 
     # ----------------------- HELP MENU ----------------------------------------
 
@@ -490,7 +565,7 @@ class AppMenuBar(ctk.CTkFrame):
         self.help_menu_frame.lift()
         self._animate_drop(self.help_menu_frame, start_y, y)
 
-        self._open_menu("help", [self.help_about_btn])
+        self._open_menu("help", self._help_menu_buttons)
 
     # ----------------------- CLOSE WHEN CLICK OUTSIDE -------------------------
 

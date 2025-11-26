@@ -31,7 +31,6 @@ with lazi:  # type: ignore[attr-defined]
     from PIL import Image
     from pydantic import BaseModel
     from pydantic import ConfigDict
-    from pydantic import Field
     from pydantic import PositiveFloat
     from pydantic import PositiveInt
     from pydantic import ValidationInfo
@@ -39,57 +38,38 @@ with lazi:  # type: ignore[attr-defined]
 
 logger = structlog.getLogger("final_project")
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+IMAGE_SETTINGS_GROUP = "LLM"
 SCRIPTROOT = Path(__file__).parent.resolve()
 # 'project' directory is a work around so that src directory can be symlinked
 # to onedrive for backup.
 PROJECT_ROOT = (SCRIPTROOT / ".." / ".." / "project").resolve() / ".."
-VALID_NAME_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-'")
-PROMPT_PROGRESS_PATTERN = re.compile(r"Prompt evaluation:\s+(?P<pct>\d+(?:\.\d+)?)%")
-ProgressCallback = Callable[[str, float | None], None]
-IMAGE_SETTINGS_GROUP = "LLM"
-_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-
-_server_ready = threading.Event()
-_server_failed = threading.Event()
-_server_lock = threading.Lock()
-
-
-@dataclass(slots=True)
-class _ServerRuntime:
-    thread: threading.Thread | None = None
-    process: subprocess.Popen[str] | subprocess.Popen[bytes] | None = None
-
-
-_runtime = _ServerRuntime()
 
 
 class _TextLLMConfig(BaseModel):
-    directory: Path = Field(validation_alias="text_dir")
-    binary: Path = Field(validation_alias="text_binary")
-    sd_binary: Path = Field(validation_alias="sd_binary")
-    text_model: Path = Field(validation_alias="text_model")
-    image_model: Path = Field(validation_alias="image_model")
-    name_prompt: str = Field(validation_alias="name_prompt")
-    text_server_prompt_template: str = Field(
-        validation_alias="text_server_prompt_template",
-    )
-    image_cfg_scale: PositiveFloat = Field(validation_alias="image_cfg_scale")
-    image_size: PositiveInt = Field(validation_alias="image_size")
-    image_steps: PositiveInt = Field(validation_alias="image_steps")
-    host: str = Field(validation_alias="text_server_host")
-    port: PositiveInt = Field(validation_alias="text_server_port")
-    start_timeout: PositiveFloat = Field(validation_alias="text_server_start_timeout")
-    poll_interval: PositiveFloat = Field(validation_alias="text_server_poll_interval")
-    request_timeout: PositiveFloat = Field(validation_alias="text_request_timeout")
-    max_attempts: PositiveInt = Field(validation_alias="text_max_attempts")
-    name_parts: PositiveInt = Field(validation_alias="name_parts")
-    server_url: str = Field(validation_alias="text_server_url")
-    models_endpoint: str = Field(validation_alias="text_models_endpoint")
-    completion_endpoint: str = Field(validation_alias="text_completion_endpoint")
+    text_dir: Path
+    text_binary: Path
+    sd_binary: Path
+    text_model: Path
+    image_model: Path
+    name_prompt: str
+    text_server_prompt_template: str
+    image_cfg_scale: PositiveFloat
+    image_size: PositiveInt
+    image_steps: PositiveInt
+    text_server_host: str
+    text_server_port: PositiveInt
+    text_server_start_timeout: PositiveFloat
+    text_server_poll_interval: PositiveFloat
+    text_request_timeout: PositiveFloat
+    text_max_attempts: PositiveInt
+    name_parts: PositiveInt
+    text_server_url: str
+    text_models_endpoint: str
+    text_completion_endpoint: str
 
     model_config = ConfigDict(frozen=True, populate_by_name=True)
 
-    @field_validator("directory", mode="before")
+    @field_validator("text_dir", mode="before")
     @classmethod
     def _resolve_directory(cls, value: Any) -> Path:
         path = Path(str(value))
@@ -102,7 +82,7 @@ class _TextLLMConfig(BaseModel):
         path = Path(str(value))
         if path.is_absolute():
             return path
-        base_dir = info.data.get("directory")
+        base_dir = info.data.get("text_dir")
         if isinstance(base_dir, Path):
             base_path = base_dir
         elif base_dir is not None:
@@ -111,7 +91,7 @@ class _TextLLMConfig(BaseModel):
             base_path = PROJECT_ROOT
         return (base_path / path).resolve()
 
-    @field_validator("binary", mode="before")
+    @field_validator("text_binary", mode="before")
     @classmethod
     def _resolve_binary(cls, value: Any, info: ValidationInfo) -> Path:
         return cls._resolve_relative_path(value, info)
@@ -122,44 +102,62 @@ class _TextLLMConfig(BaseModel):
         return cls._resolve_relative_path(value, info)
 
 
-class _TextLLMConfigHolder:
-    __slots__ = ("value",)
-
-    def __init__(self, config: _TextLLMConfig) -> None:
-        self.value = config
-
-    def update(self, config: _TextLLMConfig) -> None:
-        self.value = config
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.value, name)
-
-
-def _load_text_llm_settings() -> dict[str, Any]:
+def _build_text_llm_config() -> _TextLLMConfig:
     settings_manager.ensure_settings_initialized()
     snapshot = settings_manager.get_settings_snapshot()
     group = snapshot.get(IMAGE_SETTINGS_GROUP)
     if not isinstance(group, Mapping):
         msg = "missing LLM settings in settings.toml"
         raise TypeError(msg)
-    mapping_group = cast(Mapping[str, Any], group)
-    return dict(mapping_group)
-
-
-def _build_text_llm_config() -> _TextLLMConfig:
-    settings = _load_text_llm_settings()
+    settings = dict(cast(Mapping[str, Any], group))
     return _TextLLMConfig(**settings)
 
 
-_text_llm_config = _TextLLMConfigHolder(_build_text_llm_config())
+@dataclass(slots=True)
+class _TextLLMConfigState:
+    value: _TextLLMConfig
+
+    def set(self, config: _TextLLMConfig) -> None:
+        self.value = config
+        LLM_TEXT_SERVER_GENERATION_PARAMS["model"] = config.text_binary.name
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.value, name)
+
+
+@dataclass(slots=True)
+class _ServerRuntime:
+    thread: threading.Thread | None = None
+    process: subprocess.Popen[str] | subprocess.Popen[bytes] | None = None
+
+
+# Type aliases
+type ProgressCallback = Callable[[str, float | None], None]
+
+# Module constants
+VALID_NAME_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-'")
+PROMPT_PROGRESS_PATTERN = re.compile(r"Prompt evaluation:\s+(?P<pct>\d+(?:\.\d+)?)%")
+START_PATTERN = re.compile(
+    r"START\s+(?P<name>[A-Za-z][A-Za-z' -]*?)(?:\s+END|\s*$)",
+    re.MULTILINE,
+)
+_CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 LLM_TEXT_SERVER_GENERATION_PARAMS: dict[str, Any] = {
-    "model": _text_llm_config.binary.name,
     "n_predict": 24,
     "temperature": 1.5,
     "top_p": 0.9,
     "cache_prompt": True,
     "stop": ["END"],
+    "model": "",
 }
+
+# Module variables
+_text_llm_config = _TextLLMConfigState(_build_text_llm_config())
+LLM_TEXT_SERVER_GENERATION_PARAMS["model"] = _text_llm_config.text_binary.name
+_server_ready = threading.Event()
+_server_failed = threading.Event()
+_server_lock = threading.Lock()
+_runtime = _ServerRuntime()
 
 
 def get_image_generation_defaults() -> dict[str, int]:
@@ -176,14 +174,9 @@ def get_image_generation_defaults() -> dict[str, int]:
 def reload_image_generation_defaults() -> dict[str, int]:
     """Reload settings from disk and return the updated image defaults."""
     settings_manager.reload_settings_from_disk()
-    _text_llm_config.update(_build_text_llm_config())
+    new_config = _build_text_llm_config()
+    _text_llm_config.set(new_config)
     return get_image_generation_defaults()
-
-
-START_PATTERN = re.compile(
-    r"START\s+(?P<name>[A-Za-z][A-Za-z' -]*?)(?:\s+END|\s*$)",
-    re.MULTILINE,
-)
 
 
 def start_text_llm_server_async() -> None:
@@ -192,11 +185,14 @@ def start_text_llm_server_async() -> None:
     def _launch() -> None:
         if _probe_llm_server():
             _server_ready.set()
-            logger.info("llm server already running", port=_text_llm_config.port)
+            logger.info(
+                "llm server already running",
+                port=_text_llm_config.text_server_port,
+            )
             return
         text_model_path = _resolve_text_model_path(None)
         args = [
-            str(_text_llm_config.binary),
+            str(_text_llm_config.text_binary),
             "--server",
             "-m",
             str(text_model_path),
@@ -206,7 +202,7 @@ def start_text_llm_server_async() -> None:
             "--gpu",
             "auto",
             "-l",
-            f"{_text_llm_config.host}:{_text_llm_config.port!s}",
+            f"{_text_llm_config.text_server_host}:{_text_llm_config.text_server_port!s}",
         ]
         logger.debug("launching llamafile server", command=args)
         try:
@@ -219,12 +215,12 @@ def start_text_llm_server_async() -> None:
         except OSError:
             logger.exception(
                 "failed to launch llamafile server",
-                binary=str(_text_llm_config.binary),
+                binary=str(_text_llm_config.text_binary),
             )
             _server_failed.set()
             return
-        _register_process(process)
-        deadline = time.monotonic() + _text_llm_config.start_timeout
+        _runtime.process = process
+        deadline = time.monotonic() + _text_llm_config.text_server_start_timeout
         while time.monotonic() < deadline:
             if process.poll() is not None:
                 logger.error(
@@ -235,9 +231,12 @@ def start_text_llm_server_async() -> None:
                 return
             if _probe_llm_server():
                 _server_ready.set()
-                logger.info("llamafile server ready", port=_text_llm_config.port)
+                logger.info(
+                    "llamafile server ready",
+                    port=_text_llm_config.text_server_port,
+                )
                 return
-            time.sleep(_text_llm_config.poll_interval)
+            time.sleep(_text_llm_config.text_server_poll_interval)
         logger.error("timed out waiting for llamafile server")
         _server_failed.set()
 
@@ -264,10 +263,6 @@ def did_text_llm_server_fail() -> bool:
     return _server_failed.is_set()
 
 
-def _register_process(process: subprocess.Popen[str] | subprocess.Popen[bytes]) -> None:
-    _runtime.process = process
-
-
 def _shutdown_server() -> None:
     process = _runtime.process
     if process is None:
@@ -280,24 +275,27 @@ def _shutdown_server() -> None:
         logger.exception("failed to terminate llamafile server")
 
 
-atexit.register(_shutdown_server)
-
-
-def _probe_llm_server(timeout: float = 1.0) -> bool:
+def _probe_llm_server(timeout: float = 2.0) -> bool:
     logger.debug(
         "checking llm server health",
-        health_endpoint=_text_llm_config.models_endpoint,
-        root_endpoint=_text_llm_config.server_url,
+        health_endpoint=_text_llm_config.text_models_endpoint,
+        root_endpoint=_text_llm_config.text_server_url,
         timeout=timeout,
     )
     try:
-        response = requests.get(_text_llm_config.models_endpoint, timeout=timeout)
+        response = requests.get(
+            _text_llm_config.text_models_endpoint,
+            timeout=timeout,
+        )
         if response.ok:
             return True
     except requests.RequestException:
         pass
     try:
-        response = requests.get(_text_llm_config.server_url, timeout=timeout)
+        response = requests.get(
+            _text_llm_config.text_server_url,
+            timeout=timeout,
+        )
     except requests.RequestException:
         return False
     return response.ok
@@ -587,9 +585,9 @@ def _call_llm_via_server(
     }
     try:
         response = requests.post(
-            _text_llm_config.completion_endpoint,
+            _text_llm_config.text_completion_endpoint,
             json=payload,
-            timeout=_text_llm_config.request_timeout,
+            timeout=_text_llm_config.text_request_timeout,
         )
         response.raise_for_status()
     except requests.RequestException:
@@ -668,14 +666,14 @@ def _call_llm_via_cli(
     prompt: str,
     progress_callback: ProgressCallback | None,
 ) -> str:
-    max_attempts = _text_llm_config.max_attempts
+    max_attempts = _text_llm_config.text_max_attempts
     for attempt in range(1, max_attempts + 1):
         if progress_callback is not None:
             progress_callback(
                 f"Starting LLM attempt {attempt}/{max_attempts}",
                 None,
             )
-        cli_command = [str(_text_llm_config.binary), "-p", prompt]
+        cli_command = [str(_text_llm_config.text_binary), "-p", prompt]
         logger.debug("launching llamafile cli", command=cli_command, attempt=attempt)
         try:
             process = subprocess.Popen(  # noqa: S603
@@ -688,7 +686,7 @@ def _call_llm_via_cli(
         except OSError:
             logger.exception(
                 "failed to execute llamafile binary",
-                binary=str(_text_llm_config.binary),
+                binary=str(_text_llm_config.text_binary),
             )
             return "Unknown Name"
         if process.stdout is None:
@@ -708,6 +706,8 @@ def _call_llm_via_cli(
             return name
     return "Unknown Name"
 
+
+atexit.register(_shutdown_server)
 
 if __name__ == "__main__":
     print(call_local_text_llm("a male orc."))
