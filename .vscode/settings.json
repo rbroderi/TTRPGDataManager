@@ -15,6 +15,7 @@
         "lazi",
         "levelname",
         "llamafile",
+        "llmrunner",
         "mypy",
         "mysqlconnector",
         "npcs",
