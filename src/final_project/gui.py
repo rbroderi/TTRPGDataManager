@@ -7,6 +7,27 @@ from typing import Annotated
 # pyright: reportUnknownLambdaType=false
 # ruff: noqa: FBT003, I001
 from lazi.core import lazi
+import customtkinter as ctk  # type: ignore[import-untyped]
+from customtkinter.windows.widgets.ctk_entry import (  # type: ignore[import-untyped]
+    CTkEntry,
+)
+from final_project import version
+from final_project.dialogs import EncounterMembersDialog
+from final_project.dialogs import FactionDialog
+from final_project.dialogs import LLMProgressDialog
+from final_project.dialogs import RelationshipDialog
+from final_project.dialogs import SettingsDialog
+from final_project.logic import DataLogic
+from final_project.logic import DuplicateRecordError
+from final_project.logic import FieldSpec
+from final_project.llmrunner import did_text_llm_server_fail
+from final_project.llmrunner import generate_portrait_from_image_llm
+from final_project.llmrunner import get_random_name_from_text_llm
+from final_project.llmrunner import is_text_llm_server_ready
+from final_project.llmrunner import reload_image_generation_defaults
+from final_project.widgets import AppMenuBar
+from final_project.widgets import HtmlPreviewWindow
+from final_project.widgets import RandomIcon
 
 with lazi:  # type: ignore[attr-defined]
     import json
@@ -16,6 +37,7 @@ with lazi:  # type: ignore[attr-defined]
     import sys
     import textwrap
     import tkinter as tk
+    from enum import Enum
     from tkinter import filedialog
     from tkinter import font as tkfont
     from io import BytesIO
@@ -27,13 +49,6 @@ with lazi:  # type: ignore[attr-defined]
     from typing import Any
     from typing import NamedTuple
     from typing import cast
-
-    import customtkinter as ctk  # type: ignore[import-untyped]
-    from customtkinter import CTkComboBox  # type: ignore[import-untyped]
-    from customtkinter import CTkTextbox  # type: ignore[import-untyped]
-    from customtkinter.windows.widgets.ctk_entry import (  # type: ignore[import-untyped]
-        CTkEntry,
-    )
     from PIL import Image
     from PIL import UnidentifiedImageError
     import pyphen
@@ -42,24 +57,6 @@ with lazi:  # type: ignore[attr-defined]
     from pygments.lexers import get_lexer_by_name
     from pygments.token import Token
     from mistletoe import markdown as render_markdown
-
-    from final_project import version
-    from final_project.dialogs import EncounterMembersDialog
-    from final_project.dialogs import FactionDialog
-    from final_project.dialogs import LLMProgressDialog
-    from final_project.dialogs import RelationshipDialog
-    from final_project.dialogs import SettingsDialog
-    from final_project.logic import DataLogic
-    from final_project.logic import DuplicateRecordError
-    from final_project.logic import FieldSpec
-    from final_project.llmrunner import did_text_llm_server_fail
-    from final_project.llmrunner import generate_portrait_from_image_llm
-    from final_project.llmrunner import get_random_name_from_text_llm
-    from final_project.llmrunner import is_text_llm_server_ready
-    from final_project.llmrunner import reload_image_generation_defaults
-    from final_project.widgets import AppMenuBar
-    from final_project.widgets import HtmlPreviewWindow
-    from final_project.widgets import RandomIcon
 
 # disable debug in pillow
 pil_logger = logging.getLogger("PIL")
@@ -73,9 +70,15 @@ PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "img" / "placeholder.png"
 JSON_LEXER = get_lexer_by_name("json")
 SOFT_HYPHEN = "\u00ad"
 WORD_PATTERN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
-type EntryWidget = CTkEntry | CTkComboBox | CTkTextbox
+type EntryWidget = CTkEntry | ctk.CTkComboBox | ctk.CTkTextbox
 LOAD_PAUSE: Annotated[int, "ms"] = 2500
-LLM_POLL_INTERVAL_MS = 1000
+LLM_POLL_INTERVAL: Annotated[int, "ms"] = 1000
+
+
+class _LLMServerStatus(Enum):
+    READY = "ready"
+    FAILED = "failed"
+    WAITING = "waiting"
 
 
 def init() -> None:
@@ -177,7 +180,7 @@ class TTRPGDataManager(ctk.CTk):
         self._form_specs = self.logic.build_form_field_map()
         self._relationship_dialog: RelationshipDialog | None = None
         self._encounter_members_dialog: EncounterMembersDialog | None = None
-        self._npc_faction_widget: CTkComboBox | None = None
+        self._npc_faction_widget: ctk.CTkComboBox | None = None
         self._faction_view_button: ctk.CTkButton | None = None
         self._faction_dialog: FactionDialog | None = None
         self._current_faction_value: str | None = None
@@ -185,7 +188,7 @@ class TTRPGDataManager(ctk.CTk):
         self._staged_faction_assignment: tuple[str, str] | None = None
         self._readme_window: HtmlPreviewWindow | None = None
         self._settings_dialog: SettingsDialog | None = None
-        self._llm_ready = is_text_llm_server_ready()
+        self._llm_ready = self._get_llm_server_status() is _LLMServerStatus.READY
         self._llm_watch_job: str | None = None
 
         self.splash_frame = ctk.CTkFrame(self)
@@ -472,7 +475,7 @@ class TTRPGDataManager(ctk.CTk):
         frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
         fields: dict[str, EntryWidget] = {}
         relationship_button_inserted = False
-        faction_widget: CTkComboBox | None = None
+        faction_widget: ctk.CTkComboBox | None = None
         for spec in specs:
             row = ctk.CTkFrame(frame, fg_color="transparent")
             row.pack(fill="x", pady=5, padx=10)
@@ -482,7 +485,7 @@ class TTRPGDataManager(ctk.CTk):
 
             if spec.enum_values:
                 values = list(spec.enum_values)
-                widget: EntryWidget = CTkComboBox(
+                widget: EntryWidget = ctk.CTkComboBox(
                     row,
                     values=values,
                     state="readonly",
@@ -490,7 +493,7 @@ class TTRPGDataManager(ctk.CTk):
                 )
             elif spec.preset_values:
                 values = list(spec.preset_values)
-                widget = CTkComboBox(
+                widget = ctk.CTkComboBox(
                     row,
                     values=values,
                     state="normal",
@@ -498,7 +501,7 @@ class TTRPGDataManager(ctk.CTk):
                 )
             elif spec.multiline:
                 wrap_mode = "word" if not spec.is_json else "char"
-                widget = CTkTextbox(row, height=140, wrap=wrap_mode)
+                widget = ctk.CTkTextbox(row, height=140, wrap=wrap_mode)
                 if spec.is_json:
                     widget.bind(
                         "<KeyRelease>",
@@ -516,7 +519,7 @@ class TTRPGDataManager(ctk.CTk):
             else:
                 widget = CTkEntry(row)
             widget.pack(side="right", fill="x", expand=True)
-            if isinstance(widget, CTkComboBox):
+            if isinstance(widget, ctk.CTkComboBox):
                 widget.set("")
             fields[spec.key] = widget
 
@@ -595,14 +598,14 @@ class TTRPGDataManager(ctk.CTk):
         )
         manage_btn.pack(side="right")
 
-    def _insert_faction_field(self, frame: ctk.CTkFrame) -> CTkComboBox:
+    def _insert_faction_field(self, frame: ctk.CTkFrame) -> ctk.CTkComboBox:
         row = ctk.CTkFrame(frame, fg_color="transparent")
         row.pack(fill="x", pady=5, padx=10)
 
         lbl = ctk.CTkLabel(row, text="Faction:")
         lbl.pack(side="left", padx=(0, 10))
 
-        combo = CTkComboBox(
+        combo = ctk.CTkComboBox(
             row,
             values=[],
             state="normal",
@@ -835,14 +838,14 @@ class TTRPGDataManager(ctk.CTk):
         fields = cast("dict[str, EntryWidget]", form["fields"])
         return fields.get(field_key)
 
-    def _get_faction_widget(self) -> CTkComboBox | None:
+    def _get_faction_widget(self) -> ctk.CTkComboBox | None:
         if self._npc_faction_widget is not None:
             return self._npc_faction_widget
         form = self.forms.get("NPC")
         if not form:
             return None
         combo = form.get("faction_widget")
-        if isinstance(combo, CTkComboBox):
+        if isinstance(combo, ctk.CTkComboBox):
             self._npc_faction_widget = combo
             return combo
         return None
@@ -861,7 +864,11 @@ class TTRPGDataManager(ctk.CTk):
         else:
             button.configure(state="disabled")
 
-    def _ensure_faction_option(self, widget: CTkComboBox, faction_name: str) -> None:
+    def _ensure_faction_option(
+        self,
+        widget: ctk.CTkComboBox,
+        faction_name: str,
+    ) -> None:
         if not faction_name:
             return
         raw_values = cast(
@@ -1003,7 +1010,7 @@ class TTRPGDataManager(ctk.CTk):
 
     def _apply_combo_values(
         self,
-        combo: CTkComboBox,
+        combo: ctk.CTkComboBox,
         values: Sequence[str],
         *,
         auto_select: bool = True,
@@ -1069,7 +1076,7 @@ class TTRPGDataManager(ctk.CTk):
         clear_selection: bool = False,
     ) -> None:
         widget = self._get_form_widget("NPC", "species_name")
-        if not isinstance(widget, CTkComboBox):
+        if not isinstance(widget, ctk.CTkComboBox):
             return
         try:
             values = self.logic.list_species(campaign)
@@ -1087,7 +1094,7 @@ class TTRPGDataManager(ctk.CTk):
         clear_selection: bool = False,
     ) -> None:
         widget = self._get_form_widget("Encounter", "location_name")
-        if not isinstance(widget, CTkComboBox):
+        if not isinstance(widget, ctk.CTkComboBox):
             return
         try:
             values = self.logic.list_locations(campaign)
@@ -1336,7 +1343,7 @@ class TTRPGDataManager(ctk.CTk):
         for key, widget in self._get_active_fields().items():
             if isinstance(widget, CTkEntry):
                 widget.delete(0, tk.END)
-            elif isinstance(widget, CTkTextbox):
+            elif isinstance(widget, ctk.CTkTextbox):
                 widget.delete("1.0", tk.END)
                 if key.endswith("_json"):
                     self._highlight_json(widget)
@@ -1389,7 +1396,8 @@ class TTRPGDataManager(ctk.CTk):
 
     def _handle_npc_name_overlay_click(self) -> None:
         """Generate and populate a random NPC name via the local LLM."""
-        if not is_text_llm_server_ready() and not did_text_llm_server_fail():
+        status = self._get_llm_server_status()
+        if status is _LLMServerStatus.WAITING:
             messagebox.showinfo(
                 "NPC Generator",
                 "The local LLM is still starting. Please try again in a moment.",
@@ -1410,7 +1418,7 @@ class TTRPGDataManager(ctk.CTk):
             return
         species_widget = self._get_form_widget("NPC", "species_name")
         species_value = ""
-        if isinstance(species_widget, CTkComboBox):
+        if isinstance(species_widget, ctk.CTkComboBox):
             species_value = species_widget.get().strip()
         descriptor = species_value or "NPC"
         dialog = LLMProgressDialog(self)
@@ -1422,6 +1430,13 @@ class TTRPGDataManager(ctk.CTk):
             daemon=True,
         )
         thread.start()
+
+    def _get_llm_server_status(self) -> _LLMServerStatus:
+        if is_text_llm_server_ready():
+            return _LLMServerStatus.READY
+        if did_text_llm_server_fail():
+            return _LLMServerStatus.FAILED
+        return _LLMServerStatus.WAITING
 
     def _build_portrait_prompt(self) -> str:
         if (self._active_form or self.menubar.entry_type) != "NPC":
@@ -1591,28 +1606,28 @@ class TTRPGDataManager(ctk.CTk):
         name_widget.focus_set()
 
     def _initialize_llm_generator_state(self) -> None:
-        ready = is_text_llm_server_ready()
-        self._llm_ready = ready
-        self._set_random_name_icon_enabled(ready)
-        if ready or did_text_llm_server_fail():
-            return
-        self._schedule_llm_readiness_check()
+        status = self._get_llm_server_status()
+        self._llm_ready = status is _LLMServerStatus.READY
+        self._set_random_name_icon_enabled(self._llm_ready)
+        if status is _LLMServerStatus.WAITING:
+            self._schedule_llm_readiness_check()
 
     def _schedule_llm_readiness_check(self) -> None:
         if self._llm_watch_job is not None:
             return
         self._llm_watch_job = self.after(
-            LLM_POLL_INTERVAL_MS,
+            LLM_POLL_INTERVAL,
             self._poll_llm_server_state,
         )
 
     def _poll_llm_server_state(self) -> None:
         self._llm_watch_job = None
-        if is_text_llm_server_ready():
+        status = self._get_llm_server_status()
+        if status is _LLMServerStatus.READY:
             self._llm_ready = True
             self._set_random_name_icon_enabled(True)
             return
-        if did_text_llm_server_fail():
+        if status is _LLMServerStatus.FAILED:
             self._llm_ready = False
             self._set_random_name_icon_enabled(True)
             return
@@ -1774,7 +1789,7 @@ class TTRPGDataManager(ctk.CTk):
         )
 
     def _widget_value(self, widget: EntryWidget) -> str:
-        if isinstance(widget, CTkTextbox):
+        if isinstance(widget, ctk.CTkTextbox):
             return widget.get("1.0", tk.END).replace(SOFT_HYPHEN, "").strip()
         return widget.get().strip()
 
@@ -1786,7 +1801,7 @@ class TTRPGDataManager(ctk.CTk):
         values: dict[str, Any] = {}
         for key, widget in self._get_active_fields().items():
             spec = specs.get(key)
-            if isinstance(widget, CTkTextbox):
+            if isinstance(widget, ctk.CTkTextbox):
                 text = widget.get("1.0", tk.END)
                 if not (spec and spec.is_json):
                     text = text.replace(SOFT_HYPHEN, "")
@@ -1931,7 +1946,7 @@ class TTRPGDataManager(ctk.CTk):
         else:
             text_value = str(value)
 
-        if isinstance(widget, CTkTextbox):
+        if isinstance(widget, ctk.CTkTextbox):
             widget.delete("1.0", tk.END)
             if spec and not spec.is_json:
                 text_value = self._hyphenate_text(text_value, widget)
@@ -2179,7 +2194,7 @@ class TTRPGDataManager(ctk.CTk):
         self.arrow_left.configure(state=left_state)
         self.arrow_right.configure(state=right_state)
 
-    def _highlight_json(self, widget: CTkTextbox) -> None:
+    def _highlight_json(self, widget: ctk.CTkTextbox) -> None:
         """Apply simple syntax highlighting to JSON textboxes."""
         content = widget.get("1.0", tk.END)
         widget.tag_remove("json_string", "1.0", tk.END)
@@ -2207,7 +2222,7 @@ class TTRPGDataManager(ctk.CTk):
                 widget.tag_add("json_key", start, end)
             index += length
 
-    def _format_json(self, widget: CTkTextbox) -> None:
+    def _format_json(self, widget: ctk.CTkTextbox) -> None:
         """Pretty print JSON when focus leaves the textbox."""
         content = widget.get("1.0", tk.END).strip()
         if not content:
@@ -2221,11 +2236,11 @@ class TTRPGDataManager(ctk.CTk):
         self._highlight_json(widget)
 
     @staticmethod
-    def _index_from_offset(widget: CTkTextbox, offset: int) -> str:
+    def _index_from_offset(widget: ctk.CTkTextbox, offset: int) -> str:
         """Convert absolute char offset to tkinter text index."""
         return widget.index(f"1.0+{offset}c")
 
-    def _make_highlight_handler(self, widget: CTkTextbox) -> Any:
+    def _make_highlight_handler(self, widget: ctk.CTkTextbox) -> Any:
         def _handler(event: Event) -> None:
             """Highlight JSON widget content."""
             del event
@@ -2233,7 +2248,7 @@ class TTRPGDataManager(ctk.CTk):
 
         return _handler
 
-    def _make_format_handler(self, widget: CTkTextbox) -> Any:
+    def _make_format_handler(self, widget: ctk.CTkTextbox) -> Any:
         def _handler(event: Event) -> None:
             """Format JSON widget content."""
             del event
@@ -2241,7 +2256,7 @@ class TTRPGDataManager(ctk.CTk):
 
         return _handler
 
-    def _hyphenate_text(self, text: str, widget: CTkTextbox | None = None) -> str:
+    def _hyphenate_text(self, text: str, widget: ctk.CTkTextbox | None = None) -> str:
         if not text:
             return ""
         cleaned = text.replace(SOFT_HYPHEN, "")
@@ -2258,7 +2273,7 @@ class TTRPGDataManager(ctk.CTk):
 
         return WORD_PATTERN.sub(_repl, cleaned)
 
-    def _make_hyphenate_handler(self, widget: CTkTextbox) -> Any:
+    def _make_hyphenate_handler(self, widget: ctk.CTkTextbox) -> Any:
         def _handler(event: Event) -> None:
             """Hyphenate textbox content on focus loss."""
             del event
@@ -2271,7 +2286,7 @@ class TTRPGDataManager(ctk.CTk):
 
         return _handler
 
-    def _estimate_line_capacity(self, widget: CTkTextbox) -> int:
+    def _estimate_line_capacity(self, widget: ctk.CTkTextbox) -> int:
         """Approximate how many characters fit on one line for the widget."""
         width_px = widget.winfo_width()
         if width_px <= 1:
