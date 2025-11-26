@@ -75,6 +75,16 @@ LOAD_PAUSE: Annotated[int, "ms"] = 2500
 LLM_POLL_INTERVAL: Annotated[int, "ms"] = 1000
 
 
+class _NPCFormState:
+    """Track NPC-only widgets while building a form."""
+
+    __slots__ = ("faction_widget", "relationship_inserted")
+
+    def __init__(self) -> None:
+        self.relationship_inserted = False
+        self.faction_widget: ctk.CTkComboBox | None = None
+
+
 class _LLMServerStatus(Enum):
     READY = "ready"
     FAILED = "failed"
@@ -471,78 +481,21 @@ class TTRPGDataManager(ctk.CTk):
         self._pending_faction_changes[key] = (normalized, notes or "")
         self._update_faction_view_state(normalized)
 
-    def _create_form(self, entry_type: str, specs: tuple[FieldSpec, ...]) -> None:  # noqa: C901, PLR0912
+    def _create_form(self, entry_type: str, specs: tuple[FieldSpec, ...]) -> None:
         frame = ctk.CTkFrame(self.right_frame, fg_color="transparent")
         fields: dict[str, EntryWidget] = {}
-        relationship_button_inserted = False
-        faction_widget: ctk.CTkComboBox | None = None
+        npc_state = _NPCFormState() if entry_type == "NPC" else None
+
         for spec in specs:
-            row = ctk.CTkFrame(frame, fg_color="transparent")
-            row.pack(fill="x", pady=5, padx=10)
-
-            lbl = ctk.CTkLabel(row, text=f"{spec.label}:")
-            lbl.pack(side="left", padx=(0, 10))
-
-            if spec.enum_values:
-                values = list(spec.enum_values)
-                widget: EntryWidget = ctk.CTkComboBox(
-                    row,
-                    values=values,
-                    state="readonly",
-                    width=200,
-                )
-            elif spec.preset_values:
-                values = list(spec.preset_values)
-                widget = ctk.CTkComboBox(
-                    row,
-                    values=values,
-                    state="normal",
-                    width=200,
-                )
-            elif spec.multiline:
-                wrap_mode = "word" if not spec.is_json else "char"
-                widget = ctk.CTkTextbox(row, height=140, wrap=wrap_mode)
-                if spec.is_json:
-                    widget.bind(
-                        "<KeyRelease>",
-                        self._make_highlight_handler(widget),
-                    )
-                    widget.bind(
-                        "<FocusOut>",
-                        self._make_format_handler(widget),
-                    )
-                else:
-                    widget.bind(
-                        "<FocusOut>",
-                        self._make_hyphenate_handler(widget),
-                    )
-            else:
-                widget = CTkEntry(row)
-            widget.pack(side="right", fill="x", expand=True)
-            if isinstance(widget, ctk.CTkComboBox):
-                widget.set("")
+            widget = self._build_form_field(frame, spec)
             fields[spec.key] = widget
 
-            if (
-                entry_type == "NPC"
-                and spec.key == "name"
-                and isinstance(widget, CTkEntry)
-            ):
-                self._attach_npc_name_overlay(widget)
+            if npc_state is not None:
+                self._handle_npc_specific_fields(spec.key, widget, frame, npc_state)
 
-            if (
-                entry_type == "NPC"
-                and not relationship_button_inserted
-                and spec.key == "species_name"
-            ):
-                self._insert_relationship_button(frame)
-                relationship_button_inserted = True
-                faction_widget = self._insert_faction_field(frame)
-
-        if entry_type == "NPC":
-            if not relationship_button_inserted:
-                self._insert_relationship_button(frame)
-                faction_widget = self._insert_faction_field(frame)
+        faction_widget: ctk.CTkComboBox | None = None
+        if npc_state is not None:
+            faction_widget = self._finalize_npc_fields(frame, npc_state)
         elif entry_type == "Encounter":
             self._insert_encounter_members_button(frame)
 
@@ -567,6 +520,108 @@ class TTRPGDataManager(ctk.CTk):
         if entry_type == "NPC":
             form_payload["faction_widget"] = faction_widget
         self.forms[entry_type] = form_payload
+
+    def _build_form_field(
+        self,
+        frame: ctk.CTkFrame,
+        spec: FieldSpec,
+    ) -> EntryWidget:
+        """Create a labeled field row for the provided spec."""
+        row = ctk.CTkFrame(frame, fg_color="transparent")
+        row.pack(fill="x", pady=5, padx=10)
+
+        lbl = ctk.CTkLabel(row, text=f"{spec.label}:")
+        lbl.pack(side="left", padx=(0, 10))
+
+        widget = self._create_widget_for_spec(row, spec)
+        widget.pack(side="right", fill="x", expand=True)
+        if isinstance(widget, ctk.CTkComboBox):
+            widget.set("")
+        return widget
+
+    def _create_widget_for_spec(
+        self,
+        row: ctk.CTkFrame,
+        spec: FieldSpec,
+    ) -> EntryWidget:
+        values: Sequence[str] | None = None
+        if spec.enum_values:
+            values = list(spec.enum_values)
+            return ctk.CTkComboBox(
+                row,
+                values=values,
+                state="readonly",
+                width=200,
+            )
+        if spec.preset_values:
+            values = list(spec.preset_values)
+            return ctk.CTkComboBox(
+                row,
+                values=values,
+                state="normal",
+                width=200,
+            )
+        if spec.multiline:
+            wrap_mode = "word" if not spec.is_json else "char"
+            widget = ctk.CTkTextbox(row, height=140, wrap=wrap_mode)
+            self._configure_multiline_widget(widget, spec)
+            return widget
+        return CTkEntry(row)
+
+    def _configure_multiline_widget(
+        self,
+        widget: ctk.CTkTextbox,
+        spec: FieldSpec,
+    ) -> None:
+        """Attach formatting handlers for multiline widgets."""
+        if spec.is_json:
+            widget.bind(
+                "<KeyRelease>",
+                self._make_highlight_handler(widget),
+            )
+            widget.bind(
+                "<FocusOut>",
+                self._make_format_handler(widget),
+            )
+            return
+        widget.bind(
+            "<FocusOut>",
+            self._make_hyphenate_handler(widget),
+        )
+
+    def _handle_npc_specific_fields(
+        self,
+        spec_key: str,
+        widget: EntryWidget,
+        frame: ctk.CTkFrame,
+        state: _NPCFormState,
+    ) -> None:
+        """Attach NPC-only helpers (name overlays, relationships, etc.)."""
+        if spec_key == "name" and isinstance(widget, CTkEntry):
+            self._attach_npc_name_overlay(widget)
+
+        if spec_key == "species_name" and not state.relationship_inserted:
+            self._insert_npc_relationship_section(frame, state)
+
+    def _finalize_npc_fields(
+        self,
+        frame: ctk.CTkFrame,
+        state: _NPCFormState,
+    ) -> ctk.CTkComboBox | None:
+        """Ensure relationship controls exist and return the faction combo."""
+        if not state.relationship_inserted:
+            self._insert_npc_relationship_section(frame, state)
+        return state.faction_widget
+
+    def _insert_npc_relationship_section(
+        self,
+        frame: ctk.CTkFrame,
+        state: _NPCFormState,
+    ) -> None:
+        """Insert NPC relationship and faction controls and update state."""
+        self._insert_relationship_button(frame)
+        state.relationship_inserted = True
+        state.faction_widget = self._insert_faction_field(frame)
 
     def _insert_relationship_button(self, frame: ctk.CTkFrame) -> None:
         rel_row = ctk.CTkFrame(frame, fg_color="transparent")
