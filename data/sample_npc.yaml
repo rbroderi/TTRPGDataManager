@@ -1,0 +1,171 @@
+- name: "Elandril Moonwhisper"
+  age: 145
+  alignment_name: "CHAOTIC GOOD"
+  description: "An elven loremaster who keeps sprawling journals about every ruin he explores."
+  campaign:
+    name: "Dragonfall"
+    start_date: 2025-11-19
+    status: "ACTIVE"
+  species:
+    name: "High Elf"
+    traits:
+      vision: "darkvision"
+      lifespan: "immortal"
+      demeanor: "patient"
+  abilities:
+    favored_spell: "song of restoration"
+    signature_weapon: "silver rapier"
+  image_path: "data/img/placeholder.png"
+- name: "Brynn Stoneward"
+  age: 38
+  alignment_name: "LAWFUL GOOD"
+  description: "A stalwart dwarf shield-bearer assigned to escort remote caravans through bandit country."
+  campaign:
+    name: "Iron Pact"
+    start_date: 2024-03-08
+    status: "ACTIVE"
+  species:
+    name: "Mountain Dwarf"
+    traits:
+      resilience: "stonebound"
+      beard_adornments: "silver runes"
+  abilities:
+    fighting_style: "shield wall"
+    oath: "protect the pact"
+  image_path: "data/img/placeholder.png"
+- name: "Kess Tandem"
+  age: 27
+  alignment_name: "CHAOTIC NEUTRAL"
+  description: "A quick-witted tiefling courier who smuggles arcane schematics between rival cities."
+  campaign:
+    name: "Dragonfall"
+    start_date: 2025-11-19
+    status: "ACTIVE"
+  species:
+    name: "Tiefling"
+    traits:
+      tail: "forked"
+      horns: "spiraled"
+  abilities:
+    specialty: "shadow jaunt"
+    backup_plan: "illusion dust"
+  image_path: "data/img/placeholder.png"
+- name: "Maela Emberfall"
+  age: 31
+  alignment_name: "NEUTRAL GOOD"
+  description: "A wildfire druid who mediates disputes between logging camps and fey groves."
+  campaign:
+    name: "Dragonfall"
+    start_date: 2025-11-19
+    status: "ACTIVE"
+  species:
+    name: "Fire Genasi"
+    traits:
+      aura: "warm breeze"
+      hair: "living flame"
+  abilities:
+    circle: "wildfire"
+    bonded_companion: "ember fox"
+  image_path: "data/img/placeholder.png"
+- name: "Torven Blackbriar"
+  age: 52
+  alignment_name: "NEUTRAL EVIL"
+  description: "A disgraced magistrate who secretly bankrolls thieves' guilds for personal leverage."
+  campaign:
+    name: "Iron Pact"
+    start_date: 2024-03-08
+    status: "ACTIVE"
+  species:
+    name: "Human"
+    traits:
+      vice: "rare wines"
+      tell: "tapping cane"
+  abilities:
+    specialty: "blackmail ledgers"
+    contingency: "hidden safehouse"
+  image_path: "data/img/placeholder.png"
+- name: "Lira Duskpetal"
+  age: 24
+  alignment_name: "CHAOTIC GOOD"
+  description: "A fey-touched bard who trades songs for rumors in moonlit markets."
+  campaign:
+    name: "Dragonfall"
+    start_date: 2025-11-19
+    status: "ACTIVE"
+  species:
+    name: "Eladrin"
+    traits:
+      season: "autumn"
+      eyes: "amber swirl"
+  abilities:
+    instrument: "crystal harp"
+    glamour: "illusory chorus"
+  image_path: "data/img/placeholder.png"
+- name: "Garruk Steamfist"
+  age: 33
+  alignment_name: "TRUE NEUTRAL"
+  description: "A warforged tinkerer who refurbishes battle relics into whimsical constructs."
+  campaign:
+    name: "Iron Pact"
+    start_date: 2024-03-08
+    status: "ACTIVE"
+  species:
+    name: "Warforged"
+    traits:
+      plating: "brass"
+      core: "smokeless furnace"
+  abilities:
+    tool: "integrated smithy"
+    companion: "clockwork sparrow"
+  image_path: "data/img/placeholder.png"
+- name: "Nyssa Frostgale"
+  age: 42
+  alignment_name: "LAWFUL NEUTRAL"
+  description: "A goliath archivist who records oaths carved into the glaciers of her homeland."
+  campaign:
+    name: "Iron Pact"
+    start_date: 2024-03-08
+    status: "ACTIVE"
+  species:
+    name: "Goliath"
+    traits:
+      tattoos: "ice etchings"
+      stature: "towering"
+  abilities:
+    rite: "echo tablet"
+    weapon: "runed maul"
+  image_path: "data/img/placeholder.png"
+- name: "Calder Thornbrook"
+  age: 36
+  alignment_name: "NEUTRAL GOOD"
+  description: "A halfling apothecary whose traveling wagon doubles as a mobile greenhouse."
+  campaign:
+    name: "Dragonfall"
+    start_date: 2025-11-19
+    status: "ACTIVE"
+  species:
+    name: "Lightfoot Halfling"
+    traits:
+      curiosity: "boundless"
+      stride: "swift"
+  abilities:
+    specialty: "threefold tonic"
+    assistant: "chatty raven"
+  image_path: "data/img/placeholder.png"
+- name: "Veska Ironroot"
+  age: 58
+  alignment_name: "LAWFUL EVIL"
+  description: "An orc diplomat who secures treaties by offering mercenary legions as collateral."
+  campaign:
+    name: "Iron Pact"
+    start_date: 2024-03-08
+    status: "ACTIVE"
+  species:
+    name: "Orc"
+    traits:
+      tusks: "obsidian caps"
+      bearing: "imposing"
+  abilities:
+    leverage: "legion contracts"
+    keepsake: "ancestral torque"
+  image_path: "data/img/placeholder.png"

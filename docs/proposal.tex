@@ -1,0 +1,80 @@
+\input{preamble}
+\input{format}
+\input{commands}
+\usepackage{fontspec}
+
+% Main font family: Baskerville 1757
+\setmainfont[
+Path = fonts/,
+UprightFont = Baskerville1757.ttf,
+ItalicFont = baskerville-1757-italic.ttf,
+BoldFont = Baskerville-10-Pro-Bold_6068.ttf,
+BoldItalicFont = Baskerville-10-Pro-Bold-Italic_6067.ttf,
+Ligatures = TeX,
+SmallCapsFont={lmromancaps10-regular.otf},
+SmallCapsFeatures={Letters=SmallCaps}
+]{Baskerville1757.ttf}
+
+% Monospaced font: Inconsolata
+\setmonofont[
+Path = fonts/,
+AutoFakeSlant,
+Scale = MatchLowercase
+]{Inconsolata.otf}
+
+
+% Small caps font: LM Roman Caps with FakeBold
+\newfontfamily\smallcapsfont[
+Path = fonts/,
+Letters = SmallCaps,
+FakeBold = 0.05  % Slightly thicker small caps
+]{lmromancaps10-regular.otf}
+
+
+\begin{document}
+
+\begin{Large}
+    \textsf{\textbf{Term Project Proposal}}
+    
+    Tabletop Role Playing Game Information Manager
+\end{Large}
+
+\vspace{1ex}
+
+\text{Richard Broderick}
+
+
+
+\section{Problem statement}
+In the course of running a Tabletop Role Playing Game(\keyword{TTRPG}) the creation, managing and updating of various pieces of information is one of the primary tasks of the Game Master(\keyword{GM}). In particular the cast of characters that the players interact with called \keyword{NPCs}. Having a tool that can present this data and allow its quick lookup would make the seamless running of the game and story more easily possible.
+\section{Description of users/audience}
+This tool would be mostly helpful for those who want to run a \keyword{TTRPG} game. Typically this person is called the Game Master who will use the program to record and create new \keyword{NPCs}. Adding the use of local \keyword{LLMs} allows for giving name and image creation suggestions. 
+
+Another audience could be used for those who need to manage characters such as writers, they could use it as a tool to map characters in a story and hold notes about them.
+\section{Core features}
+\begin{description}
+	\item [$\bullet$ -- C] The ability to create new \keyword{NPCs}.
+	\begin{itemize}
+		\item Connection to local \keyword{LLM} via llamafile to generate data suggestions, such as names
+		\item Ability to add images such as profile image, 
+		\begin{itemize}
+			\item Giving the ability to generate with local \keyword{LLM} Stable Diffusion.
+		\end{itemize}
+	\end{itemize}
+	\item [$\bullet$ -- R] Search existing \keyword{NPCs} read the data and find via various fields such as name or faction.
+	\item [$\bullet$ -- U] Update \keyword{NPC} information as needed.
+	\item [$\bullet$ -- D] Delete \keyword{NPCs} from the database.
+	\item [$\bullet$] Utilize python and the customtkinter \keyword{GUI} library to create a desktop application.
+\end{description}
+\section{Preliminary ERD}
+
+\begin{figure}[H]
+	\caption{Preliminary ERD}
+	\centering
+	\includegraphics[width=0.99\textwidth]{prelimERD.eps}
+\end{figure}
+
+\section{Source of Data and Design Overview}
+The project will be a python program utilizing the \keyword{customtkinter} library to create a \keyword{GUI}. It will follow best practices when it comes to development such as having test code using \keyword{pytest} and will be fully typed and will use both the realtime typechecking library \keyword{beartype} as well as the static type checker \keyword{mypy}. It will follow PEP-8 code conventions and will use the \keyword{ruff} linter to confirm it follows it. It will be an installable package using \keyword{hatch-build} and pyproject.toml.  It will have menus and forms to facilitate the various operations listed in the Core Features. I will provide a sample data set that will be loaded on initial opening of the program from csv files. This example data will show off the various capabilities of the program as well as provide examples of its use.
+
+\end{document}

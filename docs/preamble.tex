@@ -1,0 +1,102 @@
+\documentclass[letterpaper, 12pt]{article}
+% \usepackage{fontspec}
+
+% ==================================================
+
+% document parameters
+\usepackage[english]{babel}
+\usepackage[margin = 1in]{geometry}
+
+% ==================================================
+
+% Packages for math
+%\usepackage{mathrsfs}
+%\usepackage{amsfonts}
+%\usepackage{amsmath}
+%\usepackage{amsthm}
+%\usepackage{amssymb}
+%\usepackage{physics}
+%\usepackage{dsfont}
+%\usepackage{esint}
+
+% ==================================================
+
+% Packages for writing
+%\usepackage{enumerate}
+\usepackage[shortlabels]{enumitem}
+\usepackage{framed}
+\usepackage{csquotes}
+
+% ==================================================
+
+% Miscellaneous packages
+\usepackage{float}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{multicol}
+\usepackage{subcaption}
+\usepackage{caption}
+\captionsetup{format = hang, margin = 10pt, font = small, labelfont = bf}
+
+% Citation
+\usepackage[round, authoryear]{natbib}
+
+% Hyperlinks setup
+\usepackage{hyperref}
+\definecolor{links}{rgb}{0.36,0.54,0.66}
+\hypersetup{
+   colorlinks = true,
+    linkcolor = black,
+     urlcolor = blue,
+    citecolor = blue,
+    filecolor = blue,
+    pdfauthor = {Author},
+     pdftitle = {Title},
+   pdfsubject = {subject},
+  pdfkeywords = {one, two},
+  pdfproducer = {LaTeX},
+   pdfcreator = {pdfLaTeX},
+   }
+   
+% enable better typesetting
+\usepackage{microtype}
+
+\usepackage[T1]{fontenc}
+\usepackage{inconsolata}
+
+\usepackage{color}
+
+\definecolor{pblue}{rgb}{0.13,0.13,1}
+\definecolor{pgreen}{rgb}{0,0.5,0}
+\definecolor{pred}{rgb}{0.9,0,0}
+\definecolor{pgrey}{rgb}{0.46,0.45,0.48}
+
+\usepackage{listings}
+
+
+\usepackage{listings}
+\lstset{
+	language=Python,
+	frame=none,
+	firstnumber=last,
+	escapeinside={(*@}{@*)},
+	breaklines=false,
+	breakatwhitespace=true,
+	commentstyle=\color{pgreen},
+	keywordstyle=\color{pblue},
+	stringstyle=\color{pred},
+	basicstyle=\ttfamily\footnotesize,
+	moredelim=[il][\textcolor{pgrey}]{$$},
+	moredelim=[is][\textcolor{pgrey}]{\%\%}{\%\%},
+	xleftmargin=.125in,
+	tabsize=4,
+	keepspaces=true,
+	emph={@staticmethod,@classmethod,@property},
+	emphstyle=\color{purple}\bfseries,
+}
+
+
+\usepackage{here}
+\usepackage{textgreek}
+\usepackage{enumitem}
+\usepackage{textcase}

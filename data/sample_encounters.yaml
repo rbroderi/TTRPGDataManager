@@ -1,0 +1,66 @@
+- description: "Skyreaver corsairs attempt to sabotage Dragonfall's ballast engines during a public festival."
+  date: 2025-11-28
+  image_path: "data/img/placeholder.png"
+  campaign:
+    name: "Dragonfall"
+    start_date: 2025-11-19
+    status: "ACTIVE"
+  location:
+    name: "Skybridge Spire"
+    type: "TOWN"
+    description: "A tiered market tower where Dragonfall's skyship crews barter for elemental ballast."
+- description: "Mercenary sappers dig beneath the Iron Pact walls to steal a vault of adamantine sigils."
+  date: 2024-04-12
+  image_path: "data/img/placeholder.png"
+  campaign:
+    name: "Iron Pact"
+    start_date: 2024-03-08
+    status: "ACTIVE"
+  location:
+    name: "Hollowshade Assembly"
+    type: "INTERIOR"
+    description: "An abandoned dwarven senate chamber whose glass floor hangs over a sea of magma."
+- description: "A rogue spelljammer crashes into the Glimmersand Vault, releasing refracted elementals."
+  date: 2025-12-03
+  image_path: "data/img/placeholder.png"
+  campaign:
+    name: "Dragonfall"
+    start_date: 2025-11-19
+    status: "ACTIVE"
+  location:
+    name: "Glimmersand Vault"
+    type: "DUNGEON"
+    description: "Crystalline tunnels that amplify whispers into booming commands guarded by prismatic golems."
+- description: "Frost giants test Iron Pact defenses with an icequake ritual near Frostbridge Watch."
+  date: 2024-01-22
+  image_path: "data/img/placeholder.png"
+  campaign:
+    name: "Iron Pact"
+    start_date: 2024-03-08
+    status: "ACTIVE"
+  location:
+    name: "Frostbridge Watch"
+    type: "WILDERNESS"
+    description: "A wind-scoured cliff fort overseeing the only thawed pass between Iron Pact's border keeps."
+- description: "Veinsong tenders uncover a sabotaged root-core that could black out Dragonfall's wards."
+  date: 2025-11-25
+  image_path: "data/img/placeholder.png"
+  campaign:
+    name: "Dragonfall"
+    start_date: 2025-11-19
+    status: "ACTIVE"
+  location:
+    name: "Veinsong Nursery"
+    type: "INTERIOR"
+    description: "Luminous caverns where dryads weave living cables to power Dragonfall's ward engines."
+- description: "Ironroot smugglers duel inside the depot's rail yards after a shipment of war constructs disappears."
+  date: 2024-05-18
+  image_path: "data/img/placeholder.png"
+  campaign:
+    name: "Iron Pact"
+    start_date: 2024-03-08
+    status: "ACTIVE"
+  location:
+    name: "Ironroot Depot"
+    type: "TOWN"
+    description: "A subterranean freight junction whose rails lead to every Iron Pact siege foundry."
