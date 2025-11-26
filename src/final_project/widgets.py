@@ -48,6 +48,7 @@ logger = structlog.getLogger("final_project")
 # disable debug in pillow
 pil_logger = logging.getLogger("PIL")
 pil_logger.setLevel(logging.INFO)
+type CallableNoArgs = Callable[[], None]
 
 
 def _dict_str_any() -> dict[str, Any]:
@@ -59,7 +60,7 @@ class ButtonSpec:
     """Describe a menu/button widget using simple data."""
 
     text: str
-    handler: Callable[[], None]
+    handler: CallableNoArgs
     disabled: bool = False
     config: dict[str, Any] = field(default_factory=_dict_str_any)
 
@@ -77,55 +78,17 @@ class DropdownSpec:
     config: dict[str, Any] = field(default_factory=_dict_str_any)
 
 
-def make_button(
-    text: str,
-    handler: Callable[[], None],
-    *,
-    disabled: bool = False,
-    **kwargs: Any,
-) -> ButtonSpec:
-    """Return a button spec so layout code stays declarative."""
-    return ButtonSpec(
-        text=text,
-        handler=handler,
-        disabled=disabled,
-        config=dict(kwargs),
-    )
-
-
-def make_dropdown(
-    label: str,
-    options: Sequence[str],
-    *,
-    on_change: Callable[[str], None] | None = None,
-    initial: str | None = None,
-    **kwargs: Any,
-) -> DropdownSpec:
-    """Return a dropdown spec capturing display text and callbacks."""
-    width = kwargs.pop("width", 140)
-    state = kwargs.pop("state", "readonly")
-    return DropdownSpec(
-        label=label,
-        options=tuple(options),
-        on_change=on_change,
-        initial=initial,
-        state=state,
-        width=width,
-        config=dict(kwargs),
-    )
-
-
 class AppMenuBar(ctk.CTkFrame):
     """A custom menu bar implementation."""
 
     def __init__(  # noqa: PLR0913, PLR0915
         self,
         master: ctk.CTk,
-        on_save: Callable[[], None],
-        on_exit: Callable[[], None],
-        on_about: Callable[[], None],
-        on_show_readme: Callable[[], None],
-        on_show_settings: Callable[[], None],
+        on_save: CallableNoArgs,
+        on_exit: CallableNoArgs,
+        on_about: CallableNoArgs,
+        on_show_readme: CallableNoArgs,
+        on_show_settings: CallableNoArgs,
         *,
         on_entry_type_change: Callable[[str], None],
         popup_offset_x: int = -15,
@@ -136,11 +99,11 @@ class AppMenuBar(ctk.CTkFrame):
 
         # References
         self._root_win: ctk.CTk = master
-        self._on_save: Callable[[], None] = on_save
-        self._on_exit: Callable[[], None] = on_exit
-        self._on_about: Callable[[], None] = on_about
-        self._on_show_readme: Callable[[], None] = on_show_readme
-        self._on_show_settings: Callable[[], None] = on_show_settings
+        self._on_save: CallableNoArgs = on_save
+        self._on_exit: CallableNoArgs = on_exit
+        self._on_about: CallableNoArgs = on_about
+        self._on_show_readme: CallableNoArgs = on_show_readme
+        self._on_show_settings: CallableNoArgs = on_show_settings
         self._on_entry_type_change: Callable[[str], None] = on_entry_type_change
         self._on_campaign_change_cb: Callable[[str], None] | None = None
         self._menubar_popup_offset_x: int = popup_offset_x
@@ -222,25 +185,23 @@ class AppMenuBar(ctk.CTkFrame):
         initial_campaign = campaigns[0] if campaigns else "No Campaigns"
         self.campaign_var: tk.StringVar = tk.StringVar(value=initial_campaign)
 
-        entry_type_spec = make_dropdown(
-            "Entry Type",
-            types,
+        entry_type_spec = DropdownSpec(
+            label="Entry Type",
+            options=tuple(types),
             on_change=self._on_type_change,
             initial=types[0],
-            width=120,
             state="readonly",
-            font=base_font,
-            variable=self.entry_type_var,
+            width=120,
+            config={"font": base_font, "variable": self.entry_type_var},
         )
-        campaign_spec = make_dropdown(
-            "Campaign",
-            combo_values,
+        campaign_spec = DropdownSpec(
+            label="Campaign",
+            options=tuple(combo_values),
             on_change=self._on_campaign_change,
             initial=initial_campaign,
-            width=140,
             state="readonly",
-            font=base_font,
-            variable=self.campaign_var,
+            width=140,
+            config={"font": base_font, "variable": self.campaign_var},
         )
 
         self.entry_type_combo: ctk.CTkComboBox = self._create_dropdown(
@@ -279,13 +240,16 @@ class AppMenuBar(ctk.CTkFrame):
 
         # File menu items
         file_menu_specs = [
-            make_button("Save", self._menu_action(self._on_save)),
-            make_button("Settings", self._menu_action(self._on_show_settings)),
-            make_button(
-                "Delete Campaign…",
-                self._menu_action(self._confirm_delete_current_campaign),
+            ButtonSpec(text="Save", handler=self._menu_action(self._on_save)),
+            ButtonSpec(
+                text="Settings",
+                handler=self._menu_action(self._on_show_settings),
             ),
-            make_button("Exit", self._menu_action(self._on_exit)),
+            ButtonSpec(
+                text="Delete Campaign…",
+                handler=self._menu_action(self._confirm_delete_current_campaign),
+            ),
+            ButtonSpec(text="Exit", handler=self._menu_action(self._on_exit)),
         ]
         self._file_menu_buttons = self._build_menu_buttons(
             self.file_menu_frame,
@@ -297,8 +261,11 @@ class AppMenuBar(ctk.CTkFrame):
 
         # Help menu items
         help_menu_specs = [
-            make_button("View README", self._menu_action(self._on_show_readme)),
-            make_button("About", self._menu_action(self._on_about)),
+            ButtonSpec(
+                text="View README",
+                handler=self._menu_action(self._on_show_readme),
+            ),
+            ButtonSpec(text="About", handler=self._menu_action(self._on_about)),
         ]
         self._help_menu_buttons = self._build_menu_buttons(
             self.help_menu_frame,
@@ -310,8 +277,6 @@ class AppMenuBar(ctk.CTkFrame):
 
         # --------------------- MENU NAV STATE -----------------------------------
         self._active_menu: str | None = None
-        self._file_menu_buttons: list[ctk.CTkButton] = []
-        self._help_menu_buttons: list[ctk.CTkButton] = []
         self._menu_items: list[ctk.CTkButton] = []
         self._menu_index: int = -1
 
@@ -361,7 +326,7 @@ class AppMenuBar(ctk.CTkFrame):
         for seq in ("<Up>", "<Down>", "<Return>", "<Escape>"):
             self._root_win.unbind_all(seq)
 
-    def _menu_action(self, action: Callable[[], None]) -> Callable[[], None]:
+    def _menu_action(self, action: CallableNoArgs) -> CallableNoArgs:
         """Wrap a menu callback so popups close before execution."""
 
         def _runner() -> None:
@@ -754,7 +719,7 @@ class HtmlPreviewWindow(ctk.CTkToplevel):
         title: str,
         initial_html: str,
         source_path: Path,
-        on_close: Callable[[], None],
+        on_close: CallableNoArgs,
     ) -> None:
         """Initialize the modal window and populate it with HTML text."""
         super().__init__(master)
@@ -1025,7 +990,7 @@ class RandomIcon(ctk.CTkLabel):
         self,
         master: tk.Misc | None = None,
         *,
-        command: Callable[[], None] | None = None,
+        command: CallableNoArgs | None = None,
         height: int = 36,
         **kwargs: Any,
     ) -> None:
@@ -1048,7 +1013,7 @@ class RandomIcon(ctk.CTkLabel):
         if self._command is not None:
             self._command()
 
-    def set_command(self, command: Callable[[], None] | None) -> None:
+    def set_command(self, command: CallableNoArgs | None) -> None:
         """Update the callback invoked on click."""
         self._command = command
 
