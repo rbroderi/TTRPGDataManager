@@ -125,10 +125,107 @@ class _TextLLMConfigState:
         return getattr(self.value, name)
 
 
-@dataclass(slots=True)
 class _ServerRuntime:
-    thread: threading.Thread | None = None
-    process: subprocess.Popen[str] | subprocess.Popen[bytes] | None = None
+    """Manage the background llamafile HTTP server lifecycle."""
+
+    def __init__(self) -> None:
+        self._thread: threading.Thread | None = None
+        self._process: subprocess.Popen[str] | subprocess.Popen[bytes] | None = None
+        self._ready = threading.Event()
+        self._failed = threading.Event()
+        self._lock = threading.Lock()
+
+    def start_async(self) -> None:
+        """Ensure the server process is running, launching it on demand."""
+        with self._lock:
+            if self.is_ready() or self._thread_is_active():
+                return
+            self._thread = threading.Thread(
+                target=self._launch_server,
+                name="llm-server-launcher",
+                daemon=True,
+            )
+            self._thread.start()
+
+    def is_ready(self) -> bool:
+        return self._ready.is_set()
+
+    def did_fail(self) -> bool:
+        return self._failed.is_set()
+
+    def stop(self) -> None:
+        process = self._process
+        if process is None or process.poll() is not None:
+            return
+        try:
+            process.terminate()
+        except OSError:
+            logger.exception("failed to terminate llamafile server")
+
+    def _thread_is_active(self) -> bool:
+        thread = self._thread
+        return thread is not None and thread.is_alive()
+
+    def _launch_server(self) -> None:
+        try:
+            if _probe_llm_server():
+                self._ready.set()
+                logger.info(
+                    "llm server already running",
+                    port=_text_llm_config.text_server_port,
+                )
+                return
+            text_model_path = _resolve_text_model_path(None)
+            args = [
+                str(_text_llm_config.text_binary),
+                "--server",
+                "-m",
+                str(text_model_path),
+                "--v2",
+                "-ngl",
+                "999",
+                "--gpu",
+                "auto",
+                "-l",
+                f"{_text_llm_config.text_server_host}:{_text_llm_config.text_server_port!s}",
+            ]
+            logger.debug("launching llamafile server", command=args)
+            try:
+                process = subprocess.Popen(  # noqa: S603
+                    args,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=_CREATE_NO_WINDOW,
+                )
+            except OSError:
+                logger.exception(
+                    "failed to launch llamafile server",
+                    binary=str(_text_llm_config.text_binary),
+                )
+                self._failed.set()
+                return
+            self._process = process
+            deadline = time.monotonic() + _text_llm_config.text_server_start_timeout
+            while time.monotonic() < deadline:
+                if process.poll() is not None:
+                    logger.error(
+                        "llamafile server exited during startup",
+                        returncode=process.returncode,
+                    )
+                    self._failed.set()
+                    return
+                if _probe_llm_server():
+                    self._ready.set()
+                    logger.info(
+                        "llamafile server ready",
+                        port=_text_llm_config.text_server_port,
+                    )
+                    return
+                time.sleep(_text_llm_config.text_server_poll_interval)
+            logger.error("timed out waiting for llamafile server")
+            self._failed.set()
+        finally:
+            self._thread = None
 
 
 # Type aliases
@@ -154,9 +251,6 @@ LLM_TEXT_SERVER_GENERATION_PARAMS: dict[str, Any] = {
 # Module variables
 _text_llm_config = _TextLLMConfigState(_build_text_llm_config())
 LLM_TEXT_SERVER_GENERATION_PARAMS["model"] = _text_llm_config.text_binary.name
-_server_ready = threading.Event()
-_server_failed = threading.Event()
-_server_lock = threading.Lock()
 _runtime = _ServerRuntime()
 
 
@@ -181,98 +275,21 @@ def reload_image_generation_defaults() -> dict[str, int]:
 
 def start_text_llm_server_async() -> None:
     """Launch the llamafile HTTP server in the background if needed."""
-
-    def _launch() -> None:
-        if _probe_llm_server():
-            _server_ready.set()
-            logger.info(
-                "llm server already running",
-                port=_text_llm_config.text_server_port,
-            )
-            return
-        text_model_path = _resolve_text_model_path(None)
-        args = [
-            str(_text_llm_config.text_binary),
-            "--server",
-            "-m",
-            str(text_model_path),
-            "--v2",
-            "-ngl",
-            "999",
-            "--gpu",
-            "auto",
-            "-l",
-            f"{_text_llm_config.text_server_host}:{_text_llm_config.text_server_port!s}",
-        ]
-        logger.debug("launching llamafile server", command=args)
-        try:
-            process = subprocess.Popen(  # noqa: S603
-                args,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=_CREATE_NO_WINDOW,
-            )
-        except OSError:
-            logger.exception(
-                "failed to launch llamafile server",
-                binary=str(_text_llm_config.text_binary),
-            )
-            _server_failed.set()
-            return
-        _runtime.process = process
-        deadline = time.monotonic() + _text_llm_config.text_server_start_timeout
-        while time.monotonic() < deadline:
-            if process.poll() is not None:
-                logger.error(
-                    "llamafile server exited during startup",
-                    returncode=process.returncode,
-                )
-                _server_failed.set()
-                return
-            if _probe_llm_server():
-                _server_ready.set()
-                logger.info(
-                    "llamafile server ready",
-                    port=_text_llm_config.text_server_port,
-                )
-                return
-            time.sleep(_text_llm_config.text_server_poll_interval)
-        logger.error("timed out waiting for llamafile server")
-        _server_failed.set()
-
-    with _server_lock:
-        if _server_ready.is_set() or (
-            _runtime.thread is not None and _runtime.thread.is_alive()
-        ):
-            return
-        _runtime.thread = threading.Thread(
-            target=_launch,
-            name="llm-server-launcher",
-            daemon=True,
-        )
-        _runtime.thread.start()
+    _runtime.start_async()
 
 
 def is_text_llm_server_ready() -> bool:
     """Return True when the HTTP server has accepted a connection."""
-    return _server_ready.is_set()
+    return _runtime.is_ready()
 
 
 def did_text_llm_server_fail() -> bool:
     """Return True if startup failed and no more attempts are pending."""
-    return _server_failed.is_set()
+    return _runtime.did_fail()
 
 
 def _shutdown_server() -> None:
-    process = _runtime.process
-    if process is None:
-        return
-    if process.poll() is not None:
-        return
-    try:
-        process.terminate()
-    except OSError:
-        logger.exception("failed to terminate llamafile server")
+    _runtime.stop()
 
 
 def _probe_llm_server(timeout: float = 2.0) -> bool:
