@@ -1,0 +1,25 @@
+[LLM]
+image_size = 256
+image_steps = 15
+text_dir = "data/llm"
+text_binary = "llamafile-0.9.3"
+text_model = "google_gemma-3-4b-it-Q8_0.llamafile"
+sd_binary = "sdfile-0.9.3"
+image_model = "dreamshaper_8.safetensors"
+name_prompt = """
+"Give your response as START Firstname Lastname, such as START John Smith END. All other information will be ignored. For a TTRPG, Create a first and last name for a {vartext} ." --log-disable --grammar "root ::= [a-zA-Z ]+" --predict 10 --silent-prompt -s 1 --temp 1.5 --fast
+"""
+text_server_prompt_template = """
+Give your response as START Firstname Lastname, such as START John Smith END. All other information will be ignored. For a TTRPG, create a first and last name for a {vartext}. Respond with only START Firstname Lastname END.
+"""
+image_cfg_scale = 7.0
+text_server_host = "127.0.0.1"
+text_server_port = 48657
+text_server_url = "http://127.0.0.1:48657"
+text_models_endpoint = "http://127.0.0.1:48657/v1/models"
+text_completion_endpoint = "http://127.0.0.1:48657/v1/completions"
+text_server_start_timeout = 1065.0
+text_server_poll_interval = 0.5
+text_request_timeout = 30.0
+text_max_attempts = 3
+name_parts = 2

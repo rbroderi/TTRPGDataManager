@@ -1,0 +1,12 @@
+Log start
+Cmd: /C/Users/richa/workspace_local/5210/final_project/data/llm/llamafile-0.9.3 -p ""Give your response as START Firstname Lastname, such as START John Smith END. All other information will be ignored. For a TTRPG, Create a first and last name for a NPC ." --log-disable --grammar "root ::= [a-zA-Z ]+" --predict 10 --silent-prompt -s 1 --temp 1.5 --fast
+"
+warning: this OS doesn't support pledge() security
+main: build = 1500 (a30b324)
+main: built with cosmocc (GCC) 11.2.0 for x86_64-linux-cosmo
+main: seed  = 1764147594
+main: llama backend init
+main: load the model and apply lora adapter, if any
+llama_model_load: error loading model: failed to open models/7B/ggml-model-f16.gguf: No such file or directory
+llama_load_model_from_file: failed to load model
+main: error: unable to load model

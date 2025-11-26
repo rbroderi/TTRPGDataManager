@@ -1,0 +1,48 @@
+- name: "Skybridge Spire"
+  type: "TOWN"
+  description: "A tiered market tower where Dragonfall's skyship crews barter for elemental ballast."
+  campaign:
+    name: "Dragonfall"
+    start_date: 2025-11-19
+    status: "ACTIVE"
+  image_path: "data/img/placeholder.png"
+- name: "Hollowshade Assembly"
+  type: "INTERIOR"
+  description: "An abandoned dwarven senate chamber whose glass floor hangs over a sea of magma."
+  campaign:
+    name: "Iron Pact"
+    start_date: 2024-03-08
+    status: "ACTIVE"
+  image_path: "data/img/placeholder.png"
+- name: "Glimmersand Vault"
+  type: "DUNGEON"
+  description: "Crystalline tunnels that amplify whispers into booming commands guarded by prismatic golems."
+  campaign:
+    name: "Dragonfall"
+    start_date: 2025-11-19
+    status: "ACTIVE"
+  image_path: "data/img/placeholder.png"
+- name: "Frostbridge Watch"
+  type: "WILDERNESS"
+  description: "A wind-scoured cliff fort overseeing the only thawed pass between Iron Pact's border keeps."
+  campaign:
+    name: "Iron Pact"
+    start_date: 2024-03-08
+    status: "ACTIVE"
+  image_path: "data/img/placeholder.png"
+- name: "Veinsong Nursery"
+  type: "INTERIOR"
+  description: "Luminous caverns where dryads weave living cables to power Dragonfall's ward engines."
+  campaign:
+    name: "Dragonfall"
+    start_date: 2025-11-19
+    status: "ACTIVE"
+  image_path: "data/img/placeholder.png"
+- name: "Ironroot Depot"
+  type: "TOWN"
+  description: "A subterranean freight junction whose rails lead to every Iron Pact siege foundry."
+  campaign:
+    name: "Iron Pact"
+    start_date: 2024-03-08
+    status: "ACTIVE"
+  image_path: "data/img/placeholder.png"
