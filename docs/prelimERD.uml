@@ -1,0 +1,82 @@
+@startuml prelimERD
+
+entity NPC {
+  *  name : VARCHAR <<PK>>
+  --
+  age: UNSIGNED SMALLINT
+  alignment_name : ENUM(\n\t'LAWFUL GOOD', \n\t'LAWFUL NEUTRAL', \n\t'LAWFUL EVIL', \n\t'NEUTRAL GOOD', \n\t'TRUE NEUTRAL', \n\t'NEUTRAL EVIL',\n\t'CHAOTIC GOOD',\n\t'CHAOTIC NEUTRAL', \n\t'CHAOTIC EVIL')
+  description : TEXT
+  portrait_image : MEDIUMBLOB
+  species_name : VARCHAR <FK>>
+  campaign_name : VARCHAR <<FK>>
+  abilities_json : JSON
+}
+
+entity Species {
+  *name : VARCHAR <<PK>>
+  --
+  description : TEXT
+  traits_json : TEXT
+}
+
+entity Faction {
+  *name : VARCHAR <<PK>>
+  --
+  description : TEXT
+}
+
+entity FactionMembers{
+  *faction_name: VARCHAR <<PK,FK>>
+  *npc_name: VARCHAR <<PK,FK>>
+}
+
+entity Location {
+  *  name : VARCHAR <<PK>>
+  --
+  type : ENUM(\n\t'DUNGEON', \n\t'WILDERNESS', \n\t'TOWN', \n\t'INTERIOR')
+  description : TEXT
+}
+
+entity Campaign {
+  *name : VARCHAR <<PK>>
+  --
+  start_date : DATE
+  status : ENUM(\n\t'ACTIVE', \n\t'ONHOLD', \n\t'COMPLETED', \n\t'CANCELED')
+  notes : TEXT
+}
+
+entity Relationship {
+  *npc_name_1 : VARCHAR <<PK,FK>>
+  *npc_name_2 : VARCHAR <<PK,FK>>
+  --
+  name : VARCHAR
+  notes : TEXT
+}
+
+entity Encounter {
+  *id : INT <<PK>>
+  --
+  campaign_name : VARCHAR <<FK>>
+  location_name : VARCHAR <<FK>>
+  date : DATE
+  description : TEXT
+}
+
+entity EncounterParticipants{
+  *encounter_id: int <<PK,FK>>
+  *npc_name: VARCHAR <<PK,FK>>
+}
+
+' Relationships
+NPC "1" --> "N" Species
+NPC "N" --> "N" Campaign
+NPC "N" --> "1" FactionMembers
+Relationship "1" --> "N" NPC : npc_name_1
+Relationship "1" --> "N" NPC : npc_name_2
+Encounter "1" --> "N" Campaign
+Encounter "1" --> "1" Location
+Faction "N" --> "1" FactionMembers
+EncounterParticipants "1" --> "N" Encounter
+EncounterParticipants "1" --> "N" NPC
+
+@enduml
