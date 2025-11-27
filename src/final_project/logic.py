@@ -232,6 +232,13 @@ class DataLogic:
             if column_key not in field_values:
                 continue
             raw_value = field_values[column_key]
+            if column_key == "gender":
+                if isinstance(raw_value, str):
+                    normalized_gender = raw_value.strip().upper()
+                else:
+                    normalized_gender = str(raw_value).strip().upper()
+                field_values[column_key] = normalized_gender or "UNSPECIFIED"
+                continue
             normalized: Any = (
                 raw_value.strip() if isinstance(raw_value, str) else raw_value
             )
@@ -417,6 +424,7 @@ class DataLogic:
     def _order_npc_specs(specs: Sequence[FieldSpec]) -> tuple[FieldSpec, ...]:
         desired_order = (
             "name",
+            "gender",
             "age",
             "alignment_name",
             "species_name",
@@ -509,6 +517,10 @@ class DataLogic:
         raw_value: Any,
         spec: FieldSpec | None,
     ) -> tuple[bool, Any]:
+        column_key = getattr(column, "key", "")
+        if column_key == "gender":
+            text = str(raw_value).strip().upper()
+            return True, text or "UNSPECIFIED"
         if spec and spec.is_json:
             text = str(raw_value).strip()
             if not text:

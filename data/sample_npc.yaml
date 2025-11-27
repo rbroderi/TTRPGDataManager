@@ -1,4 +1,5 @@
 - name: "Elandril Moonwhisper"
+  gender: MALE
   age: 145
   alignment_name: "CHAOTIC GOOD"
   description: "An elven loremaster who keeps sprawling journals about every ruin he explores."
@@ -17,6 +18,7 @@
     signature_weapon: "silver rapier"
   image_path: "data/img/placeholder.png"
 - name: "Brynn Stoneward"
+  gender: FEMALE
   age: 38
   alignment_name: "LAWFUL GOOD"
   description: "A stalwart dwarf shield-bearer assigned to escort remote caravans through bandit country."
@@ -34,6 +36,7 @@
     oath: "protect the pact"
   image_path: "data/img/placeholder.png"
 - name: "Kess Tandem"
+  gender: NONBINARY
   age: 27
   alignment_name: "CHAOTIC NEUTRAL"
   description: "A quick-witted tiefling courier who smuggles arcane schematics between rival cities."
@@ -51,6 +54,7 @@
     backup_plan: "illusion dust"
   image_path: "data/img/placeholder.png"
 - name: "Maela Emberfall"
+  gender: FEMALE
   age: 31
   alignment_name: "NEUTRAL GOOD"
   description: "A wildfire druid who mediates disputes between logging camps and fey groves."
@@ -68,6 +72,7 @@
     bonded_companion: "ember fox"
   image_path: "data/img/placeholder.png"
 - name: "Torven Blackbriar"
+  gender: MALE
   age: 52
   alignment_name: "NEUTRAL EVIL"
   description: "A disgraced magistrate who secretly bankrolls thieves' guilds for personal leverage."
@@ -85,6 +90,7 @@
     contingency: "hidden safehouse"
   image_path: "data/img/placeholder.png"
 - name: "Lira Duskpetal"
+  gender: FEMALE
   age: 24
   alignment_name: "CHAOTIC GOOD"
   description: "A fey-touched bard who trades songs for rumors in moonlit markets."
@@ -102,6 +108,7 @@
     glamour: "illusory chorus"
   image_path: "data/img/placeholder.png"
 - name: "Garruk Steamfist"
+  gender: MALE
   age: 33
   alignment_name: "TRUE NEUTRAL"
   description: "A warforged tinkerer who refurbishes battle relics into whimsical constructs."
@@ -119,6 +126,7 @@
     companion: "clockwork sparrow"
   image_path: "data/img/placeholder.png"
 - name: "Nyssa Frostgale"
+  gender: FEMALE
   age: 42
   alignment_name: "LAWFUL NEUTRAL"
   description: "A goliath archivist who records oaths carved into the glaciers of her homeland."
@@ -136,6 +144,7 @@
     weapon: "runed maul"
   image_path: "data/img/placeholder.png"
 - name: "Calder Thornbrook"
+  gender: MALE
   age: 36
   alignment_name: "NEUTRAL GOOD"
   description: "A halfling apothecary whose traveling wagon doubles as a mobile greenhouse."
@@ -153,6 +162,7 @@
     assistant: "chatty raven"
   image_path: "data/img/placeholder.png"
 - name: "Veska Ironroot"
+  gender: FEMALE
   age: 58
   alignment_name: "LAWFUL EVIL"
   description: "An orc diplomat who secures treaties by offering mercenary legions as collateral."

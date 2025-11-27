@@ -698,11 +698,12 @@ class FactionDialog(ctk.CTkToplevel):
         self.transient(manager)  # type: ignore[arg-type]
         self.grab_set()
 
-        ctk.CTkLabel(
+        self._campaign_label = ctk.CTkLabel(
             self,
             text=f"Campaign: {campaign}",
             font=("Arial", 14, "bold"),
-        ).pack(fill="x", padx=20, pady=(15, 5))
+        )
+        self._campaign_label.pack(fill="x", padx=20, pady=(15, 5))
 
         form = ctk.CTkFrame(self)
         form.pack(fill="both", expand=True, padx=20, pady=10)
@@ -711,6 +712,7 @@ class FactionDialog(ctk.CTkToplevel):
         self._name_entry = ctk.CTkEntry(form)
         self._name_entry.pack(fill="x", pady=(0, 10))
         self._name_entry.insert(0, initial_name)
+        self._allow_name_edit = allow_name_edit
         if not allow_name_edit:
             self._name_entry.configure(state="disabled")
 
@@ -732,11 +734,12 @@ class FactionDialog(ctk.CTkToplevel):
             side="right",
             padx=(0, 10),
         )
-        ctk.CTkButton(
+        self._save_btn = ctk.CTkButton(
             buttons,
             text=save_button_label,
             command=self._handle_submit,
-        ).pack(side="right")
+        )
+        self._save_btn.pack(side="right")
 
         self.bind("<Return>", lambda event: self._handle_submit())  # noqa: ARG005
         self.protocol("WM_DELETE_WINDOW", self._handle_cancel)
@@ -755,6 +758,46 @@ class FactionDialog(ctk.CTkToplevel):
         if self._on_cancel is not None:
             self._on_cancel()
         self.destroy()
+
+    def update_context(
+        self,
+        initial_name: str,
+        campaign: str,
+        *,
+        dialog_options: dict[str, Any] | None = None,
+    ) -> None:
+        """Refresh dialog contents when reused via the dialog tracker."""
+        options = dialog_options or {}
+        dialog_title = cast(str | None, options.get("dialog_title"))
+        save_button_label = cast(str | None, options.get("save_button_label"))
+        allow_name_edit = options.get("allow_name_edit")
+        initial_description = cast(str | None, options.get("initial_description"))
+        initial_notes = cast(str | None, options.get("initial_notes"))
+
+        if dialog_title:
+            self.title(dialog_title)
+        self._campaign_label.configure(text=f"Campaign: {campaign}")
+
+        effective_allow_edit = (
+            self._allow_name_edit if allow_name_edit is None else bool(allow_name_edit)
+        )
+        self._allow_name_edit = effective_allow_edit
+        self._name_entry.configure(state="normal")
+        self._name_entry.delete(0, tk.END)
+        self._name_entry.insert(0, initial_name)
+        if not effective_allow_edit:
+            self._name_entry.configure(state="disabled")
+
+        self._description.delete("1.0", tk.END)
+        if initial_description:
+            self._description.insert("1.0", initial_description)
+
+        self._notes.delete("1.0", tk.END)
+        if initial_notes:
+            self._notes.insert("1.0", initial_notes)
+
+        if save_button_label:
+            self._save_btn.configure(text=save_button_label)
 
 
 class CampaignDialog(ctk.CTkToplevel):
