@@ -48,16 +48,21 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     from pydantic import Field
 
     from final_project import LogLevels
+    from final_project.settings_manager import path_from_settings
 
 logger = structlog.getLogger("final_project")
 SCRIPTROOT = Path(__file__).parent.resolve()
 PROJECT_ROOT = (SCRIPTROOT / ".." / ".." / "project").resolve() / ".."
 
 load_dotenv(PROJECT_ROOT / ".env")
-CONFIG_PATH = PROJECT_ROOT / "config.toml"
-SAMPLE_NPC_PATH = PROJECT_ROOT / "data" / "sample_npc.yaml"
-SAMPLE_LOCATION_PATH = PROJECT_ROOT / "data" / "sample_locations.yaml"
-SAMPLE_ENCOUNTER_PATH = PROJECT_ROOT / "data" / "sample_encounters.yaml"
+CONFIG_PATH = path_from_settings("config")
+SAMPLE_NPC_PATH = path_from_settings("sample_npc")
+SAMPLE_LOCATION_PATH = path_from_settings(
+    "sample_locations",
+)
+SAMPLE_ENCOUNTER_PATH = path_from_settings(
+    "sample_encounters",
+)
 CAMPAIGN_STATUSES: tuple[str, ...] = (
     "ACTIVE",
     "ONHOLD",
