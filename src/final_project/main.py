@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from lazi.core import lazi
 
 from final_project import patch
+from final_project.db import apply_external_schema_with_connector
 from final_project.db import create_sample_encounter
 from final_project.db import create_sample_location
 from final_project.db import create_sample_npc
@@ -157,6 +158,12 @@ def _setup_arguments() -> argparse.Namespace:
         action="store_true",
         help="Insert a sample encounter record using bundled fixtures.",
     )
+    db_group.add_argument(
+        "--load-ddl-at-startup",
+        "-d",
+        action="store_true",
+        help="Load db.ddl via mysql-connector before other actions (grading only).",
+    )
 
     ret = parser.parse_args()
     _setup_logger(ret.loglevel)
@@ -213,6 +220,9 @@ def main() -> int:
     args = _setup_arguments()
     patch()
     logger.info("inital setup completed.")
+    if args.load_ddl_at_startup:
+        logger.info("loading ddl via mysql-connector")
+        apply_external_schema_with_connector()
     if args.readme:
         _display_readme()
         return OK
