@@ -21,11 +21,15 @@ from sqlalchemy.orm import Session as SessionType
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.schema import CreateIndex
+from sqlalchemy.schema import CreateTable
 
 with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
+    import contextlib
     import json
     import os
     import secrets
+    import sys
     import tomllib
     from collections.abc import Callable
     from collections.abc import Mapping
@@ -37,6 +41,7 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     from typing import Any
     from typing import Literal
     from typing import Protocol
+    from typing import TextIO
     from typing import cast
 
     import structlog
@@ -49,6 +54,11 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
 
     from final_project import LogLevels
     from final_project.settings_manager import path_from_settings
+
+    try:  # optional dependency used only proof of loading ddl
+        import mysql.connector as mysql_connector
+    except ImportError:
+        mysql_connector = None
 
 logger = structlog.getLogger("final_project")
 SCRIPTROOT = Path(__file__).parent.resolve()
@@ -1345,3 +1355,94 @@ def setup_database(
         Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+def apply_external_schema_with_connector(
+    *,
+    path: Path | None = None,
+) -> None:
+    """Use mysql-connector-python to execute db.ddl in one pass."""
+    ddl_path = path or (PROJECT_ROOT / "data" / "db.ddl")
+    if not ddl_path.exists():
+        logger.warning("Cannot load DDL; file missing", path=str(ddl_path))
+        return
+    ddl_sql = ddl_path.read_text(encoding="utf-8").strip()
+    if not ddl_sql:
+        logger.info("DDL file is empty; skipping load", path=str(ddl_path))
+        return
+    if mysql_connector is None:
+        logger.warning(
+            "mysql-connector-python is not installed; skipping DDL load",
+            path=str(ddl_path),
+        )
+        return
+    config = _read_config().get("DB", {})
+    try:
+        connection = mysql_connector.connect(  # type: ignore[union-attr]
+            user=_get_env_var("DB_USERNAME"),
+            password=_get_env_var("DB_PASSWORD"),
+            host=config.get("host"),
+            port=config.get("port"),
+            database=config.get("database"),
+        )
+    except Exception:
+        logger.exception("Failed to load DDL via mysql-connector", path=str(ddl_path))
+        return
+
+    with contextlib.closing(connection) as managed_connection:
+        try:
+            with managed_connection.cursor() as cursor:
+                cursor.execute(ddl_sql)
+                for _, result_set in cursor.fetchsets():
+                    logger.debug("sql statement", results=result_set)
+            managed_connection.commit()
+            logger.info("Applied DDL via mysql-connector", path=str(ddl_path))
+        except Exception:
+            with contextlib.suppress(Exception):
+                managed_connection.rollback()
+            logger.exception(
+                "Failed to load DDL via mysql-connector",
+                path=str(ddl_path),
+            )
+
+
+def export_database_ddl(stream: TextIO | None = None) -> None:
+    """Write CREATE TABLE/INDEX statements for the schema to a stream."""
+    target = stream or sys.stdout
+    engine = connect()
+    statements: list[str] = []
+    try:
+        dialect = engine.dialect
+        for table in Base.metadata.sorted_tables:
+            statements.append(str(CreateTable(table).compile(dialect=dialect)))
+            index_statements = [
+                str(CreateIndex(index).compile(dialect=dialect))
+                for index in table.indexes
+            ]
+            statements.extend(index_statements)
+    finally:
+        engine.dispose()
+    if not statements:
+        target.write("-- No tables defined.\n")
+        return
+    output = ";\n\n".join(statements) + ";\n"
+    target.write(output)
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Manage the RPG NPC database.",
+    )
+    parser.add_argument(
+        "--export_ddl",
+        action="store_true",
+        help="Exports the database DDL to stdout.",
+    )
+    args = parser.parse_args()
+
+    if args.export_ddl:
+        export_database_ddl()
+    else:
+        parser.print_help()
