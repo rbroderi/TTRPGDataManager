@@ -1,7 +1,8 @@
 """Holds the user interface classes and functions."""
 
 from __future__ import annotations
-from typing import Annotated
+from dataclasses import dataclass
+from typing import Annotated, Protocol
 
 # pyright: reportUnknownMemberType=false
 # pyright: reportUnknownLambdaType=false
@@ -27,6 +28,7 @@ from final_project.llmrunner import is_text_llm_server_ready
 from final_project.llmrunner import reload_image_generation_defaults
 from final_project.widgets import AppMenuBar
 from final_project.widgets import HtmlPreviewWindow
+from final_project.widgets import RadioField
 from final_project.widgets import RandomIcon
 
 with lazi:  # type: ignore[attr-defined]
@@ -70,9 +72,136 @@ PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "img" / "placeholder.png"
 JSON_LEXER = get_lexer_by_name("json")
 SOFT_HYPHEN = "\u00ad"
 WORD_PATTERN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
-type EntryWidget = CTkEntry | ctk.CTkComboBox | ctk.CTkTextbox
 LOAD_PAUSE: Annotated[int, "ms"] = 2500
 LLM_POLL_INTERVAL: Annotated[int, "ms"] = 1000
+
+type EntryWidget = CTkEntry | ctk.CTkComboBox | ctk.CTkTextbox | RadioField
+
+
+@dataclass(slots=True)
+class ButtonRowSpec:
+    """Describe a label/button pair rendered in a single row."""
+
+    label: str
+    button_text: str
+    command: Callable[[], None]
+    width: int = 150
+
+
+@dataclass(slots=True)
+class RelationshipDialogContext:
+    """Hold the NPC/campaign pair used when opening the relationships dialog."""
+
+    source_name: str
+    campaign: str | None
+
+
+@dataclass(slots=True)
+class EncounterDialogContext:
+    """Encapsulate encounter dialog parameters."""
+
+    encounter_id: int
+    campaign: str | None
+
+
+@dataclass(slots=True)
+class FactionDialogContext:
+    """Store staged faction dialog metadata and callbacks."""
+
+    initial_name: str
+    campaign: str
+    on_submit: Callable[[str, str, str], None]
+    on_cancel: Callable[[], None] | None
+    dialog_options: dict[str, Any]
+
+
+@dataclass(slots=True)
+class ReadmeDialogContext:
+    """Track README preview HTML and its source path."""
+
+    html_output: str
+    readme_path: Path
+
+
+class _ManagedDialog(Protocol):
+    def winfo_exists(self) -> bool: ...
+
+    def deiconify(self) -> None: ...
+
+    def lift(self) -> None: ...
+
+    def destroy(self) -> None: ...
+
+
+class _DialogTracker[DialogT: _ManagedDialog, ContextT]:
+    """Manage opening, refreshing, and clearing a tkinter dialog instance."""
+
+    __slots__ = (
+        "_builder",
+        "_dialog",
+        "_get_context",
+        "_name",
+        "_updater",
+    )
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        context_getter: Callable[[bool], ContextT | None],
+        builder: Callable[[ContextT], DialogT],
+        updater: Callable[[DialogT, ContextT], None],
+    ) -> None:
+        self._name = name
+        self._get_context = context_getter
+        self._builder = builder
+        self._updater = updater
+        self._dialog: DialogT | None = None
+
+    def show(self) -> None:
+        """Display the dialog, creating it on demand."""
+        context = self._get_context(False)
+        if context is None:
+            return
+        dialog = self._dialog
+        if dialog is not None and dialog.winfo_exists():
+            self._updater(dialog, context)
+            dialog.deiconify()
+            dialog.lift()
+            return
+        self._spawn_dialog(context)
+
+    def refresh(self) -> None:
+        """Update the dialog or destroy it if context vanished."""
+        dialog = self._dialog
+        if dialog is None:
+            return
+        if not dialog.winfo_exists():
+            self._dialog = None
+            return
+        context = self._get_context(True)
+        if context is None:
+            dialog.destroy()
+            self._dialog = None
+            return
+        self._updater(dialog, context)
+
+    def clear(self, dialog: DialogT) -> None:
+        """Forget the cached dialog reference when it closes."""
+        if self._dialog is dialog:
+            self._dialog = None
+
+    def _spawn_dialog(self, context: ContextT) -> None:
+        try:
+            dialog = self._builder(context)
+        except Exception:
+            self._dialog = None
+            raise
+        self._dialog = dialog
+
+    def current_dialog(self) -> DialogT | None:
+        """Return the active dialog instance if one exists."""
+        return self._dialog
 
 
 class _NPCFormState:
@@ -184,20 +313,80 @@ class TTRPGDataManager(ctk.CTk):
         self._pending_images: dict[tuple[str, str], bytes] = {}
         self._pending_faction_changes: dict[tuple[str, str], tuple[str, str]] = {}
         self._pending_faction_for_new_record: tuple[str, str] | None = None
+        self._pending_faction_context: FactionDialogContext | None = None
         self._current_record_key: tuple[str, str] | None = None
         self._current_image_payload: bytes | None = None
         self._image_dirty = False
         self._form_specs = self.logic.build_form_field_map()
-        self._relationship_dialog: RelationshipDialog | None = None
-        self._encounter_members_dialog: EncounterMembersDialog | None = None
+        self._relationship_dialogs = _DialogTracker[
+            RelationshipDialog,
+            RelationshipDialogContext,
+        ](
+            name="Relationships",
+            context_getter=lambda silent: self._relationship_dialog_context(
+                silent=silent,
+            ),
+            builder=self._build_relationship_dialog,
+            updater=lambda dialog, ctx: dialog.update_context(
+                ctx.source_name,
+                ctx.campaign,
+            ),
+        )
+        self._encounter_dialogs = _DialogTracker[
+            EncounterMembersDialog,
+            EncounterDialogContext,
+        ](
+            name="Encounter Members",
+            context_getter=lambda silent: self._encounter_dialog_context(
+                silent=silent,
+            ),
+            builder=self._build_encounter_dialog,
+            updater=lambda dialog, ctx: dialog.update_context(
+                ctx.encounter_id,
+                ctx.campaign,
+            ),
+        )
         self._npc_faction_widget: ctk.CTkComboBox | None = None
         self._faction_view_button: ctk.CTkButton | None = None
-        self._faction_dialog: FactionDialog | None = None
+        self._faction_dialogs = _DialogTracker[
+            FactionDialog,
+            FactionDialogContext,
+        ](
+            name="Faction",
+            context_getter=lambda silent: self._faction_dialog_context(
+                silent=silent,
+            ),
+            builder=self._build_faction_dialog,
+            updater=self._update_faction_dialog,
+        )
         self._current_faction_value: str | None = None
         self._current_faction_note: str = ""
         self._staged_faction_assignment: tuple[str, str] | None = None
-        self._readme_window: HtmlPreviewWindow | None = None
-        self._settings_dialog: SettingsDialog | None = None
+        self._pending_readme_context: ReadmeDialogContext | None = None
+        self._last_readme_context: ReadmeDialogContext | None = None
+        self._readme_dialogs = _DialogTracker[
+            HtmlPreviewWindow,
+            ReadmeDialogContext,
+        ](
+            name="README",
+            context_getter=lambda silent: self._readme_dialog_context(
+                silent=silent,
+            ),
+            builder=self._build_readme_window,
+            updater=lambda dialog, ctx: dialog.load_content(
+                ctx.html_output,
+                ctx.readme_path,
+            ),
+        )
+        self._settings_dialogs = _DialogTracker[
+            SettingsDialog,
+            bool,
+        ](
+            name="Settings",
+            context_getter=lambda _silent: True,
+            builder=self._build_settings_dialog,
+            updater=self._update_settings_dialog,
+        )
         self._llm_ready = self._get_llm_server_status() is _LLMServerStatus.READY
         self._llm_watch_job: str | None = None
 
@@ -393,39 +582,18 @@ class TTRPGDataManager(ctk.CTk):
         initial_name: str,
         campaign: str,
         on_submit: Callable[[str, str, str], None],
-        on_cancel: Callable[[], None] | None = None,
+        on_cancel: Callable[[], None] | None,
         **dialog_options: Any,
     ) -> None:
-        if self._faction_dialog is not None and self._faction_dialog.winfo_exists():
-            self._faction_dialog.lift()
-            self._faction_dialog.focus_force()
-            return
-
-        def _wrapped_submit(name: str, description: str, notes: str) -> None:
-            try:
-                on_submit(name, description, notes)
-            finally:
-                self._faction_dialog = None
-
-        def _wrapped_cancel() -> None:
-            try:
-                if on_cancel is not None:
-                    on_cancel()
-            finally:
-                self._faction_dialog = None
-
-        try:
-            self._faction_dialog = FactionDialog(
-                self,
-                initial_name,
-                campaign,
-                _wrapped_submit,
-                _wrapped_cancel,
-                **dialog_options,
-            )
-        except Exception:
-            self._faction_dialog = None
-            raise
+        """Stage context for the faction dialog tracker and display the modal."""
+        self._pending_faction_context = FactionDialogContext(
+            initial_name=initial_name,
+            campaign=campaign,
+            on_submit=on_submit,
+            on_cancel=on_cancel,
+            dialog_options=dialog_options,
+        )
+        self._faction_dialogs.show()
 
     def _finalize_new_faction(
         self,
@@ -545,6 +713,8 @@ class TTRPGDataManager(ctk.CTk):
         spec: FieldSpec,
     ) -> EntryWidget:
         values: Sequence[str] | None = None
+        if spec.key == "gender" and spec.enum_values:
+            return self._create_gender_widget(row, spec)
         if spec.enum_values:
             values = list(spec.enum_values)
             return ctk.CTkComboBox(
@@ -567,6 +737,31 @@ class TTRPGDataManager(ctk.CTk):
             self._configure_multiline_widget(widget, spec)
             return widget
         return CTkEntry(row)
+
+    def _create_gender_widget(
+        self,
+        row: ctk.CTkFrame,
+        spec: FieldSpec,
+    ) -> RadioField:
+        """Return a radio field tailored for gender selection."""
+        display_labels = {
+            "FEMALE": "Female",
+            "MALE": "Male",
+            "NONBINARY": "Other",
+        }
+        options: list[tuple[str, str]] = []
+        for value in spec.enum_values or ():
+            upper_value = value.strip().upper()
+            if upper_value == "UNSPECIFIED":
+                continue
+            label = display_labels.get(upper_value, upper_value.title())
+            options.append((upper_value, label))
+        return RadioField(
+            row,
+            options=options,
+            empty_value="UNSPECIFIED",
+            show_clear=False,
+        )
 
     def _configure_multiline_widget(
         self,
@@ -624,34 +819,40 @@ class TTRPGDataManager(ctk.CTk):
         state.faction_widget = self._insert_faction_field(frame)
 
     def _insert_relationship_button(self, frame: ctk.CTkFrame) -> None:
-        rel_row = ctk.CTkFrame(frame, fg_color="transparent")
-        rel_row.pack(fill="x", pady=5, padx=10)
-
-        lbl = ctk.CTkLabel(rel_row, text="Relationships:")
-        lbl.pack(side="left", padx=(0, 10))
-
-        manage_btn = ctk.CTkButton(
-            rel_row,
-            text="Manage...",
-            command=self._show_relationship_dialog,
-            width=150,
+        self._insert_button_row(
+            frame,
+            ButtonRowSpec(
+                label="Relationships:",
+                button_text="Manage...",
+                command=self._relationship_dialogs.show,
+            ),
         )
-        manage_btn.pack(side="right")
 
     def _insert_encounter_members_button(self, frame: ctk.CTkFrame) -> None:
+        self._insert_button_row(
+            frame,
+            ButtonRowSpec(
+                label="Encounter Members:",
+                button_text="Manage...",
+                command=self._encounter_dialogs.show,
+            ),
+        )
+
+    def _insert_button_row(
+        self,
+        frame: ctk.CTkFrame,
+        spec: ButtonRowSpec,
+    ) -> None:
         row = ctk.CTkFrame(frame, fg_color="transparent")
         row.pack(fill="x", pady=5, padx=10)
-
-        lbl = ctk.CTkLabel(row, text="Encounter Members:")
+        lbl = ctk.CTkLabel(row, text=spec.label)
         lbl.pack(side="left", padx=(0, 10))
-
-        manage_btn = ctk.CTkButton(
+        ctk.CTkButton(
             row,
-            text="Manage...",
-            command=self._show_encounter_members_dialog,
-            width=150,
-        )
-        manage_btn.pack(side="right")
+            text=spec.button_text,
+            command=spec.command,
+            width=spec.width,
+        ).pack(side="right")
 
     def _insert_faction_field(self, frame: ctk.CTkFrame) -> ctk.CTkComboBox:
         row = ctk.CTkFrame(frame, fg_color="transparent")
@@ -688,99 +889,188 @@ class TTRPGDataManager(ctk.CTk):
         self._faction_view_button = view_btn
         return combo
 
-    def _show_relationship_dialog(self) -> None:
-        key = self._current_record_key
-        if key is None or key[0] != "NPC":
-            messagebox.showwarning(
-                "Relationships",
-                "Select an NPC before managing relationships.",
-            )
-            return
-        npc_name = key[1]
-        campaign = self._current_campaign_name()
-        dialog = self._relationship_dialog
-        if dialog is not None and dialog.winfo_exists():
-            dialog.update_context(npc_name, campaign)
-            dialog.deiconify()
-            dialog.lift()
-            return
-        self._relationship_dialog = RelationshipDialog(self, npc_name, campaign)
-
     def on_relationship_dialog_close(self, dialog: RelationshipDialog) -> None:
         """Clear dialog tracking when the window is dismissed."""
-        if self._relationship_dialog is dialog:
-            self._relationship_dialog = None
-
-    def _refresh_relationship_dialog(self) -> None:
-        dialog = self._relationship_dialog
-        if dialog is None:
-            return
-        if not dialog.winfo_exists():
-            self._relationship_dialog = None
-            return
-        key = self._current_record_key
-        if key is None or key[0] != "NPC":
-            dialog.destroy()
-            self._relationship_dialog = None
-            return
-        dialog.update_context(key[1], self._current_campaign_name())
-
-    def _show_encounter_members_dialog(self) -> None:
-        key = self._current_record_key
-        if key is None or key[0] != "Encounter":
-            messagebox.showwarning(
-                "Encounter Members",
-                "Select an encounter before managing participants.",
-            )
-            return
-        try:
-            encounter_id = int(key[1])
-        except (TypeError, ValueError):
-            messagebox.showwarning(
-                "Encounter Members",
-                "Save the encounter before editing participants.",
-            )
-            return
-        campaign = self._current_campaign_name()
-        dialog = self._encounter_members_dialog
-        if dialog is not None and dialog.winfo_exists():
-            dialog.update_context(encounter_id, campaign)
-            dialog.deiconify()
-            dialog.lift()
-            return
-        self._encounter_members_dialog = EncounterMembersDialog(
-            self,
-            encounter_id,
-            campaign,
-        )
+        self._relationship_dialogs.clear(dialog)
 
     def on_encounter_members_dialog_close(
         self,
         dialog: EncounterMembersDialog,
     ) -> None:
         """Clear encounter dialog ref when closed."""
-        if self._encounter_members_dialog is dialog:
-            self._encounter_members_dialog = None
+        self._encounter_dialogs.clear(dialog)
 
-    def _refresh_encounter_members_dialog(self) -> None:
-        dialog = self._encounter_members_dialog
-        if dialog is None:
-            return
-        if not dialog.winfo_exists():
-            self._encounter_members_dialog = None
-            return
+    def _relationship_dialog_context(
+        self,
+        *,
+        silent: bool,
+    ) -> RelationshipDialogContext | None:
+        key = self._current_record_key
+        if key is None or key[0] != "NPC":
+            if not silent:
+                messagebox.showwarning(
+                    "Relationships",
+                    "Select an NPC before managing relationships.",
+                )
+            return None
+        return RelationshipDialogContext(
+            source_name=key[1],
+            campaign=self._current_campaign_name(),
+        )
+
+    def _build_relationship_dialog(
+        self,
+        context: RelationshipDialogContext,
+    ) -> RelationshipDialog:
+        return RelationshipDialog(
+            self,
+            context.source_name,
+            context.campaign,
+        )
+
+    def _encounter_dialog_context(
+        self,
+        *,
+        silent: bool,
+    ) -> EncounterDialogContext | None:
         key = self._current_record_key
         if key is None or key[0] != "Encounter":
-            dialog.destroy()
-            self._encounter_members_dialog = None
-            return
+            if not silent:
+                messagebox.showwarning(
+                    "Encounter Members",
+                    "Select an encounter before managing participants.",
+                )
+            return None
         try:
             encounter_id = int(key[1])
         except (TypeError, ValueError):
-            dialog.destroy()
-            self._encounter_members_dialog = None
-            return
-        dialog.update_context(encounter_id, self._current_campaign_name())
+            if not silent:
+                messagebox.showwarning(
+                    "Encounter Members",
+                    "Save the encounter before editing participants.",
+                )
+            return None
+        return EncounterDialogContext(
+            encounter_id=encounter_id,
+            campaign=self._current_campaign_name(),
+        )
+
+    def _build_encounter_dialog(
+        self,
+        context: EncounterDialogContext,
+    ) -> EncounterMembersDialog:
+        return EncounterMembersDialog(
+            self,
+            context.encounter_id,
+            context.campaign,
+        )
+
+    def _faction_dialog_context(
+        self,
+        *,
+        silent: bool,
+    ) -> FactionDialogContext | None:
+        context = self._pending_faction_context
+        if context is not None:
+            self._pending_faction_context = None
+            return context
+        if not silent:
+            messagebox.showerror("Faction", "Unable to open the faction dialog.")
+        return None
+
+    def _build_faction_dialog(
+        self,
+        context: FactionDialogContext,
+    ) -> FactionDialog:
+        def _wrapped_submit(name: str, description: str, notes: str) -> None:
+            try:
+                context.on_submit(name, description, notes)
+            finally:
+                dialog_ref = self._faction_dialogs.current_dialog()
+                if dialog_ref is not None:
+                    self._faction_dialogs.clear(dialog_ref)
+
+        def _wrapped_cancel() -> None:
+            try:
+                if context.on_cancel is not None:
+                    context.on_cancel()
+            finally:
+                dialog_ref = self._faction_dialogs.current_dialog()
+                if dialog_ref is not None:
+                    self._faction_dialogs.clear(dialog_ref)
+
+        return FactionDialog(
+            self,
+            context.initial_name,
+            context.campaign,
+            _wrapped_submit,
+            _wrapped_cancel,
+            **context.dialog_options,
+        )
+
+    def _update_faction_dialog(
+        self,
+        dialog: FactionDialog,
+        context: FactionDialogContext,
+    ) -> None:
+        dialog.update_context(
+            context.initial_name,
+            context.campaign,
+            dialog_options=context.dialog_options,
+        )
+        dialog.lift()
+        dialog.focus_force()
+
+    def _readme_dialog_context(
+        self,
+        *,
+        silent: bool,
+    ) -> ReadmeDialogContext | None:
+        context = self._pending_readme_context
+        if context is not None:
+            self._last_readme_context = context
+            self._pending_readme_context = None
+            return context
+        if self._last_readme_context is not None:
+            return self._last_readme_context
+        if not silent:
+            messagebox.showerror("README", "Unable to prepare README preview.")
+        return None
+
+    def _build_readme_window(
+        self,
+        context: ReadmeDialogContext,
+    ) -> HtmlPreviewWindow:
+        window_ref: HtmlPreviewWindow | None = None
+
+        def _on_close() -> None:
+            nonlocal window_ref
+            if window_ref is not None:
+                self._readme_dialogs.clear(window_ref)
+                window_ref = None
+
+        window_ref = HtmlPreviewWindow(
+            self,
+            title="Project README",
+            initial_html=context.html_output,
+            source_path=context.readme_path,
+            on_close=_on_close,
+        )
+        return window_ref
+
+    def _build_settings_dialog(self, _: bool) -> SettingsDialog:
+        def _handle_close(dialog: SettingsDialog) -> None:
+            self._settings_dialogs.clear(dialog)
+
+        return SettingsDialog(
+            self,
+            on_settings_saved=self._handle_settings_saved,
+            on_close=_handle_close,
+        )
+
+    def _update_settings_dialog(self, dialog: SettingsDialog, _: bool) -> None:
+        dialog.lift()
+        dialog.focus_force()
 
     def relationship_targets_for_campaign(
         self,
@@ -1091,8 +1381,8 @@ class TTRPGDataManager(ctk.CTk):
         self._update_faction_dropdown(campaign, clear_selection=clear_selection)
         if clear_selection:
             self._current_record_key = None
-        self._refresh_relationship_dialog()
-        self._refresh_encounter_members_dialog()
+        self._relationship_dialogs.refresh()
+        self._encounter_dialogs.refresh()
 
     def _maybe_prompt_sample_seed(self) -> None:
         if not self.logic.should_seed_sample_data():
@@ -1241,19 +1531,7 @@ class TTRPGDataManager(ctk.CTk):
 
     def show_settings_dialog(self) -> None:
         """Open the dynamic settings dialog, creating it on demand."""
-        if self._settings_dialog is not None and self._settings_dialog.winfo_exists():
-            self._settings_dialog.lift()
-            self._settings_dialog.focus_force()
-            return
-
-        def _on_close(_: SettingsDialog) -> None:
-            self._settings_dialog = None
-
-        self._settings_dialog = SettingsDialog(
-            self,
-            on_settings_saved=self._handle_settings_saved,
-            on_close=_on_close,
-        )
+        self._settings_dialogs.show()
 
     def _handle_settings_saved(self, _: dict[str, Any]) -> None:
         try:
@@ -1293,21 +1571,11 @@ class TTRPGDataManager(ctk.CTk):
         self._display_readme_html(stylized_html, readme_path)
 
     def _display_readme_html(self, html_output: str, readme_path: Path) -> None:
-        if self._readme_window is not None and self._readme_window.winfo_exists():
-            self._readme_window.load_content(html_output, readme_path)
-            self._readme_window.focus_force()
-            return
-
-        def _on_close() -> None:
-            self._readme_window = None
-
-        self._readme_window = HtmlPreviewWindow(
-            self,
-            title="Project README",
-            initial_html=html_output,
-            source_path=readme_path,
-            on_close=_on_close,
+        self._pending_readme_context = ReadmeDialogContext(
+            html_output=html_output,
+            readme_path=readme_path,
         )
+        self._readme_dialogs.show()
 
     def _readme_char_width(self) -> int:
         """Estimate max characters per line based on window width."""
@@ -1316,7 +1584,7 @@ class TTRPGDataManager(ctk.CTk):
             width_px = max(width_px, int(self.winfo_width()))
         except tk.TclError:
             width_px = 0
-        window = self._readme_window
+        window = self._readme_dialogs.current_dialog()
         if window is not None and window.winfo_exists():
             width_px = max(width_px, window.winfo_width())
         if width_px <= 0:
@@ -1413,8 +1681,8 @@ class TTRPGDataManager(ctk.CTk):
         self._pending_faction_for_new_record = None
         self._update_faction_view_state("")
         self._reset_current_record()
-        self._refresh_relationship_dialog()
-        self._refresh_encounter_members_dialog()
+        self._relationship_dialogs.refresh()
+        self._encounter_dialogs.refresh()
 
     def _handle_portrait_overlay_click(self) -> None:
         """Kick off portrait generation via the local image model."""
@@ -1475,7 +1743,11 @@ class TTRPGDataManager(ctk.CTk):
         species_value = ""
         if isinstance(species_widget, ctk.CTkComboBox):
             species_value = species_widget.get().strip()
-        descriptor = species_value or "NPC"
+        gender_widget = self._get_form_widget("NPC", "gender")
+        gender_value = self._widget_value(gender_widget) if gender_widget else ""
+        gender_descriptor = self._gender_descriptor(gender_value)
+        descriptor_bits = [bit for bit in (gender_descriptor, species_value) if bit]
+        descriptor = " ".join(descriptor_bits) if descriptor_bits else "NPC"
         dialog = LLMProgressDialog(self)
         dialog.update_status(f"Requesting a name for {descriptor}...", None)
 
@@ -1506,10 +1778,13 @@ class TTRPGDataManager(ctk.CTk):
         description = _value("description")
         alignment = _value("alignment_name")
         age = _value("age")
+        gender_value = _value("gender")
+        gender_descriptor = self._gender_descriptor(gender_value)
 
         descriptor_text = ", ".join(
             part
             for part in (
+                gender_descriptor,
                 f"{age}-year-old" if age else "",
                 alignment.lower() if alignment else "",
                 species,
@@ -1597,6 +1872,8 @@ class TTRPGDataManager(ctk.CTk):
                 "Unable to display the generated portrait.",
             )
             return
+        if self._current_record_key is not None:
+            self._remember_image_override()
         messagebox.showinfo(
             "Portrait Generator",
             "A new portrait has been loaded. Save the NPC to keep it.",
@@ -1848,6 +2125,23 @@ class TTRPGDataManager(ctk.CTk):
             return widget.get("1.0", tk.END).replace(SOFT_HYPHEN, "").strip()
         return widget.get().strip()
 
+    @staticmethod
+    def _stored_gender_value(value: str) -> str:
+        normalized = value.strip().upper()
+        return normalized or "UNSPECIFIED"
+
+    @staticmethod
+    def _gender_descriptor(value: str) -> str:
+        normalized = value.strip().upper()
+        if normalized in {"", "UNSPECIFIED"}:
+            return ""
+        mapping = {
+            "FEMALE": "female",
+            "MALE": "male",
+            "NONBINARY": "nonbinary",
+        }
+        return mapping.get(normalized, normalized.lower())
+
     def _get_spec_map(self, entry_type: str) -> dict[str, FieldSpec]:
         return {spec.key: spec for spec in self._form_specs.get(entry_type, ())}
 
@@ -1862,7 +2156,11 @@ class TTRPGDataManager(ctk.CTk):
                     text = text.replace(SOFT_HYPHEN, "")
                 values[key] = text.rstrip("\n")
             else:
-                values[key] = widget.get().strip()
+                raw_value = widget.get().strip()
+                if key == "gender":
+                    values[key] = self._stored_gender_value(raw_value)
+                else:
+                    values[key] = raw_value
         return values
 
     def _gather_new_entry_context(
@@ -1961,9 +2259,9 @@ class TTRPGDataManager(ctk.CTk):
         self._populate_form_from_instance(instance, entry_type)
         self._update_image_from_instance(entry_type, instance)
         if entry_type == "NPC":
-            self._refresh_relationship_dialog()
+            self._relationship_dialogs.refresh()
         elif entry_type == "Encounter":
-            self._refresh_encounter_members_dialog()
+            self._encounter_dialogs.refresh()
         self._update_navigation_state()
 
     def _populate_form_from_instance(
@@ -2000,6 +2298,13 @@ class TTRPGDataManager(ctk.CTk):
             text_value = json.dumps(value, indent=2)
         else:
             text_value = str(value)
+
+        if (
+            spec
+            and spec.key == "gender"
+            and text_value.strip().upper() == "UNSPECIFIED"
+        ):
+            text_value = ""
 
         if isinstance(widget, ctk.CTkTextbox):
             widget.delete("1.0", tk.END)
@@ -2235,8 +2540,8 @@ class TTRPGDataManager(ctk.CTk):
         self._search_index = -1
         self._results_entry_type = None
         self._update_navigation_state()
-        self._refresh_relationship_dialog()
-        self._refresh_encounter_members_dialog()
+        self._relationship_dialogs.refresh()
+        self._encounter_dialogs.refresh()
 
     def _update_navigation_state(self) -> None:
         left_state = "disabled"

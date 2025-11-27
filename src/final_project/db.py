@@ -287,6 +287,20 @@ class NPC(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[Varchar256] = mapped_column(String(256), index=True, unique=True)
     age: Mapped[SmallInt] = mapped_column(SMALLINT(unsigned=True))
+    gender: Mapped[Literal["FEMALE", "MALE", "NONBINARY", "UNSPECIFIED"]] = (
+        mapped_column(
+            Enum(
+                "FEMALE",
+                "MALE",
+                "NONBINARY",
+                "UNSPECIFIED",
+                name="gender_enum",
+            ),
+            nullable=False,
+            default="UNSPECIFIED",
+            server_default="UNSPECIFIED",
+        )
+    )
     alignment_name: Mapped[
         Literal[
             "LAWFUL GOOD",
@@ -564,6 +578,9 @@ def create_sample_npc(session: SessionType) -> NPC:
     image_blob = _read_image_bytes(image_path)
     description = str(sample["description"])
     age = int(sample["age"])
+    gender_value = (
+        str(sample.get("gender", "UNSPECIFIED")).strip().upper() or "UNSPECIFIED"
+    )
     campaign_data = cast(Mapping[str, Any], sample["campaign"])
     species_data = cast(Mapping[str, Any], sample["species"])
 
@@ -573,6 +590,7 @@ def create_sample_npc(session: SessionType) -> NPC:
         npc = NPC(
             name=npc_name,
             age=age,
+            gender=gender_value,
             alignment_name=alignment,
             description=description,
             image_blob=image_blob,
@@ -696,6 +714,9 @@ def _load_all_sample_npcs(session: SessionType) -> int:
         image_blob = _read_image_bytes(image_path)
         description = str(sample["description"])
         age = int(sample["age"])
+        gender_value = (
+            str(sample.get("gender", "UNSPECIFIED")).strip().upper() or "UNSPECIFIED"
+        )
         campaign_data = cast(Mapping[str, Any], sample["campaign"])
         species_data = cast(Mapping[str, Any], sample["species"])
         campaign = _campaign_from_data(session, campaign_data)
@@ -703,6 +724,7 @@ def _load_all_sample_npcs(session: SessionType) -> int:
         npc = NPC(
             name=npc_name,
             age=age,
+            gender=gender_value,
             alignment_name=alignment,
             description=description,
             image_blob=image_blob,

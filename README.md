@@ -15,7 +15,7 @@ The ERD is documented in `docs/prelimERD.uml` (PlantUML source) and rendered to 
 | Entity | Purpose | Key Relationships |
 | --- | --- | --- |
 | `Campaign` | Top-level container with `start_date` and `status`. | One-to-many with `Location`, `Encounter`, `Faction`, `NPC`. |
-| `NPC` | Core character record with alignment enum, portrait blob, species/campaign FK, and `abilities_json`. | Participates in `FactionMembers`, `EncounterParticipants`, and the `Relationship` self-join. |
+| `NPC` | Core character record with gender/alignment enums, a portrait blob, species/campaign FK, and `abilities_json`. | Participates in `FactionMembers`, `EncounterParticipants`, and the `Relationship` self-join. |
 | `Location` | Describes a place with a constrained `type` enum and optional image blob. | Linked to `Campaign` and `Encounter`. |
 | `Encounter` | Schedules story beats with date, description, reference imagery, and ties to a campaign and location. | Many-to-many with NPCs via `EncounterParticipants`. |
 | `Species`, `Faction` | Lookup tables with descriptive text/traits JSON for species and optional campaign scope for factions. | Feed into NPCs and faction membership. |

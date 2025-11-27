@@ -78,6 +78,56 @@ class DropdownSpec:
     config: dict[str, Any] = field(default_factory=_dict_str_any)
 
 
+class RadioField(ctk.CTkFrame):
+    """Group radio buttons together so they behave like a single entry widget."""
+
+    def __init__(
+        self,
+        master: ctk.CTkFrame,
+        *,
+        options: Sequence[tuple[str, str]],
+        empty_value: str = "UNSPECIFIED",
+        show_clear: bool = True,
+    ) -> None:
+        """Render all provided radio options plus an optional clear button."""
+        super().__init__(master, fg_color="transparent")
+        self._variable = tk.StringVar(value="")
+        self._empty_value = empty_value.strip().upper()
+        self._value_map = {value.strip().upper(): value.strip() for value, _ in options}
+        for value, label in options:
+            button = ctk.CTkRadioButton(
+                self,
+                text=label,
+                value=value,
+                variable=self._variable,
+                width=0,
+            )
+            button.pack(side="left", padx=(0, 10))
+        if show_clear and self._empty_value:
+            ctk.CTkButton(self, text="Clear", width=60, command=self.clear).pack(
+                side="left",
+                padx=(4, 0),
+            )
+
+    def get(self) -> str:
+        """Return the selected value in uppercase form."""
+        value = self._variable.get().strip()
+        return value.upper() if value else ""
+
+    def set(self, value: str) -> None:
+        """Select a matching radio button or clear the selection."""
+        normalized = (value or "").strip().upper()
+        mapped = self._value_map.get(normalized)
+        if mapped is None:
+            self._variable.set("")
+            return
+        self._variable.set(mapped)
+
+    def clear(self) -> None:
+        """Reset the control back to an unselected state."""
+        self._variable.set("")
+
+
 class AppMenuBar(ctk.CTkFrame):
     """A custom menu bar implementation."""
 

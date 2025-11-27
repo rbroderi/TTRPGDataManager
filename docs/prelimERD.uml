@@ -4,6 +4,7 @@ entity NPC {
   *  name : VARCHAR <<PK>>
   --
   age: UNSIGNED SMALLINT
+  gender : ENUM(\n\t'FEMALE', \n\t'MALE', \n\t'NONBINARY', \n\t'UNSPECIFIED')
   alignment_name : ENUM(\n\t'LAWFUL GOOD', \n\t'LAWFUL NEUTRAL', \n\t'LAWFUL EVIL', \n\t'NEUTRAL GOOD', \n\t'TRUE NEUTRAL', \n\t'NEUTRAL EVIL',\n\t'CHAOTIC GOOD',\n\t'CHAOTIC NEUTRAL', \n\t'CHAOTIC EVIL')
   description : TEXT
   portrait_image : MEDIUMBLOB
