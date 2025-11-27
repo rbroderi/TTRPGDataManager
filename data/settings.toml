@@ -23,3 +23,9 @@ text_server_poll_interval = 0.5
 text_request_timeout = 30.0
 text_max_attempts = 3
 name_parts = 2
+
+[Paths]
+config = "data/config.toml"
+sample_npc = "data/sample_npc.yaml"
+sample_locations = "data/sample_locations.yaml"
+sample_encounters = "data/sample_encounters.yaml"
