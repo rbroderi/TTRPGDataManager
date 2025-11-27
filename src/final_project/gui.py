@@ -69,7 +69,6 @@ logger = structlog.getLogger("final_project")
 SCRIPTROOT = Path(__file__).parent.resolve()
 PROJECT_ROOT = (SCRIPTROOT / ".." / ".." / "project").resolve() / ".."
 PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "img" / "placeholder.png"
-JSON_LEXER = get_lexer_by_name("json")
 SOFT_HYPHEN = "\u00ad"
 WORD_PATTERN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
 LOAD_PAUSE: Annotated[int, "ms"] = 2500
@@ -2568,7 +2567,7 @@ class TTRPGDataManager(ctk.CTk):
         widget.tag_config("json_punct", foreground="#FD971F")
 
         index = 0
-        for token_type, value in lex(content, JSON_LEXER):
+        for token_type, value in lex(content, get_lexer_by_name("json")):
             length = len(value)
             start = self._index_from_offset(widget, index)
             end = self._index_from_offset(widget, index + length)

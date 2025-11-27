@@ -70,6 +70,23 @@ def get_setting(group: str, key: str, fallback: Any = None) -> Any:
     return copy.deepcopy(grouped.get(key, fallback))
 
 
+def path_from_settings(
+    key: str,
+    *,
+    group: str = "Paths",
+    fallback: str | os.PathLike[str] | None = None,
+) -> Path:
+    """Return an absolute Path for the requested setting key."""
+    raw_value = get_setting(group, key, fallback=fallback)
+    if raw_value is None:
+        msg = f"Missing setting: {group}.{key}"
+        raise KeyError(msg)
+    path = Path(str(raw_value).strip())
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    return path
+
+
 def _get_cache() -> dict[str, Any]:
     cache = _STATE.cache
     if cache is None:
