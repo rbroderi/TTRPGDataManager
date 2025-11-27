@@ -151,3 +151,9 @@ docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint.isort]
 force-single-line = true
+
+[tool.pyproject.rules]
+project-unknown-keys = "warning"
+project-dependency-updates = { level = "hint" }
+project-dependencies-version-bounds = "off"
+project-requires-python-bounds = "off"

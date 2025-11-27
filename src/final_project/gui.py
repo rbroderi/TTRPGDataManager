@@ -122,6 +122,17 @@ class ReadmeDialogContext:
     readme_path: Path
 
 
+@dataclass(slots=True)
+class _ImageRequestContext:
+    """Describe an image generation request for the overlay icon."""
+
+    title: str
+    progress_message: str
+    empty_prompt_message: str
+    success_message: str
+    prompt_builder: Callable[[], str]
+
+
 class _ManagedDialog(Protocol):
     def winfo_exists(self) -> bool: ...
 
@@ -303,6 +314,7 @@ class TTRPGDataManager(ctk.CTk):
         self._field_overlay_icons: dict[str, list[RandomIcon]] = {}
         self._image_overlay_icon: RandomIcon | None = None
         self._image_generation_in_progress = False
+        self._active_image_request: _ImageRequestContext | None = None
         self.logic = DataLogic()
         self._hyphenator = pyphen.Pyphen(lang="en_US")
         self._search_results: list[Any] = []
@@ -488,7 +500,7 @@ class TTRPGDataManager(ctk.CTk):
     def _create_image_overlay_button(self) -> None:
         label = RandomIcon(
             self.left_frame,
-            command=self._handle_portrait_overlay_click,
+            command=self._handle_image_overlay_click,
         )
         label.place(
             in_=self.image_label,
@@ -1683,38 +1695,84 @@ class TTRPGDataManager(ctk.CTk):
         self._relationship_dialogs.refresh()
         self._encounter_dialogs.refresh()
 
-    def _handle_portrait_overlay_click(self) -> None:
-        """Kick off portrait generation via the local image model."""
+    def _handle_image_overlay_click(self) -> None:
+        """Kick off context-aware image generation via the local image model."""
         if self._image_generation_in_progress:
             messagebox.showinfo(
-                "Portrait Generator",
+                "Image Generator",
                 "An image request is already running. Please wait for it to finish.",
             )
             return
         entry_type = self._active_form or self.menubar.entry_type
-        if entry_type != "NPC":
+        context = self._resolve_image_request_context(entry_type)
+        if context is None:
             messagebox.showinfo(
-                "Portrait Generator",
-                "Switch to the NPC form to generate portraits automatically.",
+                "Image Generator",
+                (
+                    "Switch to the NPC, Location, or Encounter form to generate "
+                    "images automatically."
+                ),
             )
             return
-        prompt = self._build_portrait_prompt()
+        prompt = context.prompt_builder()
         if not prompt:
-            messagebox.showinfo(
-                "Portrait Generator",
-                "Add a name, species, or description before generating a portrait.",
-            )
+            messagebox.showinfo(context.title, context.empty_prompt_message)
             return
         dialog = LLMProgressDialog(self)
-        dialog.update_status("Requesting a new portrait...", None)
+        dialog.update_status(context.progress_message, None)
         self._image_generation_in_progress = True
+        self._active_image_request = context
         self._set_image_overlay_enabled(False)
         thread = threading.Thread(
-            target=self._generate_portrait_async,
+            target=self._generate_image_async,
             args=(prompt, dialog),
             daemon=True,
         )
         thread.start()
+
+    def _resolve_image_request_context(
+        self,
+        entry_type: str | None,
+    ) -> _ImageRequestContext | None:
+        if entry_type == "NPC":
+            return _ImageRequestContext(
+                title="Portrait Generator",
+                progress_message="Requesting a new portrait...",
+                empty_prompt_message=(
+                    "Add a name, species, or description before generating a portrait."
+                ),
+                success_message=(
+                    "A new portrait has been loaded. Save the NPC to keep it."
+                ),
+                prompt_builder=self._build_portrait_prompt,
+            )
+        if entry_type == "Location":
+            return _ImageRequestContext(
+                title="Location Generator",
+                progress_message="Composing a new location scene...",
+                empty_prompt_message=(
+                    "Add a name, type, or description before generating a location"
+                    " image."
+                ),
+                success_message=(
+                    "A new location image has been loaded. Save the location to keep"
+                    " it."
+                ),
+                prompt_builder=self._build_location_image_prompt,
+            )
+        if entry_type == "Encounter":
+            return _ImageRequestContext(
+                title="Battlemat Generator",
+                progress_message="Drafting an overhead battlemat...",
+                empty_prompt_message=(
+                    "Add a location or description before generating a battlemat."
+                ),
+                success_message=(
+                    "A new battlemat has been loaded. Save the encounter to keep it."
+                ),
+                prompt_builder=self._build_battlemat_prompt,
+            )
+        return None
 
     def _handle_npc_name_overlay_click(self) -> None:
         """Generate and populate a random NPC name via the local LLM."""
@@ -1808,7 +1866,77 @@ class TTRPGDataManager(ctk.CTk):
             return ""
         return prompt
 
-    def _generate_portrait_async(
+    def _build_location_image_prompt(self) -> str:
+        if (self._active_form or self.menubar.entry_type) != "Location":
+            return ""
+
+        def _value(field: str) -> str:
+            return self._form_value("Location", field)
+
+        name = _value("name")
+        location_type = _value("type")
+        description = _value("description")
+        campaign = self._current_campaign_name() or ""
+        if not any((name, location_type, description)):
+            return ""
+        descriptor_bits: list[str] = []
+        if location_type:
+            descriptor_bits.append(location_type.replace("_", " ").lower())
+        if campaign:
+            descriptor_bits.append(f"from the {campaign} campaign")
+        descriptor = ", ".join(bit for bit in descriptor_bits if bit)
+        subject = name or "a fantasy location"
+        prompt = f"Atmospheric fantasy location concept art of {subject}"
+        if descriptor:
+            prompt += f", {descriptor}"
+        prompt += (
+            ". sweeping vista; environmental concept art; cinematic lighting; "
+            "ultra detailed; 4k render."
+        )
+        if description:
+            collapsed = " ".join(description.split())
+            prompt += (
+                " Mood and lore details: "
+                f"{textwrap.shorten(collapsed, width=220, placeholder='...')}"
+            )
+        return prompt
+
+    def _build_battlemat_prompt(self) -> str:
+        if (self._active_form or self.menubar.entry_type) != "Encounter":
+            return ""
+
+        def _value(field: str) -> str:
+            return self._form_value("Encounter", field)
+
+        location_name = _value("location_name")
+        description = _value("description")
+        date_value = _value("date")
+        campaign = self._current_campaign_name() or ""
+        if not any((location_name, description)):
+            return ""
+        subject = location_name or "a fantasy encounter"
+        prompt = (
+            f"Top-down tactical battlemat for {subject}. "
+            "overhead view; 32x32 grid; richly textured terrain; clear movement "
+            "paths; fantasy tabletop RPG map; high-contrast lighting."
+        )
+        context_bits: list[str] = []
+        if campaign:
+            context_bits.append(f"campaign: {campaign}")
+        if date_value:
+            context_bits.append(f"date: {date_value}")
+        if context_bits:
+            prompt += f" Session context: {', '.join(context_bits)}."
+        if description:
+            collapsed = " ".join(description.split())
+            prompt += (
+                " Encounter description: "
+                f"{textwrap.shorten(collapsed, width=220, placeholder='...')}"
+            )
+        prompt += " Emphasize tactical readability and overhead perspective."
+        return prompt
+
+    def _generate_image_async(
         self,
         prompt: str,
         dialog: LLMProgressDialog,
@@ -1838,14 +1966,14 @@ class TTRPGDataManager(ctk.CTk):
             error_message = "Unexpected error while generating the portrait."
         self.after(
             0,
-            lambda: self._finalize_portrait_generation(
+            lambda: self._finalize_image_generation(
                 payload,
                 dialog,
                 error_message,
             ),
         )
 
-    def _finalize_portrait_generation(
+    def _finalize_image_generation(
         self,
         payload: bytes | None,
         dialog: LLMProgressDialog,
@@ -1856,27 +1984,32 @@ class TTRPGDataManager(ctk.CTk):
             dialog.close()
         self._image_generation_in_progress = False
         self._set_image_overlay_enabled(True)
+        context = self._active_image_request
+        self._active_image_request = None
+        title = context.title if context else "Image Generator"
+        success_message = (
+            context.success_message
+            if context
+            else "A new image has been loaded. Save the record to keep it."
+        )
         if error_message:
-            messagebox.showerror("Portrait Generator", error_message)
+            messagebox.showerror(title, error_message)
             return
         if not payload:
             messagebox.showwarning(
-                "Portrait Generator",
+                title,
                 "The image generator did not return any data.",
             )
             return
         if not self._load_preview_image(payload, mark_dirty=True):
             messagebox.showerror(
-                "Portrait Generator",
-                "Unable to display the generated portrait.",
+                title,
+                "Unable to display the generated image.",
             )
             return
         if self._current_record_key is not None:
             self._remember_image_override()
-        messagebox.showinfo(
-            "Portrait Generator",
-            "A new portrait has been loaded. Save the NPC to keep it.",
-        )
+        messagebox.showinfo(title, success_message)
 
     def _generate_name_async(
         self,
@@ -2123,6 +2256,12 @@ class TTRPGDataManager(ctk.CTk):
         if isinstance(widget, ctk.CTkTextbox):
             return widget.get("1.0", tk.END).replace(SOFT_HYPHEN, "").strip()
         return widget.get().strip()
+
+    def _form_value(self, entry_type: str, field_key: str) -> str:
+        widget = self._get_form_widget(entry_type, field_key)
+        if widget is None:
+            return ""
+        return self._widget_value(widget)
 
     @staticmethod
     def _stored_gender_value(value: str) -> str:
