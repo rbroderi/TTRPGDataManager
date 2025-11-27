@@ -176,6 +176,7 @@ class _ServerRuntime:
                 )
                 return
             text_model_path = _resolve_text_model_path(None)
+            seed = int.from_bytes(os.urandom(4), "big") % 2_147_483_647
             args = [
                 str(_text_llm_config.text_binary),
                 "--server",
@@ -186,6 +187,8 @@ class _ServerRuntime:
                 "999",
                 "--gpu",
                 "auto",
+                "--seed",
+                f"{seed}",
                 "-l",
                 f"{_text_llm_config.text_server_host}:{_text_llm_config.text_server_port!s}",
             ]
@@ -398,6 +401,15 @@ def _allocate_image_output_path() -> Path:
         return Path(handle.name)
 
 
+def _wait_for_file(path: Path, *, timeout: float) -> bool:
+    deadline = time.monotonic() + max(0.0, timeout)
+    while time.monotonic() < deadline:
+        if path.exists():
+            return True
+        time.sleep(0.1)
+    return path.exists()
+
+
 def _run_sdfile_cli(
     command: Sequence[str],
     progress_callback: ProgressCallback | None,
@@ -510,7 +522,7 @@ def call_local_image_llm(  # noqa: PLR0913
     if extra_args:
         command.extend(list(extra_args))
     _run_sdfile_cli(command, progress_callback)
-    if not resolved_output.exists():
+    if not _wait_for_file(resolved_output, timeout=30):
         logger.error(
             "sdfile completed without producing an image",
             path=str(resolved_output),
@@ -536,6 +548,8 @@ def generate_portrait_from_image_llm(  # noqa: PLR0913
     cleanup: bool = True,
 ) -> bytes:
     """Generate a portrait image via sdfile and return PNG bytes."""
+    if seed < 0:
+        seed = int.from_bytes(os.urandom(4), "big") % 2_147_483_647
     resolved_output = call_local_image_llm(
         prompt,
         model_path=model_path,
