@@ -28,10 +28,8 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     import contextlib
     import json
     import os
-    import secrets
     import sys
     import tomllib
-    from collections.abc import Callable
     from collections.abc import Mapping
     from collections.abc import Sequence
     from datetime import date as dtdate
@@ -244,10 +242,30 @@ class Campaign(Base):
         )
     )
 
-    locations = relationship("Location", back_populates="campaign")
-    encounters = relationship("Encounter", back_populates="campaign")
-    factions = relationship("Faction", back_populates="campaign")
-    npcs = relationship("NPC", back_populates="campaign")
+    locations = relationship(
+        "Location",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    encounters = relationship(
+        "Encounter",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    factions = relationship(
+        "Faction",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    npcs = relationship(
+        "NPC",
+        back_populates="campaign",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 @beartype
@@ -264,11 +282,20 @@ class Location(Base):
     image_blob: Mapped[bytes | None] = mapped_column(LongBlob, nullable=True)
     campaign_name: Mapped[Varchar256] = mapped_column(
         String(256),
-        ForeignKey("campaign.name"),
+        ForeignKey(
+            "campaign.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
     )
 
     campaign = relationship("Campaign", back_populates="locations")
-    encounters = relationship("Encounter", back_populates="location")
+    encounters = relationship(
+        "Encounter",
+        back_populates="location",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 @beartype
@@ -279,11 +306,19 @@ class Encounter(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     campaign_name: Mapped[Varchar256] = mapped_column(
         String(256),
-        ForeignKey("campaign.name"),
+        ForeignKey(
+            "campaign.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
     )
     location_name: Mapped[Varchar256] = mapped_column(
         String(256),
-        ForeignKey("location.name"),
+        ForeignKey(
+            "location.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
     )
     date: Mapped[dtdate] = mapped_column(nullable=True)
     description: Mapped[str] = mapped_column(Text)
@@ -291,7 +326,12 @@ class Encounter(Base):
 
     campaign = relationship("Campaign", back_populates="encounters")
     location = relationship("Location", back_populates="encounters")
-    participants = relationship("EncounterParticipants", back_populates="encounter")
+    participants = relationship(
+        "EncounterParticipants",
+        back_populates="encounter",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 @beartype
@@ -346,23 +386,42 @@ class NPC(Base):
     image_blob: Mapped[bytes | None] = mapped_column(LongBlob, nullable=True)
     species_name: Mapped[Varchar256] = mapped_column(
         String(256),
-        ForeignKey("species.name"),
+        ForeignKey(
+            "species.name",
+            onupdate="CASCADE",
+            ondelete="RESTRICT",
+        ),
     )
     campaign_name: Mapped[Varchar256] = mapped_column(
         String(256),
-        ForeignKey("campaign.name"),
+        ForeignKey(
+            "campaign.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
     )
     abilities_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=True)
 
     campaign = relationship("Campaign", back_populates="npcs")
     species = relationship("Species", back_populates="npcs")
-    factions = relationship("FactionMembers", back_populates="npc")
-    encounters = relationship("EncounterParticipants", back_populates="npc")
+    factions = relationship(
+        "FactionMembers",
+        back_populates="npc",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    encounters = relationship(
+        "EncounterParticipants",
+        back_populates="npc",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     relationships = relationship(
         "Relationship",
         foreign_keys="[Relationship.npc_name_1]",
         back_populates="origin",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
 
@@ -386,12 +445,21 @@ class Faction(Base):
     description: Mapped[str] = mapped_column(Text, nullable=True)
     campaign_name: Mapped[Varchar256] = mapped_column(
         String(256),
-        ForeignKey("campaign.name"),
+        ForeignKey(
+            "campaign.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
         nullable=True,
     )
 
     campaign = relationship("Campaign", back_populates="factions")
-    members = relationship("FactionMembers", back_populates="faction")
+    members = relationship(
+        "FactionMembers",
+        back_populates="faction",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 # --- Join Tables ---
@@ -404,18 +472,26 @@ class FactionMembers(Base):
     __tablename__ = "faction_members"
     faction_name: Mapped[Varchar256] = mapped_column(
         String(256),
-        ForeignKey("faction.name"),
+        ForeignKey(
+            "faction.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
         primary_key=True,
     )
     npc_name: Mapped[Varchar256] = mapped_column(
         String(256),
-        ForeignKey("npc.name"),
+        ForeignKey(
+            "npc.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
         primary_key=True,
     )
     notes: Mapped[str] = mapped_column(Text)
 
-    faction = relationship("Faction", back_populates="members")
-    npc = relationship("NPC", back_populates="factions")
+    faction = relationship("Faction", back_populates="members", passive_deletes=True)
+    npc = relationship("NPC", back_populates="factions", passive_deletes=True)
 
 
 @beartype
@@ -425,17 +501,33 @@ class EncounterParticipants(Base):
     __tablename__ = "encounter_participants"
     npc_name: Mapped[Varchar256] = mapped_column(
         String(256),
-        ForeignKey("npc.name"),
+        ForeignKey(
+            "npc.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
         primary_key=True,
     )
     encounter_id: Mapped[int] = mapped_column(
-        ForeignKey("encounter.id"),
+        ForeignKey(
+            "encounter.id",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
         primary_key=True,
     )
     notes: Mapped[str] = mapped_column(Text)
 
-    npc = relationship("NPC", back_populates="encounters")
-    encounter = relationship("Encounter", back_populates="participants")
+    npc = relationship(
+        "NPC",
+        back_populates="encounters",
+        passive_deletes=True,
+    )
+    encounter = relationship(
+        "Encounter",
+        back_populates="participants",
+        passive_deletes=True,
+    )
 
 
 @beartype
@@ -445,12 +537,20 @@ class Relationship(Base):
     __tablename__ = "relationship"
     npc_name_1: Mapped[Varchar256] = mapped_column(
         String(256),
-        ForeignKey("npc.name"),
+        ForeignKey(
+            "npc.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
         primary_key=True,
     )
     npc_name_2: Mapped[Varchar256] = mapped_column(
         String(256),
-        ForeignKey("npc.name"),
+        ForeignKey(
+            "npc.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
         primary_key=True,
     )
     name: Mapped[Varchar256] = mapped_column(String(256))
@@ -464,38 +564,12 @@ class Relationship(Base):
         "NPC",
         foreign_keys=[npc_name_2],
         back_populates="relationships",
+        passive_deletes=True,
     )
 
 
 def _entry_name(entry: Mapping[str, Any]) -> str:
     return str(entry.get("name", "")).strip()
-
-
-def _entry_description(entry: Mapping[str, Any]) -> str:
-    return str(entry.get("description", "")).strip()
-
-
-def _pick_sample_entry(
-    session: SessionType,
-    samples: list[dict[str, Any]],
-    column: Any,
-    identifier: Callable[[Mapping[str, Any]], str],
-    label: str,
-) -> tuple[dict[str, Any], str]:
-    existing_rows = session.query(column).all()
-    existing_values = {value for (value,) in existing_rows}
-    available: list[dict[str, Any]] = [
-        entry
-        for entry in samples
-        if (identifier_value := identifier(entry))
-        and identifier_value not in existing_values
-    ]
-    chosen = secrets.choice(available or samples)
-    identifier_value = identifier(chosen)
-    if not identifier_value:
-        msg = f"Sample {label} entry missing a valid identifier."
-        raise RuntimeError(msg)
-    return chosen, identifier_value
 
 
 def _campaign_from_data(
@@ -567,149 +641,6 @@ def _location_from_data(
     )
     session.add(location)
     return location
-
-
-@beartype
-def create_sample_npc(session: SessionType) -> NPC:
-    """Load one sample NPC definition and persist it to the database."""
-    samples = _load_sample_data(SAMPLE_NPC_PATH, "sample npc")
-    if not samples:
-        msg = "No sample NPC definitions found in sample_npc.yaml."
-        raise RuntimeError(msg)
-
-    engine = session.get_bind() or connect()
-    Base.metadata.create_all(engine)
-
-    sample, npc_name = _pick_sample_entry(
-        session,
-        samples,
-        NPC.name,
-        _entry_name,
-        "npc",
-    )
-    alignment = str(sample["alignment_name"]).upper()
-    abilities = {str(k): v for k, v in dict(sample["abilities"]).items()}
-    image_path = _coerce_optional_path(sample.get("image_path"))
-    image_blob = _read_image_bytes(image_path)
-    description = str(sample["description"])
-    age = int(sample["age"])
-    gender_value = (
-        str(sample.get("gender", "UNSPECIFIED")).strip().upper() or "UNSPECIFIED"
-    )
-    campaign_data = cast(Mapping[str, Any], sample["campaign"])
-    species_data = cast(Mapping[str, Any], sample["species"])
-
-    try:
-        campaign = _campaign_from_data(session, campaign_data)
-        species = _species_from_data(session, species_data)
-        npc = NPC(
-            name=npc_name,
-            age=age,
-            gender=gender_value,
-            alignment_name=alignment,
-            description=description,
-            image_blob=image_blob,
-            species=species,
-            campaign=campaign,
-            abilities_json=abilities,
-        )
-        session.add(npc)
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-
-    print(f"Created NPC {npc.name} in campaign {npc.campaign_name}")
-    return npc
-
-
-@beartype
-def create_sample_location(session: SessionType) -> Location:
-    """Load one sample location definition and persist it to the database."""
-    samples = _load_sample_data(SAMPLE_LOCATION_PATH, "sample location")
-    if not samples:
-        msg = "No sample location definitions found in sample_locations.yaml."
-        raise RuntimeError(msg)
-
-    engine = session.get_bind() or connect()
-    Base.metadata.create_all(engine)
-
-    sample, _ = _pick_sample_entry(
-        session,
-        samples,
-        Location.name,
-        _entry_name,
-        "location",
-    )
-
-    try:
-        campaign = _campaign_from_data(
-            session,
-            cast(Mapping[str, Any], sample["campaign"]),
-        )
-        location = _location_from_data(session, sample, campaign)
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-
-    print(f"Created location {location.name} in campaign {location.campaign_name}")
-    return location
-
-
-@beartype
-def create_sample_encounter(session: SessionType) -> Encounter:
-    """Load one sample encounter definition and persist it to the database."""
-    samples = _load_sample_data(SAMPLE_ENCOUNTER_PATH, "sample encounter")
-    if not samples:
-        msg = "No sample encounter definitions found in sample_encounters.yaml."
-        raise RuntimeError(msg)
-
-    engine = session.get_bind() or connect()
-    Base.metadata.create_all(engine)
-
-    sample, _ = _pick_sample_entry(
-        session,
-        samples,
-        Encounter.description,
-        _entry_description,
-        "encounter",
-    )
-    description = str(sample["description"])
-    date_value = dtdate.fromisoformat(str(sample["date"]))
-    image_path = _coerce_optional_path(sample.get("image_path"))
-    image_blob = _read_image_bytes(image_path)
-    location_payload = cast(Mapping[str, Any], sample["location"])
-
-    try:
-        campaign = _campaign_from_data(
-            session,
-            cast(Mapping[str, Any], sample["campaign"]),
-        )
-        location = _location_from_data(session, location_payload, campaign)
-        encounter = Encounter(
-            campaign=campaign,
-            location=location,
-            date=date_value,
-            description=description,
-            image_blob=image_blob,
-        )
-        session.add(encounter)
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-
-    print(
-        f"Created encounter {encounter.id} in campaign {encounter.campaign_name}",
-    )
-    return encounter
 
 
 def _load_all_sample_npcs(session: SessionType) -> int:

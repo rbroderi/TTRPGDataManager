@@ -7,9 +7,6 @@ from lazi.core import lazi
 
 from final_project import patch
 from final_project.db import apply_external_schema_with_connector
-from final_project.db import create_sample_encounter
-from final_project.db import create_sample_location
-from final_project.db import create_sample_npc
 from final_project.db import list_all_npcs
 from final_project.db import setup_database
 from final_project.gui import init as launch_gui
@@ -144,21 +141,6 @@ def _setup_arguments() -> argparse.Namespace:
         help="Print all NPCs currently stored in the database.",
     )
     db_group.add_argument(
-        "--create-example-npc",
-        action="store_true",
-        help="Insert a sample NPC record using bundled fixtures.",
-    )
-    db_group.add_argument(
-        "--create-example-location",
-        action="store_true",
-        help="Insert a sample location record using bundled fixtures.",
-    )
-    db_group.add_argument(
-        "--create-example-encounter",
-        action="store_true",
-        help="Insert a sample encounter record using bundled fixtures.",
-    )
-    db_group.add_argument(
         "--load-ddl-at-startup",
         "-d",
         action="store_true",
@@ -184,9 +166,6 @@ def _handle_db_actions(args: argparse.Namespace) -> bool:
         (
             args.rebuild,
             args.list_npcs,
-            args.create_example_npc,
-            args.create_example_location,
-            args.create_example_encounter,
         ),
     )
     if not actions_requested:
@@ -198,12 +177,6 @@ def _handle_db_actions(args: argparse.Namespace) -> bool:
     )
     if args.list_npcs:
         list_all_npcs(session_factory())
-    if args.create_example_npc:
-        create_sample_npc(session_factory())
-    if args.create_example_location:
-        create_sample_location(session_factory())
-    if args.create_example_encounter:
-        create_sample_encounter(session_factory())
     logger.info("database maintenance actions completed")
     return True
 
