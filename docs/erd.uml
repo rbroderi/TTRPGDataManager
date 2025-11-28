@@ -1,0 +1,92 @@
+@startuml prelimERD
+
+entity NPC {
+  *id : INT <<PK>>
+  --
+  name : VARCHAR <<UNIQUE>>
+  age : SMALLINT UNSIGNED
+  gender : ENUM(\n\t'FEMALE', \n\t'MALE', \n\t'NONBINARY', \n\t'UNSPECIFIED')
+  alignment_name : ENUM(\n\t'LAWFUL GOOD', \n\t'LAWFUL NEUTRAL', \n\t'LAWFUL EVIL', \n\t'NEUTRAL GOOD', \n\t'TRUE NEUTRAL', \n\t'NEUTRAL EVIL',\n\t'CHAOTIC GOOD',\n\t'CHAOTIC NEUTRAL', \n\t'CHAOTIC EVIL')
+  description : TEXT
+  image_blob : LONGBLOB
+  species_name : VARCHAR <<FK>>
+  campaign_name : VARCHAR <<FK>>
+  abilities_json : JSON
+}
+
+entity Species {
+  *name : VARCHAR <<PK>>
+  --
+  traits_json : TEXT
+}
+
+entity Faction {
+  *name : VARCHAR <<PK>>
+  --
+  description : TEXT
+  campaign_name : VARCHAR <<FK>>
+}
+
+entity FactionMembers {
+  *faction_name : VARCHAR <<PK,FK>>
+  *npc_name : VARCHAR <<PK,FK>>
+  --
+  notes : TEXT
+}
+
+entity Location {
+  *id : INT <<PK>>
+  --
+  name : VARCHAR <<UNIQUE>>
+  type : ENUM(\n\t'DUNGEON', \n\t'WILDERNESS', \n\t'TOWN', \n\t'INTERIOR')
+  description : TEXT
+  image_blob : LONGBLOB
+  campaign_name : VARCHAR <<FK>>
+}
+
+entity Campaign {
+  *name : VARCHAR <<PK>>
+  --
+  start_date : DATE
+  status : ENUM(\n\t'ACTIVE', \n\t'ONHOLD', \n\t'COMPLETED', \n\t'CANCELED')
+}
+
+entity Relationship {
+  *npc_name_1 : VARCHAR <<PK,FK>>
+  *npc_name_2 : VARCHAR <<PK,FK>>
+  --
+  name : VARCHAR
+}
+
+entity Encounter {
+  *id : INT <<PK>>
+  --
+  campaign_name : VARCHAR <<FK>>
+  location_name : VARCHAR <<FK>>
+  date : DATE
+  description : TEXT
+  image_blob : LONGBLOB
+}
+
+entity EncounterParticipants {
+  *encounter_id : INT <<PK,FK>>
+  *npc_name : VARCHAR <<PK,FK>>
+  --
+  notes : TEXT
+}
+
+' Relationships
+Species "1" <-- "N" NPC : species_name
+Campaign "1" <-- "N" NPC : campaign_name
+Campaign "1" <-- "N" Location : campaign_name
+Campaign "1" <-- "N" Faction : campaign_name
+Campaign "1" <-- "N" Encounter : campaign_name
+Location "1" <-- "N" Encounter : location_name
+NPC "1" <-- "N" FactionMembers : npc_name
+Faction "1" <-- "N" FactionMembers : faction_name
+Encounter "1" <-- "N" EncounterParticipants : encounter_id
+NPC "1" <-- "N" EncounterParticipants : npc_name
+NPC "1" <-- "N" Relationship : npc_name_1
+NPC "1" <-- "N" Relationship : npc_name_2
+
+@enduml

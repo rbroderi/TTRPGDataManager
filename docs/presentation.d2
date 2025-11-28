@@ -1,0 +1,79 @@
+text: |md
+	# Problem & Users
+
+	## Pain Points
+	- Campaign notes splintered across docs, spreadsheets, and ad-hoc images make session prep slow.
+	- GM teams lack a shared source of truth for NPC traits, locations, factions, and ongoing encounters.
+
+	## Target Users
+	- Lead GM:
+	- Story Teller:
+	- They performs CRUD inside the GUI, adds portraits, relationships, and faction notes.
+|
+
+layers: {
+	1: {
+		text: |md
+			# Data Model (ERD)
+
+			- Campaign is the root; every NPC, Location, Encounter, and Faction points back via FK.
+			- Join tables capture many-to-many edges:
+				- `faction_members` maps factions ↔ NPCs with notes.
+				- `encounter_participants` maps encounters ↔ NPCs with per-session notes.
+				- `relationship` is a self-join storing NPC-to-NPC ties.
+			- Enums (gender, alignment, location type, campaign status) enforce consistent vocabulary.
+			- Diagram exported from `docs/prelimERD.uml` → `docs/images/erd.png`.
+		|
+	}
+	2: {
+		text: |md
+			# Key Schema Highlights
+
+			- **Primary Keys:** surrogate `INT AUTO_INCREMENT` on core tables; composite PKs on join tables to prevent duplicates.
+			- **Foreign Keys:** all relationships declared explicitly in `data/db.ddl`; no implicit cascades.
+			- **Controlled Cascades:** destructive flows (delete campaign, reassign faction) handled via SQLAlchemy helpers for deterministic behavior.
+			- **Validation:** enums + JSON columns + beartype/mypy provide both DB- and app-level guarantees.
+		|
+	}
+	3: {
+		text: |md
+			# Live Demo (Forms)
+
+			1. Launch GUI → select campaign in menu bar.
+			2. NPC form: fill identity, alignment, upload portrait → Save.
+			3. Faction drawer: assign NPC to faction; observe instant list refresh.
+			4. Encounter form: choose location/date, attach art, then open Participants dialog to add the NPC with GM notes.
+		|
+	}
+	4: {
+		text: |md
+			# Live Demo (JOIN Report)
+
+			- Use the Encounter detail pane to show combined view:
+				- Encounter metadata + linked location + campaign status.
+				- Participant table = JOIN of `encounter_participants`, `npc`, and `faction_members`.
+			- Show how edits in the NPC form immediately surface in the report (name, faction notes, portrait thumbnail).
+			- Optional CLI proof: run `python -m final_project.main --list-npcs` to dump rows confirming the GUI changes.
+		|
+	}
+	5: {
+		text: |md
+			# Architecture
+
+			- **UI Layer:** CustomTkinter (`gui.py`, `widgets.py`) + async helpers for LLM dialogs.
+			- **Logic Layer:** `logic.py` / `llmrunner.py` orchestrate validation, data binding, and background tasks.
+			- **Data Layer:** `db.py` centralizes SQLAlchemy models, DDL loaders (SQLAlchemy + mysql-connector), and fixture importers.
+			- **Tooling:** `uv` for deps, `structlog` for JSON logs, `ruff/mypy/pyright` for static guarantees.
+		|
+	}
+	6: {
+		text: |md
+			# Lessons Learned
+
+			- Keep DDL checked in (`data/db.ddl`) so graders can reproduce schema without ORM migrations.
+			- Optional dependencies (mysql-connector) should be gated behind CLI flags to avoid shipping cost to regular users.
+			- Manual cascade helpers give predictable deletes across dev/prod even when DB engines differ.
+			- Automate screenshots + sample data so demos stay deterministic.
+		|
+	}
+}

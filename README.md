@@ -1,77 +1,53 @@
 # TTRPG Data Manager
 
-A desktop-first toolkit for Game Masters who need to curate tabletop RPG campaigns, NPCs, encounters, and related lore. The application pairs a CustomTkinter user interface with a SQLAlchemy-powered MySQL backend, optional local LLM helpers, and a fully typed Python 3.13 codebase.
+A desktop-first toolkit for Game Masters and Lore Keepers who curate tabletop RPG campaigns, player factions, NPC rosters, and set-piece encounters. The application pairs a CustomTkinter interface with SQLAlchemy models, a MySQL backend, and optional local LLM aides for fast world-building.
 
-## Project Overview
-- Full-stack stack: `src/final_project/gui.py` renders the CustomTkinter UI, `logic.py` handles validation/state, and `db.py` encapsulates SQLAlchemy models plus all persistence helpers.
-- Features: NPC/location/encounter editors, campaign-aware filtering, faction membership, NPC-to-NPC relationships, encounter participant tracking, portrait uploads, and an asynchronous local-LLM name generator (`llmrunner.py`).
-- Sample YAML fixtures under `data/` plus a color theme (`data/sun_valleyish.json`) let the app boot with meaningful content and branding out of the box.
-- Observability: `structlog` emits JSON logs, `rich` renders CLI output, and `lazi` keep startup costs low by deferring optional imports until they are needed.
-- Tooling: `pyproject.toml` targets Python 3.13, uses `uv` for dependency resolution, and defines extras for dev, windows, and optimized MySQL client builds.
+## 1. Project Overview
+- **Purpose:** give Game Masters (primary users) and optionally Assistant Storytellers a single control panel for CRUD workflows around campaigns, NPCs, locations, encounters, factions, and relationships.
+- **Main features:** campaign switching, NPC/location/encounter editors with portrait/image uploads, faction membership management, NPC relationship graphs, encounter participant tracking, YAML-driven sample data seeding, and opt-in LLM utilities for naming.
+- **User roles:**
+  - *Lead GM:* owns campaign setup, schema maintenance flags, and high-risk destructive actions (rebuild, delete campaign).
+  - *Assistant GM/Homebrew Author:* focuses on day-to-day CRUD (NPCs, encounters, factions) using the GUI forms.
+- **Architecture highlights:** `gui.py` renders CustomTkinter widgets, `logic.py` houses form validation and orchestration, while `db.py` centralizes SQLAlchemy models plus MySQL connector helpers. Observability relies on `structlog` JSON logs and `rich` CLI rendering.
 
-## Data Model & ERD
-The ERD is documented in `docs/prelimERD.uml` (PlantUML source) and rendered to `docs/prelimERD-eps-converted-to.pdf`. The schema centers around the following tables:
-
-| Entity | Purpose | Key Relationships |
-| --- | --- | --- |
-| `Campaign` | Top-level container with `start_date` and `status`. | One-to-many with `Location`, `Encounter`, `Faction`, `NPC`. |
-| `NPC` | Core character record with gender/alignment enums, a portrait blob, species/campaign FK, and `abilities_json`. | Participates in `FactionMembers`, `EncounterParticipants`, and the `Relationship` self-join. |
-| `Location` | Describes a place with a constrained `type` enum and optional image blob. | Linked to `Campaign` and `Encounter`. |
-| `Encounter` | Schedules story beats with date, description, reference imagery, and ties to a campaign and location. | Many-to-many with NPCs via `EncounterParticipants`. |
-| `Species`, `Faction` | Lookup tables with descriptive text/traits JSON for species and optional campaign scope for factions. | Feed into NPCs and faction membership. |
-| `FactionMembers`, `EncounterParticipants`, `Relationship` | Join tables that enforce composite PKs and cascade semantics handled manually in `db.delete_campaign`. | Provide many-to-many mappings with additional metadata (`notes`, relation `name`). |
+## 2. Entity-Relationship Model
+The ERD is authored in `docs/prelimERD.uml` (PlantUML) and exported to `docs/images/erd.png`:
 
 ![ERD Diagram](docs/images/erd.png)
 
-## Schema & DDL Automation (`src/final_project/db.py`)
-- Configuration comes from `config.toml` plus secrets in `.env` (`DB_USERNAME`, `DB_PASSWORD`). `DBConfig` (Pydantic) validates inputs before building a SQLAlchemy `URL` for `mysql+mysqlconnector`.
-- `setup_database()` calls `Base.metadata.drop_all()` when `--rebuild` is passed and always follows with `create_all()`, ensuring migrations are reproducible even on a blank instance.
-- Images live in LONGBLOB columns (`LongBlob = LargeBinary(length=(2**32) - 1)`), while ability blocks and species traits are stored as JSON/TEXT, keeping the schema flexible for narrative data.
-- Helper functions (`create_sample_npc`, `create_sample_location`, `create_sample_encounter`, `load_all_sample_data`) translate YAML fixtures into consistent rows, deduplicate by key columns, and gracefully handle missing files.
-- Manual cascade helpers (`delete_campaign`, `assign_faction_member`, `delete_encounter_participant`, `save_relationship`, etc.) ensure referential integrity without relying on database-level cascade deletes, which keeps behavior consistent across local MySQL and CI setups.
+**Narrative:**
+- `Campaign` anchors every data domain; its one-to-many edges to `NPC`, `Location`, `Encounter`, and `Faction` keep each storyline isolated.
+- `NPC` holds portrait blobs, enum attributes (gender, alignment), and references both `Species` and `Campaign`. It connects to `FactionMembers`, `EncounterParticipants`, and a self-referencing `Relationship` table—capturing social ties.
+- `Location` records site metadata (enum-based `type`, optional imagery) and feeds each `Encounter` via a mandatory FK. The resulting Campaign→Location→Encounter path encodes “campaign contains locations and their encounters.”
+- Join tables (`FactionMembers`, `EncounterParticipants`, `Relationship`) enforce composite PKs so every combination stays unique. Their crow’s-foot cardinalities make the many-to-many relationships explicit: a faction has many NPCs, an NPC can belong to many factions; an encounter involves many NPCs, an NPC can appear in many encounters.
 
-```python
-class NPC(Base):  # src/final_project/db.py
-    __tablename__ = "npc"
-    id = mapped_column(primary_key=True, autoincrement=True)
-    name = mapped_column(String(256), unique=True, index=True)
-    alignment_name = mapped_column(Enum(*ALIGNMENTS, name="alignment_enum"))
-    abilities_json = mapped_column(JSON, nullable=True)
-    image_blob = mapped_column(LongBlob, nullable=True)
-```
+## 3. DDL & Schema Management
+- **Source of truth:** `data/db.ddl` mirrors the SQLAlchemy metadata. `db.apply_external_schema()` loads it at startup (SQLAlchemy engine) while `apply_external_schema_with_connector()` uses `mysql-connector-python` when graders pass `-d/--load-ddl-at-startup`.
+- **Structure:** every table declares explicit PKs, FKs, and enumerated columns. Unique keys such as `ix_npc_name` and `ix_location_name` are defined inline, ensuring MySQL 8 compatibility without `CREATE INDEX ... IF NOT EXISTS` syntax.
+- **Referential constraints:**
+  - Foreign keys link `npc.campaign_name` → `campaign.name`, `faction_members.npc_name` → `npc.name`, etc.
+  - Cascades are now explicit in the DDL/ORM: campaign-linked tables (`location`, `npc`, `encounter`, `faction`, join tables) cascade on update/delete, join tables cascade in both directions, and `species` stays `ON DELETE RESTRICT` to guard taxonomy edits. The database enforces the same rules described in the GUI delete flows.
+- **Checks and enumerations:** enumerated types (gender, alignment, location type, campaign status) provide server-side validation. Additional business rules (non-empty names, valid image paths) are handled in the GUI/logic layer before hitting the database.
+- **Location of credentials:** `.env` supplies `DB_USERNAME` and `DB_PASSWORD`; `config.toml` keeps host, port, database, and driver details. `DBConfig` (Pydantic) validates those inputs before constructing SQLAlchemy URLs.
 
-## CRUD Guide (GUI + Helpers)
-### Campaigns
-- Use the menu bar selector (top-left) to create, switch, or delete campaigns. The GUI enforces the status enum defined in `db.CAMPAIGN_STATUSES` and blocks destructive actions without a selection.
-- CLI helpers: `python -m final_project.main --rebuild` drops/recreates the schema, while `--list-npcs` offers a quick integrity check that campaign-linked NPCs exist.
+## 4. CRUD Guide
+Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. Below is a quick reference tying screens to tables:
 
-### NPCs
-- Select the `NPC` entry type in the sidebar, pick a campaign, and fill in the generated form (fields mirror the SQLAlchemy columns). Required fields are validated via `DataLogic.validate_required_fields` before persistence.
-- Click the dice/name overlay to trigger the local LLM generator (`LLMProgressDialog` runs `llmrunner.get_random_name` asynchronously). Portraits can be swapped using the file picker, and any unsaved edits accumulate until `Save` is pressed.
+- **Campaign management (Menu bar → Campaign selector):** touches `campaign`, and when deleting it cascades to `npc`, `location`, `encounter`, `faction`, `faction_members`, `relationship`, and `encounter_participants` via helper functions.
+- **NPC editor (Sidebar → NPC):** creates/updates rows in `npc`, optionally adds `species` and `campaign` via lookups, stores portrait blobs, and affects `faction_members` or `encounter_participants` when secondary dialogs are used.
+- **Location editor (Sidebar → Location):** writes to `location`, references `campaign`, and seeds encounter picklists.
+- **Encounter editor + Participants dialog:** inserts into `encounter` (campaign/location FKs) and `encounter_participants` for NPC assignments with notes.
+- **Faction workspace:** CRUD on `faction` and `faction_members`. The GUI enforces single-membership semantics by clearing prior rows before inserting a new assignment.
+- **Relationship dialog:** manipulates the `relationship` join table to capture mentor/rival connections between two NPCs from the same campaign.
+- **Sample seeding prompt:** when the core tables are empty the GUI offers to import all bundled YAML fixtures in one click; `--list-npcs` remains available for quick CLI inspection.
 
-### Locations
-- Switch to the `Location` form to track settlement, dungeon, or wilderness records. Drop-downs enforce the enum defined on `Location.type`, and images share the same blob-backed storage as NPC portraits.
-- Locations are campaign-scoped; seeding fixtures auto-populate both `Dragonfall` and `Iron Pact` storylines from `data/sample_locations.yaml`.
-
-### Encounters
-- Encounter entries tie together a campaign, location, optional art, and date. After saving, use the Participants dialog to assign NPCs (`EncounterParticipants`) with individualized notes.
-- The GUI surfaces helpful combos for valid NPCs within the same campaign, powered by `DataLogic.relationship_targets_for_campaign` and `get_encounter_participants`.
-
-### Factions & Relationships
-- The faction drawer manages `Faction` metadata and `FactionMembers`. Creating or editing factions invokes `DataLogic.ensure_faction`, which either inserts or updates rows in-place.
-- Relationship dialogs let you connect NPCs to one another (mentor, rival, etc.). These operations resolve through `save_relationship`/`delete_relationship`, giving a complete view of social graphs per campaign.
-
-## Running the Application
-### Prerequisites
-- Python 3.13+, `uv` (recommended), and a reachable MySQL 8 instance.
-- Optional: local `llamafile` binaries under `data/llm/` for LLM-backed name/image generation.
-
-### Setup Steps
-1. Clone the repo and install dependencies:
+## 5. Run Instructions
+1. **Prerequisites:** Python 3.13+, `uv`, and a reachable MySQL 8 server. Optional: `.llamafile` models (drop into `data/llm/`) if you want AI-generated names.
+2. **Install dependencies:**
    ```powershell
    uv sync --extra dev
    ```
-2. Configure the database connection:
+3. **Configure secrets:**
    ```ini
    # .env
    DB_USERNAME=final_project_user
@@ -84,62 +60,38 @@ class NPC(Base):  # src/final_project/db.py
    port = 3306
    database = "final_project"
    ```
-3. Initialize or reset the schema and optionally seed fixtures:
+4. **Initialize the database:**
    ```powershell
+   # Option A: build via SQLAlchemy
    uv run python -m final_project.main --rebuild
-   uv run python -m final_project.main --create-example-npc --create-example-location --create-example-encounter
+
+   # Option B: apply raw DDL for grading (runs mysql-connector loader)
+   uv run python -m final_project.main -d
    ```
-4. Launch the GUI:
+5. **Launch the GUI:**
    ```powershell
    uv run python -m final_project.main
    ```
-5. For a complete list of supported flags (logging, README preview, and database utilities), see the [CLI Arguments](#cli-arguments) section.
+6. **Seed sample content (optional but recommended):** when the GUI detects an empty database it shows a "Sample Data" prompt—choose **Yes** to ingest every bundled NPC, location, and encounter.
+7. **Environment variables:** besides DB credentials, set `LLM_MODEL_PATH` (optional) when pointing to alternate `.llamafile` assets.
 
-### Local LLM Helpers
-- Drop any compatible `.llamafile` models into `data/llm/` (for example, the bundled `google_gemma-3-4b-it-Q6_K.llamafile`). The GUI automatically streams progress updates via `LLMProgressDialog` while `llmrunner.call_local_llm` polls `Prompt evaluation` logs.
-- Image generation models (e.g., `sd_xl_turbo_1.0_fp16.safetensors`) are stored alongside text models for future expansion even though portrait refresh hooks are currently stubbed.
+## 6. Screenshots & GIFs
+- **Create/Update form (NPC editor with portrait + LLM helper):**
+  ![NPC Form](docs/images/run.png)
+- **Report / JOIN-heavy screen (campaign overview showing encounter + NPC data combined):**
+  ![Campaign Report](docs/images/manchester.png)
 
-## CLI Arguments
-The application exposes a single entry point, `python -m final_project.main`, which launches the GUI by default. All optional behavior is driven by CLI flags summarized below.
-
-| Flag | Alias | Description |
-| --- | --- | --- |
-| `--readme` | `-m` | Render `README.md` to the current terminal using `rich` and exit. |
-| `--log-error` | `-v` | Emit error-level logs to the console in addition to the default file logging. Mutually exclusive with other log flags. |
-| `--log-info` | `-vv` | Enable verbose info-level logging (includes `--log-error` output). |
-| `--log-debug` | `-vvv` | Enable full debug logging, including SQL statements, structlog debug events, and diagnostics helpful during development. |
-| `--rebuild` | — | Drop every table defined in `db.Base` and recreate the schema before performing any other actions. Use with caution; typically paired with the sample load flags below. |
-| `--list-npcs` | — | Print all NPCs currently stored in the database to standard output and exit. Useful for quick integrity checks without opening the GUI. |
-| `--create-example-npc` | — | Insert one random NPC definition from `data/sample_npc.yaml`. Creates required campaign/species rows automatically. |
-| `--create-example-location` | — | Insert one sample location from `data/sample_locations.yaml`. Automatically seeds any referenced campaign rows. |
-| `--create-example-encounter` | — | Insert one sample encounter from `data/sample_encounters.yaml`, including dependent location/campaign rows. |
-
-**Behavioral notes**
-- Logging flags are mutually exclusive; the last one specified wins.
-- Database management flags can be combined. When any are supplied, the program performs the requested maintenance tasks, prints a summary, and exits without launching the GUI.
-- Omitting every flag launches the CustomTkinter interface immediately after initialization.
-
-## Sample Data & Assets
-- YAML fixtures: `data/sample_npc.yaml`, `data/sample_locations.yaml`, `data/sample_encounters.yaml` describe campaigns, ensure referential integrity, and bundle placeholder art at `data/img/placeholder.png`.
-- Theme and widgets: `data/sun_valleyish.json` is loaded during `gui.init()` to align with the CustomTkinter color palette; `widgets.py` contributes reusable UI pieces like `AppMenuBar` and `RandomIcon`.
-- Documentation: the LaTeX-based proposal plus ERD exports live in `docs/`, while generated assets (PDF, PNG) can be used directly in presentations.
-
-## Screenshots
-The `docs/images/` directory keeps the captured UI states referenced below.
-
-![Screenshot stored at docs/images/run.png](docs/images/run.png)
-
-![Screenshot stored at docs/images/manchester.png](docs/images/manchester.png)
-
-## Testing & Quality Gates
-- Unit tests (add under `tests/`) run with `uv run pytest`. Even without concrete suites yet, the command is wired and ready.
-- Static analysis:
-  - `uv run ruff check src/final_project` and `uv run ruff format src/final_project` keep style consistent.
-  - `uv run mypy src/final_project` (or `just mypy`) enforces strict typing; `typings/` supplies supplemental stubs for third-party libraries.
-  - `uv run pyright src/final_project` offers an alternate type-checker when desired.
-- Manual QA: launch the GUI, ensure sample data seeding works, try the NPC generator (requires `data/llm`), and verify that database maintenance flags produce the expected rows/log output.
+## 7. Testing & Validation Notes
+- **Structural tests:** `uv run python -m final_project.main --list-npcs` confirms the ORM can read data immediately after migrations or sample loads.
+- **Constraint verification:** running `python -m final_project.main --rebuild` followed by deleting a campaign in the GUI validates manual cascade logic—the referenced NPCs, relationships, faction members, and encounter participants are removed without FK violations.
+- **DDL loader checks:** `python -m final_project.main -vvv -d` applies `data/db.ddl` through mysql-connector; logs confirm each statement executes sequentially and indexes already present are skipped.
+- **Static analysis & type safety:**
+  - `uv run ruff check src/final_project` / `uv run ruff format src/final_project`
+  - `uv run mypy src/final_project` (strict mode configured in `pyproject.toml`)
+  - `uv run pyright src/final_project` when cross-validating typings
+- **Manual smoke tests:** launch the GUI, create/edit NPCs, attach images, assign factions, add encounter participants, and ensure the resulting rows appear under `--list-npcs` or through MySQL clients. Test LLM-driven name generation if `data/llm/*.llamafile` is present.
 
 ## Reference Material
-- `docs/proposal.pdf` and `docs/proposal.tex` capture the original problem statement, personas, and success metrics.
-- `docs/prelimERD.uml` + `docs/prelimERD-eps-converted-to.pdf` provide the authoritative ERD shared with stakeholders.
-- `main.log` (gitignored after rotation) illustrates how `structlog` JSON logs capture interactions for troubleshooting.
+- `docs/prelimERD.uml` and `docs/images/erd.png` — ERD source + rendered asset.
+- `docs/proposal.pdf` — original requirements, personas, and success metrics.
+- `data/sample_*.yaml` — sample content used by CLI seeders and GUI demos.
