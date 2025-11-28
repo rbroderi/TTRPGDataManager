@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS faction (
     description TEXT,
     campaign_name VARCHAR(256),
     PRIMARY KEY (name),
+    KEY ix_faction_campaign (campaign_name),
     FOREIGN KEY (campaign_name) REFERENCES campaign (name)
         ON UPDATE CASCADE
         ON DELETE CASCADE
@@ -36,6 +37,7 @@ CREATE TABLE IF NOT EXISTS location (
     campaign_name VARCHAR(256) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY ix_location_name (name),
+    KEY ix_location_campaign (campaign_name),
     FOREIGN KEY (campaign_name) REFERENCES campaign (name)
         ON UPDATE CASCADE
         ON DELETE CASCADE
@@ -54,6 +56,7 @@ CREATE TABLE IF NOT EXISTS npc (
     abilities_json JSON,
     PRIMARY KEY (id),
     UNIQUE KEY ix_npc_name (name),
+    KEY ix_npc_campaign (campaign_name),
     FOREIGN KEY (species_name) REFERENCES species (name)
         ON UPDATE CASCADE
         ON DELETE RESTRICT,
@@ -70,6 +73,7 @@ CREATE TABLE IF NOT EXISTS encounter (
     description TEXT NOT NULL,
     image_blob BLOB(4294967295),
     PRIMARY KEY (id),
+    KEY ix_encounter_campaign (campaign_name),
     FOREIGN KEY (campaign_name) REFERENCES campaign (name)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
@@ -83,6 +87,7 @@ CREATE TABLE IF NOT EXISTS faction_members (
     npc_name VARCHAR(256) NOT NULL,
     notes TEXT NOT NULL,
     PRIMARY KEY (faction_name, npc_name),
+    UNIQUE KEY uq_faction_members_npc (npc_name),
     FOREIGN KEY (faction_name) REFERENCES faction (name)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
@@ -109,6 +114,7 @@ CREATE TABLE IF NOT EXISTS encounter_participants (
     encounter_id INTEGER NOT NULL,
     notes TEXT NOT NULL,
     PRIMARY KEY (npc_name, encounter_id),
+    KEY ix_encounter_participants_encounter (encounter_id),
     FOREIGN KEY (npc_name) REFERENCES npc (name)
         ON UPDATE CASCADE
         ON DELETE CASCADE,

@@ -7,9 +7,11 @@ from sqlalchemy import JSON
 from sqlalchemy import Engine
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
+from sqlalchemy import Index
 from sqlalchemy import LargeBinary
 from sqlalchemy import String
 from sqlalchemy import Text
+from sqlalchemy import UniqueConstraint
 from sqlalchemy import create_engine
 from sqlalchemy import or_
 from sqlalchemy.dialects.mysql import SMALLINT
@@ -273,6 +275,7 @@ class Location(Base):
     """Represents the location table."""
 
     __tablename__ = "location"
+    __table_args__ = (Index("ix_location_campaign", "campaign_name"),)
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[Varchar256] = mapped_column(String(256), index=True, unique=True)
     type: Mapped[Literal["DUNGEON", "WILDERNESS", "TOWN", "INTERIOR"]] = mapped_column(
@@ -303,6 +306,7 @@ class Encounter(Base):
     """Represents the encounter table."""
 
     __tablename__ = "encounter"
+    __table_args__ = (Index("ix_encounter_campaign", "campaign_name"),)
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     campaign_name: Mapped[Varchar256] = mapped_column(
         String(256),
@@ -339,6 +343,7 @@ class NPC(Base):
     """Represents the NPC table."""
 
     __tablename__ = "npc"
+    __table_args__ = (Index("ix_npc_campaign", "campaign_name"),)
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[Varchar256] = mapped_column(String(256), index=True, unique=True)
     age: Mapped[SmallInt] = mapped_column(SMALLINT(unsigned=True))
@@ -441,6 +446,7 @@ class Faction(Base):
     """Represents the faction table."""
 
     __tablename__ = "faction"
+    __table_args__ = (Index("ix_faction_campaign", "campaign_name"),)
     name: Mapped[Varchar256] = mapped_column(String(256), primary_key=True)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     campaign_name: Mapped[Varchar256] = mapped_column(
@@ -470,6 +476,7 @@ class FactionMembers(Base):
     """Represents join table that holds which faction has which members."""
 
     __tablename__ = "faction_members"
+    __table_args__ = (UniqueConstraint("npc_name", name="uq_faction_members_npc"),)
     faction_name: Mapped[Varchar256] = mapped_column(
         String(256),
         ForeignKey(
@@ -499,6 +506,7 @@ class EncounterParticipants(Base):
     """Represents join table that holds which encounter has which members."""
 
     __tablename__ = "encounter_participants"
+    __table_args__ = (Index("ix_encounter_participants_encounter", "encounter_id"),)
     npc_name: Mapped[Varchar256] = mapped_column(
         String(256),
         ForeignKey(
@@ -1344,8 +1352,23 @@ def export_database_ddl(stream: TextIO | None = None) -> None:
     statements: list[str] = []
     try:
         dialect = engine.dialect
+        preparer = dialect.identifier_preparer
+        db_settings = _read_config().get("DB", {})
+        database_name = db_settings.get("database", "final_project")
+        charset = db_settings.get("charset", "utf8mb4")
+        collation = db_settings.get("collation", "utf8mb4_unicode_ci")
+        quoted_db = preparer.quote(database_name)
+
+        statements.append(
+            f"CREATE DATABASE IF NOT EXISTS {quoted_db}\n"
+            f"    CHARACTER SET {charset}\n"
+            f"    COLLATE {collation}",
+        )
+        statements.append(f"USE {quoted_db}")
+
         for table in Base.metadata.sorted_tables:
-            statements.append(str(CreateTable(table).compile(dialect=dialect)))
+            table_sql = str(CreateTable(table).compile(dialect=dialect))
+            statements.append(table_sql)
             index_statements = [
                 str(CreateIndex(index).compile(dialect=dialect))
                 for index in table.indexes
@@ -1356,7 +1379,8 @@ def export_database_ddl(stream: TextIO | None = None) -> None:
     if not statements:
         target.write("-- No tables defined.\n")
         return
-    output = ";\n\n".join(statements) + ";\n"
+    formatted = [f"{statement.rstrip()};" for statement in statements]
+    output = "\n\n".join(formatted) + "\n"
     target.write(output)
 
 
@@ -1367,7 +1391,7 @@ if __name__ == "__main__":
         description="Manage the RPG NPC database.",
     )
     parser.add_argument(
-        "--export_ddl",
+        "--export-ddl",
         action="store_true",
         help="Exports the database DDL to stdout.",
     )
