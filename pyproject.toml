@@ -21,6 +21,7 @@ dependencies = [
     "pygments>=2.19.2",
     "pyphen>=0.17.2",
     "pyyaml>=6.0.2",
+    "pyautogui>=0.9.54",
     "requests>=2.32.5",
     "rich>=14.2.0",
     "sqlalchemy>=2.0.44",
@@ -35,11 +36,13 @@ optimize = [
 ]
 dev = [
     "mypy>=1.18.2",
+    "pyautogui>=0.9.54",
     "pyright>=1.1.407",
     "pytest>=9.0.1",
     "python-pptx>=1.0.2",
     "ruff>=0.14.5",
     "rust-just>=1.43.0",
+    "types-pyautogui>=0.9.3.20241230",
     "types-requests>=2.32.4.20250913",
 ]
 win = [
@@ -112,19 +115,19 @@ ignore = [
     "PIE790",
     "T201",
     "PYI013",
-    "ANN101",
-    "TCH003",
+    "TC003",
     "PLC0414",
     "ERA001",
     "T203",
-    "ANN102",
     "ANN401",
-    "TCH002",
+    "TC002",
     "TD002",
     "TD003",
     "FIX002",
     "FBT001",
     "FBT002",
+    "D203",
+    "D212",
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.

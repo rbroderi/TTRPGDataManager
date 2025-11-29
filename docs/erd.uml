@@ -1,4 +1,4 @@
-@startuml prelimERD
+@startuml ERD
 
 entity NPC {
   *id : INT <<PK>>
@@ -29,7 +29,7 @@ entity Faction {
 
 entity FactionMembers {
   *faction_name : VARCHAR <<PK,FK>>
-  *npc_name : VARCHAR <<PK,FK>>
+  *npc_name : VARCHAR <<PK,FK,UNIQUE>>
   --
   notes : TEXT
 }
@@ -88,5 +88,31 @@ Encounter "1" <-- "N" EncounterParticipants : encounter_id
 NPC "1" <-- "N" EncounterParticipants : npc_name
 NPC "1" <-- "N" Relationship : npc_name_1
 NPC "1" <-- "N" Relationship : npc_name_2
+
+note right of FactionMembers
+  CONSTRAINT uq_faction_members_npc UNIQUE (npc_name)
+end note
+
+note right of Faction
+  KEY ix_faction_campaign (campaign_name)
+end note
+
+note right of Location
+  UNIQUE ix_location_name (name)
+  KEY ix_location_campaign (campaign_name)
+end note
+
+note right of NPC
+  UNIQUE ix_npc_name (name)
+  KEY ix_npc_campaign (campaign_name)
+end note
+
+note right of Encounter
+  KEY ix_encounter_campaign (campaign_name)
+end note
+
+note right of EncounterParticipants
+  KEY ix_encounter_participants_encounter (encounter_id)
+end note
 
 @enduml

@@ -429,6 +429,7 @@ class TTRPGDataManager(ctk.CTk):
         )
         self.menubar.pack(side="top", fill="x")
         self.menubar.set_campaign_change_handler(self._handle_campaign_change)
+        self._register_shortcuts()
 
         # Layout Frames
         self.left_frame = ctk.CTkFrame(self, width=200)
@@ -491,6 +492,47 @@ class TTRPGDataManager(ctk.CTk):
         self.image_label.bind("<Button-3>", self.show_rmenu)  # Windows/Linux
         self.image_label.bind("<Button-2>", self.show_rmenu)  # macOS
         self.after(250, self._maybe_prompt_sample_seed)
+
+    def _register_shortcuts(self) -> None:
+        shortcuts = {
+            "<Control-Shift-KeyPress-N>": "NPC",
+            "<Control-Shift-KeyPress-L>": "Location",
+            "<Control-Shift-KeyPress-E>": "Encounter",
+        }
+        for sequence, entry_type in shortcuts.items():
+            self.bind_all(
+                sequence,
+                lambda event, value=entry_type: self._handle_entry_type_shortcut(
+                    event,
+                    value,
+                ),
+                add="+",
+            )
+        self.bind_all(
+            "<Control-Shift-KeyPress-F>",
+            self._handle_search_shortcut,
+            add="+",
+        )
+        self.bind_all(
+            "<Control-Shift-KeyPress-C>",
+            self._handle_campaign_shortcut,
+            add="+",
+        )
+
+    def _handle_entry_type_shortcut(self, event: Event, entry_type: str) -> str:
+        del event
+        self.menubar.select_entry_type(entry_type)
+        return "break"
+
+    def _handle_search_shortcut(self, event: Event) -> str:
+        del event
+        self.search_entry()
+        return "break"
+
+    def _handle_campaign_shortcut(self, event: Event) -> str:
+        del event
+        self.menubar.select_first_campaign()
+        return "break"
 
     def _build_forms(self) -> None:
         for entry_type, specs in self._form_specs.items():
@@ -1423,6 +1465,7 @@ class TTRPGDataManager(ctk.CTk):
             "Sample Data",
             f"Loaded {total_loaded} sample record(s).\n{summary}",
         )
+        self.menubar.refresh_campaigns(notify=True)
         self._update_campaign_dropdowns(clear_selection=True)
 
     def _update_species_dropdown(

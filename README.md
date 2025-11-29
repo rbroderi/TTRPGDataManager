@@ -11,7 +11,7 @@ A desktop-first toolkit for Game Masters and Lore Keepers who curate tabletop RP
 - **Architecture highlights:** `gui.py` renders CustomTkinter widgets, `logic.py` houses form validation and orchestration, while `db.py` centralizes SQLAlchemy models plus MySQL connector helpers. Observability relies on `structlog` JSON logs and `rich` CLI rendering.
 
 ## 2. Entity-Relationship Model
-The ERD is authored in `docs/prelimERD.uml` (PlantUML) and exported to `docs/images/erd.png`:
+The ERD is authored in `docs/erd.uml` (PlantUML) and exported to `docs/images/erd.png`:
 
 ![ERD Diagram](docs/images/erd.png)
 
@@ -74,6 +74,7 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
    ```
 6. **Seed sample content (optional but recommended):** when the GUI detects an empty database it shows a "Sample Data" prompt—choose **Yes** to ingest every bundled NPC, location, and encounter.
 7. **Environment variables:** besides DB credentials, set `LLM_MODEL_PATH` (optional) when pointing to alternate `.llamafile` assets.
+8. **Automated screenshots (Windows):** generate fresh images of the NPC/Location/Encounter forms plus the "Load Sample Data" prompt via `uv run python scripts/capture_ui_screens.py` (or `just capture_ui`). The script rebuilds the schema, launches the GUI, and saves PNGs to `docs/screenshots/` using `Pillow`'s `ImageGrab`, so it must run inside an interactive desktop session.
 
 ## 6. Screenshots & GIFs
 - **Create/Update form (NPC editor with portrait + LLM helper):**
