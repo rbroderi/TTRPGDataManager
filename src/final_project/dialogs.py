@@ -218,6 +218,12 @@ class SettingsDialog(ctk.CTkToplevel):
 
         actions = ctk.CTkFrame(self)
         actions.pack(fill="x", padx=20, pady=(0, 20))
+        reset_btn = ctk.CTkButton(
+            actions,
+            text="Reset to Defaults",
+            command=self._handle_reset_defaults,
+        )
+        reset_btn.pack(side="left")
         cancel_btn = ctk.CTkButton(actions, text="Cancel", command=self._handle_cancel)
         cancel_btn.pack(side="right", padx=(10, 0))
         self._save_btn = ctk.CTkButton(
@@ -251,6 +257,35 @@ class SettingsDialog(ctk.CTkToplevel):
 
     def _handle_cancel(self) -> None:
         self._close()
+
+    def _handle_reset_defaults(self) -> None:
+        if not messagebox.askyesno(
+            "Settings",
+            (
+                "Reset all settings to their defaults?\n\n"
+                "This will remove your custom settings file."
+            ),
+            icon="warning",
+        ):
+            return
+        try:
+            defaults = settings_manager.reset_user_settings_to_defaults()
+        except OSError as exc:
+            logger.exception("failed to reset settings to defaults")
+            messagebox.showerror(
+                "Settings",
+                f"Unable to reset settings: {exc}",
+            )
+            return
+        self._settings_snapshot = defaults
+        for key, (entry, _original) in self._fields.items():
+            group, setting = key
+            updated_value = defaults.get(group, {}).get(setting)
+            entry.delete(0, tk.END)
+            if updated_value is not None:
+                entry.insert(0, self._stringify_value(updated_value))
+            self._fields[key] = (entry, updated_value)
+        messagebox.showinfo("Settings", "Settings reset to defaults.")
 
     def _close(self) -> None:
         if not self.winfo_exists():

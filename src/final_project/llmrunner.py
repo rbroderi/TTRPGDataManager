@@ -20,7 +20,6 @@ with lazi:  # type: ignore[attr-defined]
     from collections.abc import Callable
     from collections.abc import Mapping
     from collections.abc import Sequence
-    from dataclasses import dataclass
     from io import BytesIO
     from pathlib import Path
     from typing import Any
@@ -111,18 +110,6 @@ def _build_text_llm_config() -> _TextLLMConfig:
         raise TypeError(msg)
     settings = dict(cast(Mapping[str, Any], group))
     return _TextLLMConfig(**settings)
-
-
-@dataclass(slots=True)
-class _TextLLMConfigState:
-    value: _TextLLMConfig
-
-    def set(self, config: _TextLLMConfig) -> None:
-        self.value = config
-        LLM_TEXT_SERVER_GENERATION_PARAMS["model"] = config.text_binary.name
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.value, name)
 
 
 class _ServerRuntime:
@@ -252,7 +239,7 @@ LLM_TEXT_SERVER_GENERATION_PARAMS: dict[str, Any] = {
 }
 
 # Module variables
-_text_llm_config = _TextLLMConfigState(_build_text_llm_config())
+_text_llm_config: _TextLLMConfig = _build_text_llm_config()
 LLM_TEXT_SERVER_GENERATION_PARAMS["model"] = _text_llm_config.text_binary.name
 _runtime = _ServerRuntime()
 
@@ -271,8 +258,9 @@ def get_image_generation_defaults() -> dict[str, int]:
 def reload_image_generation_defaults() -> dict[str, int]:
     """Reload settings from disk and return the updated image defaults."""
     settings_manager.reload_settings_from_disk()
-    new_config = _build_text_llm_config()
-    _text_llm_config.set(new_config)
+    global _text_llm_config  # noqa: PLW0603
+    _text_llm_config = _build_text_llm_config()
+    LLM_TEXT_SERVER_GENERATION_PARAMS["model"] = _text_llm_config.text_binary.name
     return get_image_generation_defaults()
 
 

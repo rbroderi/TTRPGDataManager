@@ -50,6 +50,15 @@ def reload_settings_from_disk() -> dict[str, Any]:
     return copy.deepcopy(cache)
 
 
+def reset_user_settings_to_defaults() -> dict[str, Any]:
+    """Remove the user overrides file and restore the cached defaults."""
+    path = _user_settings_path()
+    path.unlink(missing_ok=True)
+    defaults = _load_default_settings()
+    _STATE.cache = copy.deepcopy(defaults)
+    return copy.deepcopy(defaults)
+
+
 def save_settings(new_settings: dict[str, Any]) -> dict[str, Any]:
     """Persist user-specific settings, merged over defaults."""
     defaults = _load_default_settings()
