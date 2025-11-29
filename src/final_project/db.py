@@ -59,7 +59,7 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     try:  # optional dependency used only proof of loading ddl
         import mysql.connector as mysql_connector
     except ImportError:
-        mysql_connector = None
+        mysql_connector = None  # type: ignore[assignment]
 
 logger = structlog.getLogger("final_project")
 SCRIPTROOT = Path(__file__).parent.resolve()
@@ -122,10 +122,10 @@ def _load_sample_data(path: Path, label: str) -> list[dict[str, Any]]:
         logger.error("%s data must be a list", label, path=str(path))
         return []
     samples: list[dict[str, Any]] = []
-    entries = cast(list[Any], raw_data)
+    entries = cast(list[Any], raw_data)  # type: ignore[redundant-cast] #pyright gets confused
     for entry in entries:
         if isinstance(entry, Mapping):
-            entry = cast(Mapping[Any, Any], entry)
+            entry = cast(Mapping[Any, Any], entry)  # type: ignore[redundant-cast] #pyright gets confused
             samples.append({str(k): v for k, v in dict(entry).items()})
         else:
             logger.warning("skipping malformed %s entry", label, entry=entry)
@@ -1276,7 +1276,7 @@ def apply_external_schema_with_connector(
         return
     config = _read_config().get("DB", {})
     try:
-        connection = mysql_connector.connect(  # type: ignore[union-attr]
+        connection = mysql_connector.connect(
             user=_get_env_var("DB_USERNAME"),
             password=_get_env_var("DB_PASSWORD"),
             host=config.get("host"),

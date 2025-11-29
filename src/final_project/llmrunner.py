@@ -666,7 +666,7 @@ def _normalize_content(content: Any) -> str:
 def _extract_text_from_choices(choices: Any) -> str:
     if not isinstance(choices, Sequence):
         return ""
-    sequence_choices = cast(Sequence[Any], choices)
+    sequence_choices = cast(Sequence[Any], choices)  # type: ignore[redundant-cast] #pyright gets confused
     if not sequence_choices:
         return ""
     first = sequence_choices[0]
