@@ -295,7 +295,7 @@ class Size(NamedTuple):
     height: int
 
 
-class TTRPGDataManager(ctk.CTk):
+class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
     """Main gui class."""
 
     def __init__(self, delay: int = LOAD_PAUSE) -> None:
@@ -780,10 +780,11 @@ class TTRPGDataManager(ctk.CTk):
             )
         if spec.preset_values:
             values = list(spec.preset_values)
+            state = "readonly" if spec.key == "location_name" else "normal"
             return ctk.CTkComboBox(
                 row,
                 values=values,
-                state="normal",
+                state=state,
                 width=200,
             )
         if spec.multiline:
@@ -2353,7 +2354,7 @@ class TTRPGDataManager(ctk.CTk):
 
     def _widget_value(self, widget: EntryWidget) -> str:
         if isinstance(widget, ctk.CTkTextbox):
-            return widget.get("1.0", tk.END).replace(SOFT_HYPHEN, "").strip()
+            return cast(str, widget.get("1.0", tk.END).replace(SOFT_HYPHEN, "").strip())  # pyright: ignore[reportUnnecessaryCast]
         return widget.get().strip()
 
     def _form_value(self, entry_type: str, field_key: str) -> str:
@@ -2425,7 +2426,7 @@ class TTRPGDataManager(ctk.CTk):
         identifier = TTRPGDataManager._extract_instance_identifier(entry_type, instance)
         if identifier in (None, ""):
             return None
-        return entry_type, identifier
+        return entry_type, cast(str, identifier)  # pyright: ignore[reportUnnecessaryCast]
 
     @staticmethod
     def _extract_instance_identifier(entry_type: str, instance: Any) -> str | None:
@@ -2841,13 +2842,13 @@ class TTRPGDataManager(ctk.CTk):
             length = len(value)
             start = self._index_from_offset(widget, index)
             end = self._index_from_offset(widget, index + length)
-            if token_type in Token.String.Double:
+            if token_type in Token.String:  # type: ignore[comparison-overlap]
                 widget.tag_add("json_string", start, end)
-            elif token_type in Token.Literal.Number:
+            elif token_type in Token.Number:  # type: ignore[comparison-overlap]
                 widget.tag_add("json_number", start, end)
-            elif token_type in Token.Punctuation:
+            elif token_type in Token.Punctuation:  # type: ignore[comparison-overlap]
                 widget.tag_add("json_punct", start, end)
-            elif token_type in Token.Name.Tag:
+            elif token_type in Token.Name:  # type: ignore[comparison-overlap]
                 widget.tag_add("json_key", start, end)
             index += length
 
@@ -2867,7 +2868,7 @@ class TTRPGDataManager(ctk.CTk):
     @staticmethod
     def _index_from_offset(widget: ctk.CTkTextbox, offset: int) -> str:
         """Convert absolute char offset to tkinter text index."""
-        return widget.index(f"1.0+{offset}c")
+        return cast(str, widget.index(f"1.0+{offset}c"))  # pyright: ignore[reportUnnecessaryCast]
 
     def _make_highlight_handler(self, widget: ctk.CTkTextbox) -> Any:
         def _handler(event: Event) -> None:
@@ -2897,7 +2898,7 @@ class TTRPGDataManager(ctk.CTk):
             word = match.group(0)
             if max_chars is None or len(word) <= max_chars:
                 return word
-            hyphenated = cast(str, self._hyphenator.inserted(word, SOFT_HYPHEN))
+            hyphenated = cast(str, self._hyphenator.inserted(word, SOFT_HYPHEN))  # type: ignore[no-untyped-call]
             return hyphenated or word
 
         return WORD_PATTERN.sub(_repl, cleaned)

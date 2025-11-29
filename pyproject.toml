@@ -45,6 +45,7 @@ dev = [
     "rust-just>=1.43.0",
     "types-pyautogui>=0.9.3.20241230",
     "types-pygments>=2.19.0.20251121",
+    "types-pyyaml>=6.0.12.20250915",
     "types-requests>=2.32.4.20250913",
 ]
 
