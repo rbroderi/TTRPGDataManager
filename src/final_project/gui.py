@@ -1976,29 +1976,23 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         name = _value("name")
         location_type = _value("type")
         description = _value("description")
-        campaign = self._current_campaign_name() or ""
         if not any((name, location_type, description)):
             return ""
         descriptor_bits: list[str] = []
         if location_type:
             descriptor_bits.append(location_type.replace("_", " ").lower())
-        if campaign:
-            descriptor_bits.append(f"from the {campaign} campaign")
         descriptor = ", ".join(bit for bit in descriptor_bits if bit)
         subject = name or "a fantasy location"
         prompt = f"Atmospheric fantasy location concept art of {subject}"
         if descriptor:
-            prompt += f", {descriptor}"
+            prompt += f", {descriptor}: "
+        if description:
+            collapsed = " ".join(description.split())
+            prompt += f"{textwrap.shorten(collapsed, width=220, placeholder='...')}"
         prompt += (
             ". sweeping vista; environmental concept art; cinematic lighting; "
             "ultra detailed; 4k render."
         )
-        if description:
-            collapsed = " ".join(description.split())
-            prompt += (
-                " Mood and lore details: "
-                f"{textwrap.shorten(collapsed, width=220, placeholder='...')}"
-            )
         return prompt
 
     def _build_battlemat_prompt(self) -> str:
@@ -2011,7 +2005,6 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         location_name = _value("location_name")
         description = _value("description")
         date_value = _value("date")
-        campaign = self._current_campaign_name() or ""
         if not any((location_name, description)):
             return ""
         subject = location_name or "a fantasy encounter"
@@ -2021,8 +2014,6 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
             "paths; fantasy tabletop RPG map; high-contrast lighting."
         )
         context_bits: list[str] = []
-        if campaign:
-            context_bits.append(f"campaign: {campaign}")
         if date_value:
             context_bits.append(f"date: {date_value}")
         if context_bits:

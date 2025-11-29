@@ -35,5 +35,8 @@ rebuild:
 run-with-ddl:
     uv run python src/final_project/main.py --load-with-ddl
 
+coverage:
+    uv run pytest --cov=final_project --cov-report=term-missing
+
 add-ignore pattern:
     Add-Content -Path .gitignore -Value "`n{{ pattern }}"

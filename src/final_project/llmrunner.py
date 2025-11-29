@@ -559,7 +559,7 @@ def generate_portrait_from_image_llm(  # noqa: PLR0913
     )
     try:
         payload = resolved_output.read_bytes()
-        return _upscale_image_bytes(payload, scale=3)
+        return _upscale_image_bytes(payload, scale=4)
     except OSError as error:
         logger.exception("failed to read generated image", path=str(resolved_output))
         msg = "Unable to read generated image file."
