@@ -210,3 +210,4 @@ data/llm/
 typings/
 .env
 .synctex.gz
+~*
