@@ -41,42 +41,6 @@ ERROR = 1
 logger = structlog.getLogger("final_project")
 
 
-class SemanticSorter:
-    """Structlog processor which lets you control key order."""
-
-    def __init__(self, order: list[str]) -> None:
-        """Initialize the processor order."""
-        self._order = order
-
-    def __call__(
-        self,
-        _logger: logging.Logger,
-        _method_name: str,
-        event_dict: structlog.types.EventDict,
-    ) -> structlog.types.EventDict:
-        """Sort the keys."""
-        ordered_dict = {k: v for k in self._order if (v := event_dict.pop(k, None))}
-        ordered_dict |= event_dict
-        return ordered_dict
-
-
-def _setup_logger(loglevel: LogLevels) -> None:
-    structlog.configure(
-        wrapper_class=structlog.make_filtering_bound_logger(loglevel),
-        processors=[
-            structlog.processors.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.dict_tracebacks,
-            SemanticSorter(["timestamp", "level", "event", "logger", "message"]),
-            structlog.processors.JSONRenderer(sort_keys=False),
-        ],
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        cache_logger_on_first_use=True,
-    )
-    logger.propagate = False
-    logger.debug("logger setup.")
-
-
 #######################################################################
 
 
@@ -148,7 +112,6 @@ def _setup_arguments() -> argparse.Namespace:
     )
 
     ret = parser.parse_args()
-    _setup_logger(ret.loglevel)
     logger.debug("finished parsing arguments", args=vars(ret))
     return ret
 
@@ -188,8 +151,13 @@ def _launch_gui() -> None:
     launch_gui()
 
 
+def cause_error(value: bool) -> None:
+    pass
+
+
 def main() -> int:
     """Entry point for final project application."""
+    cause_error(1)
     args = _setup_arguments()
     patch()
     logger.info("inital setup completed.")
