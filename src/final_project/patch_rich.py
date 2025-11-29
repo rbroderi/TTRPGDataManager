@@ -1,5 +1,6 @@
 """Importing this module patches rich."""
 
+# pragma: exclude file
 from lazi.core import lazi
 
 # lazi imports only actually imported when used,

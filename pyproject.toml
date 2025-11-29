@@ -40,6 +40,7 @@ dev = [
     "pyautogui>=0.9.54",
     "pyright>=1.1.407",
     "pytest>=9.0.1",
+    "pytest-cov>=7.0.0",
     "python-pptx>=1.0.2",
     "ruff>=0.14.5",
     "rust-just>=1.43.0",
@@ -161,3 +162,11 @@ project-unknown-keys = "warning"
 project-dependency-updates = { level = "hint" }
 project-dependencies-version-bounds = "off"
 project-requires-python-bounds = "off"
+
+[tool.coverage.report]
+exclude_also = [
+    # 2. Comments to turn coverage on and off:
+    'no cover: start(?s:.)*?no cover: stop',
+    # 3. A pragma comment that excludes an entire file:
+    '\A(?s:.*# pragma: exclude file.*)\Z',
+]
