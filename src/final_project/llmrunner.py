@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Protocol
+from typing import runtime_checkable
+
 from beartype import BeartypeConf
 from beartype import BeartypeStrategy
 from beartype import beartype
@@ -48,6 +51,11 @@ SCRIPTROOT = Path(__file__).parent.resolve()
 PROJECT_ROOT = (SCRIPTROOT / ".." / ".." / "project").resolve() / ".."
 
 
+@runtime_checkable
+class ValidationInfoRC(ValidationInfo, Protocol):
+    """Extend ValidationInfo to be compatible with beartype decorator."""
+
+
 class _TextLLMConfig(BaseModel):
     text_dir: Path
     text_binary: Path
@@ -88,8 +96,7 @@ class _TextLLMConfig(BaseModel):
         mode="before",
     )
     @classmethod
-    @nobeartype
-    def _resolve_additional_paths(cls, value: Any, info: ValidationInfo) -> Path:
+    def _resolve_additional_paths(cls, value: Any, info: ValidationInfoRC) -> Path:
         path = Path(str(value))
         if path.is_absolute():
             return path
