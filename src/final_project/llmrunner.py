@@ -5,9 +5,6 @@ from __future__ import annotations
 from typing import Protocol
 from typing import runtime_checkable
 
-from beartype import BeartypeConf
-from beartype import BeartypeStrategy
-from beartype import beartype
 from lazi.core import lazi
 
 from final_project import settings_manager
@@ -41,7 +38,7 @@ with lazi:  # type: ignore[attr-defined]
     from pydantic import ValidationInfo
     from pydantic import field_validator
 
-nobeartype = beartype(conf=BeartypeConf(strategy=BeartypeStrategy.O0))
+# nobeartype = beartype(conf=BeartypeConf(strategy=BeartypeStrategy.O0))
 logger = structlog.getLogger("final_project")
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 IMAGE_SETTINGS_GROUP = "LLM"
