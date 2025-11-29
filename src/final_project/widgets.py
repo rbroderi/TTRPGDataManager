@@ -266,6 +266,7 @@ class AppMenuBar(ctk.CTkFrame):
         )
         self._campaign_dialog: CampaignDialog | None = None
         self._suppress_campaign_callback = False
+        self._suppress_entry_type_callback = False
         self._last_campaign_value = initial_campaign
 
         # --------------------- POPUP MENUS --------------------------------------
@@ -354,6 +355,36 @@ class AppMenuBar(ctk.CTkFrame):
     def set_campaign_change_handler(self, handler: Callable[[str], None]) -> None:
         """Register callback invoked when the campaign selector changes."""
         self._on_campaign_change_cb = handler
+
+    def select_entry_type(
+        self,
+        entry_type: str,
+        *,
+        notify: bool = True,
+    ) -> bool:
+        """Programmatically choose an entry type and notify listeners."""
+        normalized = entry_type.strip()
+        options = set(get_types())
+        if normalized not in options:
+            return False
+        self._set_entry_type_selection(normalized, notify=notify)
+        return True
+
+    def select_first_campaign(self, *, notify: bool = True) -> bool:
+        """Select the first available campaign, if any."""
+        campaigns = get_campaigns()
+        target = campaigns[0] if campaigns else "No Campaigns"
+        self._set_campaign_selection(target, notify=notify)
+        return bool(campaigns)
+
+    def refresh_campaigns(
+        self,
+        *,
+        select: str | None = None,
+        notify: bool = True,
+    ) -> None:
+        """Reload campaign dropdown options after external data changes."""
+        self._refresh_campaign_options(select=select, notify=notify)
 
     # ==========================================================================
     # Internal Helpers
@@ -465,6 +496,15 @@ class AppMenuBar(ctk.CTkFrame):
         self._last_campaign_value = value
         if notify and self._on_campaign_change_cb is not None:
             self._on_campaign_change_cb(value)
+
+    def _set_entry_type_selection(self, selection: str, *, notify: bool) -> None:
+        self._suppress_entry_type_callback = True
+        combo = cast(Any, self.entry_type_combo)
+        combo.set(selection)
+        self.entry_type_var.set(selection)
+        self._suppress_entry_type_callback = False
+        if notify:
+            self._on_entry_type_change(selection)
 
     def _show_new_campaign_dialog(self) -> None:
         if self._campaign_dialog is not None and self._campaign_dialog.winfo_exists():
@@ -703,6 +743,8 @@ class AppMenuBar(ctk.CTkFrame):
 
     def _on_type_change(self, selection: str) -> None:
         """Notify host when the entry type selection changes."""
+        if self._suppress_entry_type_callback:
+            return
         self._on_entry_type_change(selection)
 
 

@@ -28,6 +28,7 @@
         "pady",
         "platgrep",
         "punct",
+        "pyautogui",
         "pytype",
         "pywinstyles",
         "relx",
