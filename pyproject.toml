@@ -1,7 +1,7 @@
 [project]
 name = "final-project"
 version = "2025.11.19.0"
-description = "Add your description here"
+description = "TTRPG Data Manager"
 readme = "README.md"
 authors = [
     { name = "rbroderi", email = "richard.broderick@gmail.com" }
@@ -22,6 +22,7 @@ dependencies = [
     "pyphen>=0.17.2",
     "pyyaml>=6.0.2",
     "pyautogui>=0.9.54",
+    "pywinstyles>=1.8; sys_platform == \"win32\"",
     "requests>=2.32.5",
     "rich>=14.2.0",
     "sqlalchemy>=2.0.44",
@@ -44,9 +45,6 @@ dev = [
     "rust-just>=1.43.0",
     "types-pyautogui>=0.9.3.20241230",
     "types-requests>=2.32.4.20250913",
-]
-win = [
-    "pywinstyles>=1.8",
 ]
 
 [build-system]

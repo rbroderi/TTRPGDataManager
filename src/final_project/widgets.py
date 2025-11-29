@@ -141,6 +141,7 @@ class AppMenuBar(ctk.CTkFrame):
         on_show_settings: CallableNoArgs,
         *,
         on_entry_type_change: Callable[[str], None],
+        on_delete_current_entry: Callable[[str], None],
         popup_offset_x: int = -15,
         **kwargs: Any,
     ) -> None:
@@ -155,6 +156,7 @@ class AppMenuBar(ctk.CTkFrame):
         self._on_show_readme: CallableNoArgs = on_show_readme
         self._on_show_settings: CallableNoArgs = on_show_settings
         self._on_entry_type_change: Callable[[str], None] = on_entry_type_change
+        self._on_delete_current_entry: Callable[[str], None] = on_delete_current_entry
         self._on_campaign_change_cb: Callable[[str], None] | None = None
         self._menubar_popup_offset_x: int = popup_offset_x
 
@@ -290,11 +292,16 @@ class AppMenuBar(ctk.CTkFrame):
         )
 
         # File menu items
+        delete_label = self._format_delete_current_label(types[0])
         file_menu_specs = [
             ButtonSpec(text="Save", handler=self._menu_action(self._on_save)),
             ButtonSpec(
                 text="Settings",
                 handler=self._menu_action(self._on_show_settings),
+            ),
+            ButtonSpec(
+                text=delete_label,
+                handler=self._menu_action(self._handle_delete_current_entry),
             ),
             ButtonSpec(
                 text="Delete Campaign…",
@@ -309,6 +316,8 @@ class AppMenuBar(ctk.CTkFrame):
             menu_hover=menu_hover,
             font=base_font,
         )
+        self._delete_current_button: ctk.CTkButton | None = None
+        self._delete_current_button = self._file_menu_buttons[2]
 
         # Help menu items
         help_menu_specs = [
@@ -448,6 +457,17 @@ class AppMenuBar(ctk.CTkFrame):
             buttons.append(btn)
         return buttons
 
+    def _format_delete_current_label(self, entry_type: str) -> str:
+        normalized = entry_type.strip() or "Entry"
+        return f"Delete Current {normalized}"
+
+    def _update_delete_current_label(self, entry_type: str) -> None:
+        if self._delete_current_button is None:
+            return
+        self._delete_current_button.configure(
+            text=self._format_delete_current_label(entry_type),
+        )
+
     def _create_dropdown(
         self,
         parent: tk.Misc,
@@ -575,6 +595,10 @@ class AppMenuBar(ctk.CTkFrame):
             f"Campaign '{campaign}' and associated data have been deleted.",
         )
         self._refresh_campaign_options(notify=True)
+
+    def _handle_delete_current_entry(self) -> None:
+        """Route delete requests to the host using the active entry type."""
+        self._on_delete_current_entry(self.entry_type)
 
     # ----------------------- FILE MENU ----------------------------------------
 
@@ -745,6 +769,7 @@ class AppMenuBar(ctk.CTkFrame):
         """Notify host when the entry type selection changes."""
         if self._suppress_entry_type_callback:
             return
+        self._update_delete_current_label(selection)
         self._on_entry_type_change(selection)
 
 

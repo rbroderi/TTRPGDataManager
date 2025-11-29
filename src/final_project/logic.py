@@ -284,6 +284,36 @@ class DataLogic:
         finally:
             session.close()
 
+    def delete_entry(self, entry_type: str, identifier: str) -> bool:
+        """Delete a persisted entry for the provided type and identifier."""
+        model_cls = self.model_for(entry_type)
+        if model_cls is None:
+            msg = f"Unsupported entry type: {entry_type}"
+            raise ValueError(msg)
+        normalized_id = str(identifier).strip()
+        if not normalized_id:
+            msg = f"Select a {entry_type.lower()} before deleting it."
+            raise ValueError(msg)
+        session = get_session()
+        try:
+            instance = self._fetch_instance(
+                session,
+                entry_type,
+                model_cls,
+                normalized_id,
+            )
+            if instance is None:
+                return False
+            session.delete(instance)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        else:
+            return True
+        finally:
+            session.close()
+
     def search_entries(
         self,
         model_cls: type,
