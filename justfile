@@ -26,11 +26,14 @@ capture_ui:
 loc:
     uvx pygount --format=summary --names-to-skip=*.eps
 
-run:
-    uv run python src/final_project/main.py
+run *args:
+    uv run python -m final_project.main {{ args }}
 
 rebuild:
     uv run python src/final_project/main.py --rebuild
 
 run-with-ddl:
     uv run python src/final_project/main.py --load-with-ddl
+
+add-ignore pattern:
+    Add-Content -Path .gitignore -Value "`n{{ pattern }}"
