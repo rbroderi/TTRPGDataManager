@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from beartype import BeartypeConf
+from beartype import BeartypeStrategy
+from beartype import beartype
 from lazi.core import lazi
 
 from final_project import settings_manager
@@ -35,6 +38,7 @@ with lazi:  # type: ignore[attr-defined]
     from pydantic import ValidationInfo
     from pydantic import field_validator
 
+nobeartype = beartype(conf=BeartypeConf(strategy=BeartypeStrategy.O0))
 logger = structlog.getLogger("final_project")
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 IMAGE_SETTINGS_GROUP = "LLM"
@@ -76,8 +80,16 @@ class _TextLLMConfig(BaseModel):
             path = (PROJECT_ROOT / path).resolve()
         return path
 
+    @field_validator(
+        "text_binary",
+        "sd_binary",
+        "image_model",
+        "text_model",
+        mode="before",
+    )
     @classmethod
-    def _resolve_relative_path(cls, value: Any, info: ValidationInfo) -> Path:
+    @nobeartype
+    def _resolve_additional_paths(cls, value: Any, info: ValidationInfo) -> Path:
         path = Path(str(value))
         if path.is_absolute():
             return path
@@ -89,16 +101,6 @@ class _TextLLMConfig(BaseModel):
         else:
             base_path = PROJECT_ROOT
         return (base_path / path).resolve()
-
-    @field_validator("text_binary", mode="before")
-    @classmethod
-    def _resolve_binary(cls, value: Any, info: ValidationInfo) -> Path:
-        return cls._resolve_relative_path(value, info)
-
-    @field_validator("sd_binary", "image_model", "text_model", mode="before")
-    @classmethod
-    def _resolve_additional_paths(cls, value: Any, info: ValidationInfo) -> Path:
-        return cls._resolve_relative_path(value, info)
 
 
 def _build_text_llm_config() -> _TextLLMConfig:
@@ -445,7 +447,7 @@ def _upscale_image_bytes(payload: bytes, scale: int = 3) -> bytes:
     if scale <= 1:
         return payload
     with Image.open(BytesIO(payload)) as image:
-        image: Any
+        image = cast(Any, image)
         width, height = image.size
         target_size = (max(1, width * scale), max(1, height * scale))
         upscaled = image.resize(target_size, Image.Resampling.LANCZOS)
@@ -646,7 +648,8 @@ def _normalize_content(content: Any) -> str:
     if isinstance(content, str):
         return content
     if isinstance(content, Sequence) and not isinstance(content, (str, bytes)):
-        entries = cast(Sequence[Any], content)
+        # pyright gets typing this wrong
+        entries = cast(Sequence[Any], content)  # type: ignore[redundant-cast]
         pieces: list[str] = []
         for item in entries:
             if isinstance(item, str):

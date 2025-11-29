@@ -49,10 +49,28 @@ logger = structlog.getLogger("final_project")
 pil_logger = logging.getLogger("PIL")
 pil_logger.setLevel(logging.INFO)
 type CallableNoArgs = Callable[[], None]
+ColorPair = tuple[str, str]
+COLOR_PAIR_SIZE = 2
 
 
 def _dict_str_any() -> dict[str, Any]:
     return {}
+
+
+def _normalize_color_pair(value: Any, fallback: ColorPair) -> ColorPair:
+    if isinstance(value, (list, tuple)):
+        entries = [str(entry) for entry in value if isinstance(entry, str)]  # pyright: ignore[reportUnknownVariableType]
+        if len(entries) >= COLOR_PAIR_SIZE:
+            return (entries[0], entries[1])
+    if isinstance(value, str):
+        return (value, value)
+    return fallback
+
+
+def _normalize_menu_color(value: Any, fallback: ColorPair) -> str | ColorPair:
+    if isinstance(value, str):
+        return value
+    return _normalize_color_pair(value, fallback)
 
 
 @dataclass(slots=True)
@@ -167,22 +185,26 @@ class AppMenuBar(ctk.CTkFrame):
         label_cfg: dict[str, Any] = theme.get("CTkLabel", {})
         dropdown_cfg: dict[str, Any] = theme.get("DropdownMenu", {})
 
-        topbar_bg: list[str] = frame_cfg.get(
-            "top_fg_color",
-            frame_cfg.get("fg_color", ["gray90", "gray13"]),
-        )
-        base_text: list[str] = label_cfg.get("text_color", ["#111111", "#EDEDED"])
+        frame_default: ColorPair = ("gray90", "gray13")
+        label_default: ColorPair = ("#111111", "#EDEDED")
+        dropdown_default: ColorPair = ("#FFFFFF", "#2A2A2A")
 
-        menu_bg: list[str] = dropdown_cfg.get(
-            "fg_color",
-            frame_cfg.get("fg_color", ["#FFFFFF", "#2A2A2A"]),
+        topbar_bg = _normalize_color_pair(
+            frame_cfg.get("top_fg_color", frame_cfg.get("fg_color")),
+            frame_default,
         )
-        menu_hover: str | tuple[str, str] | None = dropdown_cfg.get(
-            "hover_color",
+        base_text = _normalize_color_pair(label_cfg.get("text_color"), label_default)
+
+        menu_bg = _normalize_color_pair(
+            dropdown_cfg.get("fg_color", frame_cfg.get("fg_color")),
+            dropdown_default,
+        )
+        menu_hover = _normalize_menu_color(
+            dropdown_cfg.get("hover_color", topbar_bg),
             topbar_bg,
         )
-        menu_text: str | tuple[str, str] | None = dropdown_cfg.get(
-            "text_color",
+        menu_text = _normalize_menu_color(
+            dropdown_cfg.get("text_color", base_text),
             base_text,
         )
 
