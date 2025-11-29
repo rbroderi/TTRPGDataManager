@@ -96,7 +96,7 @@ class DropdownSpec:
     config: dict[str, Any] = field(default_factory=_dict_str_any)
 
 
-class RadioField(ctk.CTkFrame):
+class RadioField(ctk.CTkFrame):  # type: ignore[misc]
     """Group radio buttons together so they behave like a single entry widget."""
 
     def __init__(
@@ -146,7 +146,7 @@ class RadioField(ctk.CTkFrame):
         self._variable.set("")
 
 
-class AppMenuBar(ctk.CTkFrame):
+class AppMenuBar(ctk.CTkFrame):  # type: ignore[misc]
     """A custom menu bar implementation."""
 
     def __init__(  # noqa: PLR0913, PLR0915
@@ -795,7 +795,7 @@ class AppMenuBar(ctk.CTkFrame):
         self._on_entry_type_change(selection)
 
 
-class HtmlPreviewWindow(ctk.CTkToplevel):
+class HtmlPreviewWindow(ctk.CTkToplevel):  # type: ignore[misc]
     """Display rendered HTML content inside a scrollable CustomTkinter window."""
 
     TABLE_PATTERN = re.compile(r"<table\b.*?>.*?</table>", re.IGNORECASE | re.DOTALL)
@@ -907,7 +907,7 @@ class HtmlPreviewWindow(ctk.CTkToplevel):
             self.source_path = source_path
         self._rendered_html = html_output
         if self._display_mode == "rendered":
-            self.html_view.set_html(self._rendered_html)
+            self.html_view.set_html(self._rendered_html)  # type: ignore[no-untyped-call]
         else:
             self._load_raw_html()
 
@@ -918,14 +918,14 @@ class HtmlPreviewWindow(ctk.CTkToplevel):
     def _toggle_mode(self) -> None:
         self._display_mode = "raw" if self._display_mode == "rendered" else "rendered"
         if self._display_mode == "rendered":
-            self.html_view.set_html(self._rendered_html)
+            self.html_view.set_html(self._rendered_html)  # type: ignore[no-untyped-call]
             self.toggle_button.configure(text="Show Raw HTML")
         else:
             self._load_raw_html()
             self.toggle_button.configure(text="Show Rendered HTML")
 
     def _load_raw_html(self) -> None:
-        self.html_view.set_html(f"<pre>{self._escape_html(self._rendered_html)}</pre>")
+        self.html_view.set_html(f"<pre>{self._escape_html(self._rendered_html)}</pre>")  # type: ignore[no-untyped-call]
 
     @staticmethod
     def _escape_html(text: str) -> str:
@@ -1122,7 +1122,7 @@ class HtmlPreviewWindow(ctk.CTkToplevel):
         return "".join(chars)
 
 
-class RandomIcon(ctk.CTkLabel):
+class RandomIcon(ctk.CTkLabel):  # type: ignore[misc]
     """Reusable dice-in-arrows overlay widget."""
 
     def __init__(

@@ -18,7 +18,7 @@ from beartype.roar import BeartypeDoorHintViolation
 logger = structlog.getLogger("final_project")
 settings = gorilla.Settings(allow_hit=True)
 
-_ORIGINAL_OBJECT_FATAL = decorcore._beartype_object_fatal  # type: ignore[attr-defined]  # noqa: SLF001
+_ORIGINAL_OBJECT_FATAL = decorcore._beartype_object_fatal  # pyright: ignore[reportPrivateUsage, reportUnknownMemberType, reportUnknownVariableType] # noqa: SLF001
 _ANSI_RE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 
 
@@ -57,7 +57,7 @@ def _wrap_callable(
             return original_target(*args, **kwargs)
 
     safe_wrapper.__beartype_safe__ = True  # type: ignore[attr-defined]
-    safe_wrapper.__wrapped__ = original_target  # type: ignore[attr-defined]
+    safe_wrapper.__wrapped__ = original_target
     return safe_wrapper
 
 

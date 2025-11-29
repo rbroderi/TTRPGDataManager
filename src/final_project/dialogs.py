@@ -100,7 +100,7 @@ class DialogManager(Protocol):
         ...
 
 
-class LLMProgressDialog(ctk.CTkToplevel):
+class LLMProgressDialog(ctk.CTkToplevel):  # type: ignore[misc]
     """Modal progress window shown while waiting on the LLM."""
 
     def __init__(self, master: ctk.CTk) -> None:
@@ -148,7 +148,7 @@ class LLMProgressDialog(ctk.CTkToplevel):
         self.destroy()
 
 
-class SettingsDialog(ctk.CTkToplevel):
+class SettingsDialog(ctk.CTkToplevel):  # type: ignore[misc]
     """Scrollable dialog for editing user-configurable settings."""
 
     def __init__(
@@ -364,7 +364,7 @@ class SettingsDialog(ctk.CTkToplevel):
             raise ValueError(msg) from exc
 
 
-class RelationshipDialog(ctk.CTkToplevel):
+class RelationshipDialog(ctk.CTkToplevel):  # type: ignore[misc]
     """Detached window for managing NPC relationships."""
 
     def __init__(
@@ -535,7 +535,7 @@ class RelationshipDialog(ctk.CTkToplevel):
         self.destroy()
 
 
-class EncounterMembersDialog(ctk.CTkToplevel):
+class EncounterMembersDialog(ctk.CTkToplevel):  # type: ignore[misc]
     """Modal dialog for editing encounter participants."""
 
     def __init__(
@@ -563,7 +563,7 @@ class EncounterMembersDialog(ctk.CTkToplevel):
 
         self.title("Encounter Members")
         self.resizable(width=False, height=False)
-        self.transient(manager)  # type: ignore[arg-type]
+        self.transient(manager)  # pyright: ignore[reportArgumentType, reportCallIssue]
         self.configure(padx=20, pady=10)
 
         self._build_layout()
@@ -708,7 +708,7 @@ class EncounterMembersDialog(ctk.CTkToplevel):
         self.destroy()
 
 
-class FactionDialog(ctk.CTkToplevel):
+class FactionDialog(ctk.CTkToplevel):  # type: ignore[misc]
     """Modal dialog used to capture new faction details."""
 
     def __init__(
@@ -732,7 +732,7 @@ class FactionDialog(ctk.CTkToplevel):
 
         self.title(dialog_title or "New Faction")
         self.resizable(width=False, height=False)
-        self.transient(manager)  # type: ignore[arg-type]
+        self.transient(manager)  # pyright: ignore[reportArgumentType, reportCallIssue]
         self.grab_set()
 
         self._campaign_label = ctk.CTkLabel(
@@ -837,7 +837,7 @@ class FactionDialog(ctk.CTkToplevel):
             self._save_btn.configure(text=save_button_label)
 
 
-class CampaignDialog(ctk.CTkToplevel):
+class CampaignDialog(ctk.CTkToplevel):  # type: ignore[misc]
     """Modal dialog to capture new campaign information."""
 
     def __init__(

@@ -414,7 +414,7 @@ class DataLogic:
             if lowered_key == "id":
                 continue
             try:
-                python_type = column.type.python_type  # type: ignore[attr-defined]
+                python_type = column.type.python_type
             except Exception:  # noqa: BLE001
                 python_type = None
             if python_type is bytes:
@@ -562,7 +562,7 @@ class DataLogic:
                 msg = f"Invalid JSON for {label}."
                 raise ValueError(msg) from exc
         try:
-            python_type = column.type.python_type  # type: ignore[attr-defined]
+            python_type = column.type.python_type
         except Exception:  # noqa: BLE001
             python_type = str
         if python_type is str:
@@ -572,7 +572,7 @@ class DataLogic:
         else:
             candidate = raw_value.strip()
         if candidate == "":
-            if column.nullable:  # type: ignore[attr-defined]
+            if column.nullable:
                 return True, None
             label = spec.label if spec else getattr(column, "key", "value")
             msg = f"{label} cannot be empty."
@@ -581,7 +581,7 @@ class DataLogic:
 
     def _coerce_value(self, column: Any, raw_value: str) -> Any:
         try:
-            python_type = column.type.python_type  # type: ignore[attr-defined]
+            python_type = column.type.python_type
         except Exception:  # noqa: BLE001
             python_type = str
         if python_type is int:

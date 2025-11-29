@@ -164,6 +164,7 @@ dev = [
     { name = "rust-just" },
     { name = "types-pyautogui" },
     { name = "types-pygments" },
+    { name = "types-pyyaml" },
     { name = "types-requests" },
 ]
 optimize = [
@@ -203,6 +204,7 @@ requires-dist = [
     { name = "tkhtmlview", specifier = ">=0.1.1.post1" },
     { name = "types-pyautogui", marker = "extra == 'dev'", specifier = ">=0.9.3.20241230" },
     { name = "types-pygments", marker = "extra == 'dev'", specifier = ">=2.19.0.20251121" },
+    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.12.20250915" },
     { name = "types-requests", marker = "extra == 'dev'", specifier = ">=2.32.4.20250913" },
 ]
 provides-extras = ["optimize", "dev"]
@@ -981,6 +983,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fe/ca/3d985f56303380bc028ec156f09f82479e6ebd21c7a4e1300108d4b9547c/types_pyscreeze-1.0.1.20250801.tar.gz", hash = "sha256:3780fadab237fca7e2ccb72928e36d04ef8a9cc93c5f5bdad7aff7a24e20004f", size = 9145 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7d/26/a1c2148014d0879bea6765402be1ebcc673317772174daabeb1b50b6ae15/types_pyscreeze-1.0.1.20250801-py3-none-any.whl", hash = "sha256:2a01abe6bac94ba9d97ce9d5f89c8e025443831f72309f1bd410a5fad45c6758", size = 8649 },
+]
+
+[[package]]
+name = "types-pyyaml"
+version = "6.0.12.20250915"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7e/69/3c51b36d04da19b92f9e815be12753125bd8bc247ba0470a982e6979e71c/types_pyyaml-6.0.12.20250915.tar.gz", hash = "sha256:0f8b54a528c303f0e6f7165687dd33fafa81c807fcac23f632b63aa624ced1d3", size = 17522 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/e0/1eed384f02555dde685fff1a1ac805c1c7dcb6dd019c916fe659b1c1f9ec/types_pyyaml-6.0.12.20250915-py3-none-any.whl", hash = "sha256:e7d4d9e064e89a3b3cae120b4990cd370874d2bf12fa5f46c97018dd5d3c9ab6", size = 20338 },
 ]
 
 [[package]]
