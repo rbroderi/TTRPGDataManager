@@ -1,5 +1,6 @@
 """Contains methods for working with the database."""
 
+from beartype import beartype
 from lazi.core import lazi
 
 # does not work well with lazi
@@ -42,6 +43,7 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     from typing import Protocol
     from typing import TextIO
     from typing import cast
+    from typing import runtime_checkable
 
     import structlog
     import yaml
@@ -165,6 +167,7 @@ class DBConfig(BaseModel):
     query: Mapping[str, Sequence[str] | str] = Field(default_factory=dict)
 
 
+@runtime_checkable
 class _Connector(Protocol):
     def __call__(self, loglevel: LogLevels = LogLevels.WARNING) -> Engine: ...
 

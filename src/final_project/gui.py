@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Annotated, Protocol
+from typing import Annotated, Protocol, runtime_checkable
 
 # pyright: reportUnknownMemberType=false
 # pyright: reportUnknownLambdaType=false
@@ -56,7 +56,7 @@ with lazi:  # type: ignore[attr-defined]
     import pyphen
     import structlog
     from pygments import lex
-    from pygments.lexers import get_lexer_by_name
+    from pygments.lexers import get_lexer_by_name  # pyright: ignore[reportUnknownVariableType]
     from pygments.token import Token
     from mistletoe import markdown as render_markdown
 
@@ -133,6 +133,7 @@ class _ImageRequestContext:
     prompt_builder: Callable[[], str]
 
 
+@runtime_checkable
 class _ManagedDialog(Protocol):
     def winfo_exists(self) -> bool: ...
 

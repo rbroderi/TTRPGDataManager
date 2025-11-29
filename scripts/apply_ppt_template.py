@@ -1,4 +1,5 @@
-"""Apply a PowerPoint template to a D2-generated deck.
+"""
+Apply a PowerPoint template to a D2-generated deck.
 
 This script copies every slide from the source deck (typically the output of
 `d2 input.d2 output.pptx`) into a template presentation while preserving the

@@ -22,6 +22,7 @@ with lazi:  # type: ignore[attr-defined]
     from typing import Any
     from typing import Protocol
     from typing import cast
+    from typing import runtime_checkable
 
     import structlog
     import tkfontawesome as tkfa  # type: ignore[import-untyped]
@@ -30,6 +31,7 @@ with lazi:  # type: ignore[attr-defined]
 logger = structlog.getLogger("final_project")
 
 
+@runtime_checkable
 class DialogManager(Protocol):
     """Structural contract expected from the main GUI window."""
 

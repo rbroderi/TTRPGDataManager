@@ -1,6 +1,6 @@
 [project]
 name = "final-project"
-version = "2025.11.19.0"
+version = "2025.11.29.1"
 description = "TTRPG Data Manager"
 readme = "README.md"
 authors = [
@@ -44,6 +44,7 @@ dev = [
     "ruff>=0.14.5",
     "rust-just>=1.43.0",
     "types-pyautogui>=0.9.3.20241230",
+    "types-pygments>=2.19.0.20251121",
     "types-requests>=2.32.4.20250913",
 ]
 
