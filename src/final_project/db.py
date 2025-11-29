@@ -220,7 +220,8 @@ def get_session() -> SessionType:
 
 
 class Base(DeclarativeBase):
-    """SqlAlchemy base class.
+    """
+    SqlAlchemy base class.
 
     see https://docs.sqlalchemy.org/en/20/changelog/whatsnew_20.html#migrating-an-existing-mapping
     """
@@ -749,13 +750,17 @@ def _load_all_sample_encounters(session: SessionType) -> int:
 def load_all_sample_data() -> dict[str, int]:
     """Load every bundled sample NPC, location, and encounter definition."""
     session = get_session()
-    results = {"locations": 0, "npcs": 0, "encounters": 0}
+    results = {"campaigns": 0, "locations": 0, "npcs": 0, "encounters": 0}
     try:
         engine = session.get_bind() or connect()
         Base.metadata.create_all(engine)
+        existing_campaigns = {name for (name,) in session.query(Campaign.name).all()}
         results["locations"] = _load_all_sample_locations(session)
         results["npcs"] = _load_all_sample_npcs(session)
         results["encounters"] = _load_all_sample_encounters(session)
+        session.flush()
+        current_campaigns = {name for (name,) in session.query(Campaign.name).all()}
+        results["campaigns"] = len(current_campaigns - existing_campaigns)
     except Exception:
         session.rollback()
         raise
