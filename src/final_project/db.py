@@ -13,7 +13,6 @@ from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import create_engine
-from sqlalchemy import or_
 from sqlalchemy.dialects.mysql import SMALLINT
 from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import SQLAlchemyError
@@ -810,54 +809,6 @@ def delete_campaign(name: str) -> None:
     session = get_session()
     try:
         campaign = _get_campaign(session, normalized)
-        npc_names = [
-            npc_name
-            for (npc_name,) in session.query(NPC.name)
-            .filter(NPC.campaign_name == normalized)
-            .all()
-        ]
-        if npc_names:
-            session.query(Relationship).filter(
-                or_(
-                    Relationship.npc_name_1.in_(npc_names),
-                    Relationship.npc_name_2.in_(npc_names),
-                ),
-            ).delete(synchronize_session=False)
-            session.query(FactionMembers).filter(
-                FactionMembers.npc_name.in_(npc_names),
-            ).delete(synchronize_session=False)
-        encounter_ids = [
-            encounter_id
-            for (encounter_id,) in session.query(Encounter.id)
-            .filter(Encounter.campaign_name == normalized)
-            .all()
-        ]
-        if encounter_ids:
-            session.query(EncounterParticipants).filter(
-                EncounterParticipants.encounter_id.in_(encounter_ids),
-            ).delete(synchronize_session=False)
-        faction_names = [
-            faction_name
-            for (faction_name,) in session.query(Faction.name)
-            .filter(Faction.campaign_name == normalized)
-            .all()
-        ]
-        if faction_names:
-            session.query(FactionMembers).filter(
-                FactionMembers.faction_name.in_(faction_names),
-            ).delete(synchronize_session=False)
-        session.query(Encounter).filter(
-            Encounter.campaign_name == normalized,
-        ).delete(synchronize_session=False)
-        session.query(Location).filter(
-            Location.campaign_name == normalized,
-        ).delete(synchronize_session=False)
-        session.query(NPC).filter(
-            NPC.campaign_name == normalized,
-        ).delete(synchronize_session=False)
-        session.query(Faction).filter(
-            Faction.campaign_name == normalized,
-        ).delete(synchronize_session=False)
         session.delete(campaign)
         session.commit()
     except SQLAlchemyError as exc:

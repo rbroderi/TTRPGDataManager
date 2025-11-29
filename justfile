@@ -14,11 +14,23 @@ mypy:
 create_stub package:
     pyright --createstub {{ package }}     
 
-generate_presentation:
+gen_presentation:
     {{ env_var("D2PATH") }}D2.exe docs/presentation.d2 docs/presentation.pptx
 
-generate_uml:
+gen_uml:
     uv run python scripts/generate_uml.py
 
 capture_ui:
     uv run python scripts/capture_ui_screens.py
+
+loc:
+    uvx pygount --format=summary --names-to-skip=*.eps
+
+run:
+    uv run python src/final_project/main.py
+
+rebuild:
+    uv run python src/final_project/main.py --rebuild
+
+run-with-ddl:
+    uv run python src/final_project/main.py --load-with-ddl

@@ -141,7 +141,7 @@ def _setup_arguments() -> argparse.Namespace:
         help="Print all NPCs currently stored in the database.",
     )
     db_group.add_argument(
-        "--load-ddl-at-startup",
+        "--load-with-ddl",
         "-d",
         action="store_true",
         help="Load db.ddl via mysql-connector before other actions (grading only).",
@@ -193,7 +193,7 @@ def main() -> int:
     args = _setup_arguments()
     patch()
     logger.info("inital setup completed.")
-    if args.load_ddl_at_startup:
+    if args.load_with_ddl:
         logger.info("loading ddl via mysql-connector")
         apply_external_schema_with_connector()
     if args.readme:

@@ -426,6 +426,7 @@ class TTRPGDataManager(ctk.CTk):
             on_show_readme=self.show_readme,
             on_show_settings=self.show_settings_dialog,
             on_entry_type_change=self._handle_entry_type_change,
+            on_delete_current_entry=self._handle_delete_current_entry,
         )
         self.menubar.pack(side="top", fill="x")
         self.menubar.set_campaign_change_handler(self._handle_campaign_change)
@@ -1219,6 +1220,60 @@ class TTRPGDataManager(ctk.CTk):
         """Clear the current form whenever the campaign selection changes."""
         self.clear_form()
         self._update_campaign_dropdowns(clear_selection=True)
+
+    def _handle_delete_current_entry(self, entry_type: str) -> None:  # noqa: C901, PLR0912
+        """Delete the currently loaded record for the active form."""
+        normalized = (entry_type or "").strip()
+        error_message = None
+        if normalized not in {"NPC", "Location", "Encounter"}:
+            error_message = "Switch to NPC, Location, or Encounter before deleting."
+        else:
+            key = self._current_record_key
+            if key is None or key[0] != normalized or not key[1]:
+                label = normalized.lower()
+                error_message = f"Load an existing {label} before deleting it."
+        if error_message:
+            messagebox.showinfo("Delete", error_message)
+            return
+        key = self._current_record_key
+        if key is None:
+            return
+        identifier = key[1]
+        if normalized == "Encounter":
+            display_name = f"{normalized} #{identifier}"
+        else:
+            display_name = f"{normalized} '{identifier}'"
+        prompt = f"Delete {display_name}?\n\nThis action cannot be undone."
+        if self._has_pending_changes_for(key):
+            prompt += "\n\nUnsaved edits for this record will be lost."
+        if not messagebox.askyesno("Delete", prompt):
+            return
+        try:
+            deleted = self.logic.delete_entry(normalized, identifier)
+        except ValueError as exc:
+            messagebox.showerror("Delete", str(exc))
+            return
+        except Exception:
+            logger.exception("failed to delete %s", normalized.lower())
+            messagebox.showerror(
+                "Delete",
+                "Unable to delete the entry. Check logs for details.",
+            )
+            return
+        if not deleted:
+            messagebox.showwarning(
+                "Delete",
+                (f"{display_name} was not found. It may have already been removed."),
+            )
+            return
+        self._pending_changes.pop(key, None)
+        self._pending_images.pop(key, None)
+        self._pending_faction_changes.pop(key, None)
+        handled = self._show_next_result_after_delete(normalized, identifier)
+        if not handled:
+            self.clear_form()
+        self._update_campaign_dropdowns()
+        messagebox.showinfo("Delete", f"Deleted {display_name}.")
 
     def _get_active_fields(self) -> dict[str, EntryWidget]:
         form_key = self._active_form
@@ -2404,6 +2459,13 @@ class TTRPGDataManager(ctk.CTk):
                 self._stage_faction_value(widget.get().strip())
         self._remember_image_override()
 
+    def _has_pending_changes_for(self, key: tuple[str, str]) -> bool:
+        return (
+            key in self._pending_changes
+            or key in self._pending_images
+            or key in self._pending_faction_changes
+        )
+
     def _reset_current_record(self) -> None:
         self._current_record_key = None
         self._current_image_payload = None
@@ -2444,6 +2506,31 @@ class TTRPGDataManager(ctk.CTk):
         elif entry_type == "Encounter":
             self._encounter_dialogs.refresh()
         self._update_navigation_state()
+
+    def _show_next_result_after_delete(
+        self,
+        entry_type: str,
+        identifier: str,
+    ) -> bool:
+        if not self._search_results or self._results_entry_type != entry_type:
+            return False
+        remaining: list[Any] = []
+        removed_index: int | None = None
+        for idx, instance in enumerate(self._search_results):
+            current_id = self._extract_instance_identifier(entry_type, instance)
+            if current_id == identifier and removed_index is None:
+                removed_index = idx
+                continue
+            remaining.append(instance)
+        if removed_index is None:
+            return False
+        self._search_results = remaining
+        if not remaining:
+            self._clear_results()
+            return False
+        self._search_index = min(removed_index, len(remaining) - 1)
+        self._display_result(self._search_index)
+        return True
 
     def _populate_form_from_instance(
         self,

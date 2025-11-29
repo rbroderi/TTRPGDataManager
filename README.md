@@ -76,11 +76,21 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
 7. **Environment variables:** besides DB credentials, set `LLM_MODEL_PATH` (optional) when pointing to alternate `.llamafile` assets.
 8. **Automated screenshots (Windows):** generate fresh images of the NPC/Location/Encounter forms plus the "Load Sample Data" prompt via `uv run python scripts/capture_ui_screens.py` (or `just capture_ui`). The script rebuilds the schema, launches the GUI, and saves PNGs to `docs/screenshots/` using `Pillow`'s `ImageGrab`, so it must run inside an interactive desktop session.
 
-## 6. Screenshots & GIFs
-- **Create/Update form (NPC editor with portrait + LLM helper):**
-  ![NPC Form](docs/images/run.png)
-- **Report / JOIN-heavy screen (campaign overview showing encounter + NPC data combined):**
-  ![Campaign Report](docs/images/manchester.png)
+## 6. Screenshots
+The `scripts/capture_ui_screens.py` automation rebuilds the database, loads the GUI, and saves the latest UI captures to `docs/images/screenshots/`. Key frames:
+
+- **Sample data onboarding:** prompt + summary captured while seeding the bundled fixtures.
+  - ![Sample Prompt](docs/images/screenshots/sample_data_prompt.png)
+  - ![Sample Summary](docs/images/screenshots/sample_data_summary.png)
+- **Core editors:** NPC, Location, and Encounter forms each with real sample data loaded via the automated search flow.
+  - ![NPC Form](docs/images/screenshots/npc_form.png)
+  - ![Location Form](docs/images/screenshots/location_form.png)
+  - ![Encounter Form](docs/images/screenshots/encounter_form.png)
+- **Auxiliary dialogs:** relationship manager (Tabular data via joins), faction creation dialog, README preview, and Settings window.
+  - ![Relationship Dialog](docs/images/screenshots/relationship_dialog.png)
+  - ![New Faction Dialog](docs/images/screenshots/new_faction_dialog.png)
+  - ![README Window](docs/images/screenshots/readme_window.png)
+  - ![Settings Dialog](docs/images/screenshots/settings_dialog.png)
 
 ## 7. Testing & Validation Notes
 - **Structural tests:** `uv run python -m final_project.main --list-npcs` confirms the ORM can read data immediately after migrations or sample loads.
@@ -93,6 +103,6 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
 - **Manual smoke tests:** launch the GUI, create/edit NPCs, attach images, assign factions, add encounter participants, and ensure the resulting rows appear under `--list-npcs` or through MySQL clients. Test LLM-driven name generation if `data/llm/*.llamafile` is present.
 
 ## Reference Material
-- `docs/prelimERD.uml` and `docs/images/erd.png` — ERD source + rendered asset.
-- `docs/proposal.pdf` — original requirements, personas, and success metrics.
+- `docs/erd.uml` and `docs/images/erd.png` — ERD source + rendered asset.
+- `docs/proposal.pdf` — original requirements.
 - `data/sample_*.yaml` — sample content used by CLI seeders and GUI demos.
