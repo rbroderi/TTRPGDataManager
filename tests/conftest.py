@@ -53,7 +53,7 @@ def db_session(mysql_engine: Engine) -> Iterator[Session]:
         _session: Session,
         transaction: Any,
     ) -> None:  # pragma: no cover
-        if transaction.nested and not getattr(transaction._parent, "nested", False):  # noqa: SLF001
+        if transaction.nested and not getattr(transaction._parent, "nested", False):
             connection.begin_nested()
 
     event.listen(session, "after_transaction_end", _restart_savepoint)

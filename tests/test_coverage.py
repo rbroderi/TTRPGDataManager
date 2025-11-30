@@ -1,6 +1,5 @@
 """Import-based smoke tests to support comprehensive pytest-cov runs."""
 
-# ruff: noqa: S101
 from __future__ import annotations
 
 import logging

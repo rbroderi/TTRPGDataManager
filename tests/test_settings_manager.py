@@ -1,6 +1,5 @@
 """Unit tests for the settings manager helpers."""
 
-# ruff: noqa: S101, SLF001
 # pyright: reportPrivateUsage=false
 
 from __future__ import annotations

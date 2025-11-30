@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-# pyright: reportUnknownMemberType=false
+from dataclasses import dataclass
+
 import customtkinter as ctk  # type: ignore[import-untyped]
 from lazi.core import lazi
 
@@ -14,6 +15,7 @@ with lazi:  # type: ignore[attr-defined]
     import json
     import tkinter as tk
     from collections.abc import Callable
+    from collections.abc import Mapping
     from collections.abc import Sequence
     from contextlib import suppress
     from datetime import UTC
@@ -29,6 +31,124 @@ with lazi:  # type: ignore[attr-defined]
     from PIL import ImageTk
 
 logger = structlog.getLogger("final_project")
+
+
+@dataclass(frozen=True, slots=True)
+class SettingFieldSpec:
+    """Describe metadata needed to render a single settings row."""
+
+    key: str
+    label: str
+    original_value: Any
+
+
+@dataclass(frozen=True, slots=True)
+class SettingGroupSpec:
+    """Describe a settings group and its associated fields."""
+
+    key: str
+    label: str
+    fields: tuple[SettingFieldSpec, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RelationshipRowSpec:
+    """Represent a relationship row ready for rendering."""
+
+    target_name: str
+    relation_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class EncounterMemberSpec:
+    """Describe an encounter member row for display."""
+
+    npc_name: str
+    notes: str
+
+
+@dataclass(frozen=True, slots=True)
+class ComboBoxState:
+    """Describe the normalized state of a combo box."""
+
+    values: tuple[str, ...]
+    selected: str
+
+
+def format_settings_group_name(name: str) -> str:
+    """Return a human-friendly label for a settings group."""
+    return name.replace("_", " ")
+
+
+def format_settings_key_label(key: str) -> str:
+    """Return a user-facing label for an individual setting."""
+    return key.replace("_", " ").capitalize()
+
+
+def build_settings_group_specs(
+    snapshot: Mapping[str, Mapping[str, Any]] | None,
+) -> tuple[SettingGroupSpec, ...]:
+    """Convert a settings snapshot into sorted, display-ready specs."""
+    if not snapshot:
+        return ()
+    group_specs: list[SettingGroupSpec] = []
+    for group_key in sorted(snapshot):
+        group_values = snapshot[group_key]
+        field_specs = [
+            SettingFieldSpec(
+                key=setting_key,
+                label=format_settings_key_label(setting_key),
+                original_value=group_values[setting_key],
+            )
+            for setting_key in sorted(group_values)
+        ]
+        group_specs.append(
+            SettingGroupSpec(
+                key=group_key,
+                label=format_settings_group_name(group_key),
+                fields=tuple(field_specs),
+            ),
+        )
+    return tuple(group_specs)
+
+
+def build_relationship_row_specs(
+    rows: Sequence[tuple[str, str]] | None,
+) -> tuple[RelationshipRowSpec, ...]:
+    """Convert manager rows into deterministic relationship specs."""
+    if not rows:
+        return ()
+    return tuple(
+        RelationshipRowSpec(target_name=target, relation_name=relation)
+        for target, relation in rows
+    )
+
+
+def build_encounter_member_specs(
+    rows: Sequence[tuple[str, str | None]] | None,
+) -> tuple[EncounterMemberSpec, ...]:
+    """Normalize encounter member rows for rendering."""
+    if not rows:
+        return ()
+    return tuple(
+        EncounterMemberSpec(npc_name=name, notes=(notes or "")) for name, notes in rows
+    )
+
+
+def build_combo_box_state(
+    options: Sequence[str] | None,
+    current_value: str | None,
+) -> ComboBoxState:
+    """Determine the displayed values and selected entry for combo boxes."""
+    normalized_values = tuple(options or ())
+    normalized_current = (current_value or "").strip()
+    if not normalized_values:
+        return ComboBoxState(values=(), selected="")
+    if normalized_current and normalized_current in normalized_values:
+        selected = normalized_current
+    else:
+        selected = normalized_values[0]
+    return ComboBoxState(values=normalized_values, selected=selected)
 
 
 @runtime_checkable
@@ -186,37 +306,37 @@ class SettingsDialog(ctk.CTkToplevel):  # type: ignore[misc]
 
         self._scroll_frame = ctk.CTkScrollableFrame(self, height=360, width=460)
         self._scroll_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-        if not self._settings_snapshot:
+        group_specs = build_settings_group_specs(self._settings_snapshot)
+        if not group_specs:
             ctk.CTkLabel(
                 self._scroll_frame,
                 text="No configurable settings were found.",
                 anchor="w",
             ).pack(fill="x", padx=10, pady=10)
         else:
-            for group in sorted(self._settings_snapshot):
-                group_values = self._settings_snapshot[group]
+            for group in group_specs:
                 section = ctk.CTkFrame(self._scroll_frame, fg_color="transparent")
                 section.pack(fill="x", expand=True, padx=5, pady=(0, 12))
                 ctk.CTkLabel(
                     section,
-                    text=self._format_group_name(group),
+                    text=group.label,
                     font=group_font,
                     anchor="w",
                 ).pack(fill="x", pady=(0, 6))
-                for key in sorted(group_values):
-                    value = group_values[key]
+                for field in group.fields:
+                    value = field.original_value
                     row = ctk.CTkFrame(section, fg_color="transparent")
                     row.pack(fill="x", pady=(0, 6))
                     ctk.CTkLabel(
                         row,
-                        text=self._format_key_label(key),
+                        text=field.label,
                         width=190,
                         anchor="w",
                     ).pack(side="left")
                     entry = ctk.CTkEntry(row)
                     entry.insert(0, self._stringify_value(value))
                     entry.pack(side="left", fill="x", expand=True, padx=(10, 0))
-                    self._fields[(group, key)] = (entry, value)
+                    self._fields[(group.key, field.key)] = (entry, value)
 
         actions = ctk.CTkFrame(self)
         actions.pack(fill="x", padx=20, pady=(0, 20))
@@ -240,7 +360,8 @@ class SettingsDialog(ctk.CTkToplevel):  # type: ignore[misc]
         updated_settings = settings_manager.get_settings_snapshot()
         for (group, key), (entry, original) in self._fields.items():
             display_name = (
-                f"{self._format_group_name(group)} / {self._format_key_label(key)}"
+                f"{format_settings_group_name(group)} / "
+                f"{format_settings_key_label(key)}"
             )
             try:
                 parsed_value = self._convert_value(entry.get(), original)
@@ -251,7 +372,15 @@ class SettingsDialog(ctk.CTkToplevel):  # type: ignore[misc]
                 return
             bucket = updated_settings.setdefault(group, {})
             bucket[key] = parsed_value
-        saved = settings_manager.save_settings(updated_settings)
+        try:
+            saved = settings_manager.save_settings(updated_settings)
+        except (OSError, RuntimeError) as exc:
+            logger.exception("failed to save settings")
+            messagebox.showerror(
+                "Settings",
+                f"Unable to save settings: {exc}",
+            )
+            return
         if self._on_settings_saved is not None:
             self._on_settings_saved(saved)
         messagebox.showinfo("Settings", "Settings saved successfully.")
@@ -453,36 +582,32 @@ class RelationshipDialog(ctk.CTkToplevel):  # type: ignore[misc]
             self.campaign,
             exclude=[self.source_name],
         )
-        self._target_combo.configure(values=values)
-        if not values:
-            self._target_combo.set("")
-            return
-        current = self._target_combo.get()
-        if current and current in values:
-            self._target_combo.set(current)
-            return
-        self._target_combo.set(values[0])
+        combo_state = build_combo_box_state(values, self._target_combo.get())
+        self._target_combo.configure(values=combo_state.values)
+        self._target_combo.set(combo_state.selected)
 
     def _reload_rows(self) -> None:
         for child in self._rows_frame.winfo_children():
             child.destroy()
-        rows = self.manager.fetch_relationship_rows(self.source_name)
-        if not rows:
+        row_specs = build_relationship_row_specs(
+            self.manager.fetch_relationship_rows(self.source_name),
+        )
+        if not row_specs:
             ctk.CTkLabel(
                 self._rows_frame,
                 text="No relationships recorded.",
                 anchor="w",
             ).pack(fill="x", padx=5, pady=5)
             return
-        for target, relation in rows:
+        for spec in row_specs:
             row = ctk.CTkFrame(self._rows_frame, fg_color="transparent")
             row.pack(fill="x", padx=5, pady=2)
-            ctk.CTkLabel(row, text=target, anchor="w").pack(
+            ctk.CTkLabel(row, text=spec.target_name, anchor="w").pack(
                 side="left",
                 expand=True,
                 fill="x",
             )
-            ctk.CTkLabel(row, text=relation, anchor="w").pack(
+            ctk.CTkLabel(row, text=spec.relation_name, anchor="w").pack(
                 side="left",
                 expand=True,
                 fill="x",
@@ -492,7 +617,9 @@ class RelationshipDialog(ctk.CTkToplevel):  # type: ignore[misc]
                 text="",
                 width=36,
                 image=self._delete_icon,
-                command=lambda target_name=target: self._handle_delete(target_name),
+                command=lambda target_name=spec.target_name: self._handle_delete(
+                    target_name,
+                ),
             )
             delete_btn.pack(side="left", padx=(5, 0))
 
@@ -631,36 +758,33 @@ class EncounterMembersDialog(ctk.CTkToplevel):  # type: ignore[misc]
             self.campaign,
             exclude=tuple(self._current_members),
         )
-        self._npc_combo.configure(values=values)
-        current = self._npc_combo.get().strip()
-        if values and current in values:
-            self._npc_combo.set(current)
-        elif values:
-            self._npc_combo.set(values[0])
-        else:
-            self._npc_combo.set("")
+        combo_state = build_combo_box_state(values, self._npc_combo.get())
+        self._npc_combo.configure(values=combo_state.values)
+        self._npc_combo.set(combo_state.selected)
 
     def _reload_rows(self) -> None:
         for child in self._rows_frame.winfo_children():
             child.destroy()
-        rows = self.manager.fetch_encounter_members(self.encounter_id)
-        self._current_members = {name for name, _ in rows}
-        if not rows:
+        row_specs = build_encounter_member_specs(
+            self.manager.fetch_encounter_members(self.encounter_id),
+        )
+        self._current_members = {spec.npc_name for spec in row_specs}
+        if not row_specs:
             ctk.CTkLabel(
                 self._rows_frame,
                 text="No participants assigned to this encounter.",
                 anchor="w",
             ).pack(fill="x", padx=5, pady=5)
             return
-        for npc_name, notes in rows:
+        for spec in row_specs:
             row = ctk.CTkFrame(self._rows_frame, fg_color="transparent")
             row.pack(fill="x", padx=5, pady=2)
-            ctk.CTkLabel(row, text=npc_name, anchor="w").pack(
+            ctk.CTkLabel(row, text=spec.npc_name, anchor="w").pack(
                 side="left",
                 expand=True,
                 fill="x",
             )
-            ctk.CTkLabel(row, text=notes or "", anchor="w", wraplength=260).pack(
+            ctk.CTkLabel(row, text=spec.notes, anchor="w", wraplength=260).pack(
                 side="left",
                 expand=True,
                 fill="x",
@@ -670,7 +794,7 @@ class EncounterMembersDialog(ctk.CTkToplevel):  # type: ignore[misc]
                 text="",
                 width=36,
                 image=self._delete_icon,
-                command=lambda name=npc_name: self._handle_remove(name),
+                command=lambda name=spec.npc_name: self._handle_remove(name),
             )
             delete_btn.pack(side="left", padx=(5, 0))
 

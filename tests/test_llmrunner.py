@@ -1,6 +1,5 @@
 """Targeted tests for final_project.llmrunner helpers."""
 
-# ruff: noqa: D103, S101, SLF001
 # pyright: reportPrivateUsage=false
 
 from __future__ import annotations

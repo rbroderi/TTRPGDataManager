@@ -1,6 +1,5 @@
 """Tests for final_project.db using an in-memory SQLite database."""
 
-# ruff: noqa: S101, SLF001, D103
 # pyright: reportPrivateUsage=false
 # pyright: reportUnknownMemberType=false
 # pyright: reportUnknownLambdaType=false
@@ -67,7 +66,7 @@ def memory_engine(monkeypatch: pytest.MonkeyPatch) -> Iterator[Engine]:
         expire_on_commit=False,
     )
 
-    def _connect(loglevel: LogLevels = LogLevels.WARNING) -> Engine:  # noqa: ARG001 - signature matches
+    def _connect(loglevel: LogLevels = LogLevels.WARNING) -> Engine:
         return engine
 
     def _get_session() -> Session:
@@ -359,7 +358,7 @@ def test_get_session_factory_reuses_sessionmaker(
     engine = create_engine("sqlite+pysqlite:///:memory:")
     call_count = {"connect": 0}
 
-    def fake_connect(loglevel: LogLevels = LogLevels.WARNING) -> Engine:  # noqa: ARG001
+    def fake_connect(loglevel: LogLevels = LogLevels.WARNING) -> Engine:
         call_count["connect"] += 1
         return engine
 
