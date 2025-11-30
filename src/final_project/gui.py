@@ -21,11 +21,16 @@ from final_project.dialogs import SettingsDialog
 from final_project.logic import DataLogic
 from final_project.logic import DuplicateRecordError
 from final_project.logic import FieldSpec
+from final_project.llmrunner import LLMAssetDownloadSpec
+from final_project.llmrunner import LLM_DOWNLOAD_SIZE_GB
 from final_project.llmrunner import did_text_llm_server_fail
+from final_project.llmrunner import download_llm_asset
 from final_project.llmrunner import generate_portrait_from_image_llm
+from final_project.llmrunner import get_missing_llm_assets
 from final_project.llmrunner import get_random_name_from_text_llm
 from final_project.llmrunner import is_text_llm_server_ready
 from final_project.llmrunner import reload_image_generation_defaults
+from final_project.llmrunner import start_text_llm_server_async
 from final_project.widgets import AppMenuBar
 from final_project.widgets import HtmlPreviewWindow
 from final_project.widgets import RadioField
@@ -304,7 +309,7 @@ class Size(NamedTuple):
 class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
     """Main gui class."""
 
-    def __init__(self, delay: int = LOAD_PAUSE) -> None:
+    def __init__(self, delay: int = LOAD_PAUSE) -> None:  # noqa: PLR0915
         """Initialize the main gui class."""
         super().__init__()
         self.title("TTRPG Data Manager")
@@ -407,6 +412,8 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         )
         self._llm_ready = self._get_llm_server_status() is _LLMServerStatus.READY
         self._llm_watch_job: str | None = None
+        self._llm_server_started = False
+        self._llm_download_in_progress = False
 
         self.splash_frame = ctk.CTkFrame(self)
         self.splash_frame.pack(expand=True, fill="both")
@@ -420,6 +427,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
 
         # After delay, remove splash and build main UI
         self.after(LOAD_PAUSE - 1000, lambda: self.prepare(delay=delay))
+        self.after(0, self._prepare_llm_assets)
 
     def prepare(self, delay: int) -> None:
         """Build all widgets and layout while hidden."""
@@ -2165,6 +2173,113 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         name_widget.delete(0, tk.END)
         name_widget.insert(0, cleaned)
         name_widget.focus_set()
+
+    def _prepare_llm_assets(self) -> None:
+        if self._llm_download_in_progress:
+            return
+        missing = get_missing_llm_assets()
+        if not missing:
+            self._start_llm_server()
+            return
+        asset_list = "\n".join(f"- {spec.name}" for spec in missing)
+        prompt = (
+            "Required LLM model files are missing:\n\n"
+            f"{asset_list}\n\n"
+            f"Approximately {LLM_DOWNLOAD_SIZE_GB} GB of free disk space is needed. "
+            "Would you like to download them now?"
+        )
+        if not messagebox.askyesno(
+            "Download LLM Models",
+            prompt,
+            icon="warning",
+        ):
+            messagebox.showwarning(
+                "Download LLM Models",
+                (
+                    "LLM-powered features will remain unavailable until the models "
+                    "are installed. You can add the files to data/llm manually at "
+                    "any time."
+                ),
+            )
+            return
+        self._begin_llm_asset_download(missing)
+
+    def _begin_llm_asset_download(
+        self,
+        assets: Sequence[LLMAssetDownloadSpec],
+    ) -> None:
+        if self._llm_download_in_progress:
+            return
+        self._llm_download_in_progress = True
+        dialog = LLMProgressDialog(self)
+        dialog.update_status("Preparing download...", None)
+
+        def _emit(message: str, percent: float | None) -> None:
+            self.after(
+                0,
+                lambda msg=message, pct=percent: self._update_llm_download_dialog(
+                    dialog,
+                    msg,
+                    pct,
+                ),
+            )
+
+        def _worker() -> None:
+            try:
+                for asset in assets:
+                    download_llm_asset(asset, _emit)
+            except Exception as exc:
+                logger.exception("failed to download llm assets")
+                self.after(
+                    0,
+                    lambda err=exc: self._handle_llm_download_error(dialog, err),
+                )
+            else:
+                self.after(0, lambda: self._handle_llm_download_success(dialog))
+
+        threading.Thread(
+            target=_worker,
+            name="llm-asset-download",
+            daemon=True,
+        ).start()
+
+    def _update_llm_download_dialog(
+        self,
+        dialog: LLMProgressDialog,
+        message: str,
+        percent: float | None,
+    ) -> None:
+        if dialog.winfo_exists():
+            dialog.update_status(message, percent)
+
+    def _handle_llm_download_error(
+        self,
+        dialog: LLMProgressDialog,
+        exc: Exception,
+    ) -> None:
+        self._llm_download_in_progress = False
+        if dialog.winfo_exists():
+            dialog.close()
+        messagebox.showerror(
+            "Download LLM Models",
+            f"Unable to download the required models: {exc}",
+        )
+
+    def _handle_llm_download_success(self, dialog: LLMProgressDialog) -> None:
+        self._llm_download_in_progress = False
+        if dialog.winfo_exists():
+            dialog.close()
+        messagebox.showinfo(
+            "Download LLM Models",
+            "Model files downloaded successfully.",
+        )
+        self._start_llm_server()
+
+    def _start_llm_server(self) -> None:
+        if self._llm_server_started:
+            return
+        self._llm_server_started = True
+        start_text_llm_server_async()
 
     def _initialize_llm_generator_state(self) -> None:
         status = self._get_llm_server_status()

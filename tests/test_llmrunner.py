@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import builtins
 import contextlib
+import hashlib
 from collections.abc import Iterator
 from collections.abc import Sequence
 from io import BytesIO
@@ -29,7 +30,7 @@ def fake_llm_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> SimpleNa
     sd_binary.write_bytes(b"binary")
     text_binary = text_dir / "llama"
     text_binary.write_bytes(b"binary")
-    text_model = text_dir / "model.gguf"
+    text_model = text_dir / "model.llamafile"
     text_model.write_text("model")
     image_model = text_dir / "image.safetensors"
     image_model.write_text("image")
@@ -81,7 +82,7 @@ def test_text_llm_config_resolves_relative_paths(
         "text_dir": "rel/base",
         "text_binary": "bin/llama",
         "sd_binary": "bin/sdfile",
-        "text_model": "models/text.gguf",
+        "text_model": "models/text.llamafile",
         "image_model": "models/image.safetensors",
         "name_prompt": "Name {vartext}",
         "text_server_prompt_template": "Server {vartext}",
@@ -104,7 +105,7 @@ def test_text_llm_config_resolves_relative_paths(
     assert config.text_dir == expected_dir
     assert config.text_binary == expected_dir / "bin/llama"
     assert config.sd_binary == expected_dir / "bin/sdfile"
-    assert config.text_model == expected_dir / "models/text.gguf"
+    assert config.text_model == expected_dir / "models/text.llamafile"
     assert config.image_model == expected_dir / "models/image.safetensors"
 
 
@@ -141,7 +142,7 @@ def test_build_text_llm_config_loads_snapshot(
     sd_binary.write_text("sd")
     text_binary = text_dir / "llama.bin"
     text_binary.write_text("llama")
-    text_model = text_dir / "model.gguf"
+    text_model = text_dir / "model.llamafile"
     text_model.write_text("model")
     image_model = text_dir / "image.safetensors"
     image_model.write_text("image")
@@ -211,6 +212,128 @@ def test_text_llm_config_handles_non_path_text_dir(
     assert result == (base_dir / "child.bin").resolve()
 
 
+def test_get_missing_llm_assets_returns_empty_when_files_exist() -> None:
+    assert llmrunner.get_missing_llm_assets() == ()
+
+
+def test_get_missing_llm_assets_identifies_missing_files(
+    fake_llm_config: SimpleNamespace,
+) -> None:
+    fake_llm_config.image_model.unlink()
+    fake_llm_config.text_model.unlink()
+    missing = llmrunner.get_missing_llm_assets()
+    assert [spec.name for spec in missing] == [
+        fake_llm_config.image_model.name,
+        fake_llm_config.text_model.name,
+    ]
+    assert [spec.path for spec in missing] == [
+        fake_llm_config.image_model,
+        fake_llm_config.text_model,
+    ]
+
+
+def test_download_llm_asset_delegates_to_helper(
+    monkeypatch: pytest.MonkeyPatch,
+    fake_llm_config: SimpleNamespace,
+) -> None:
+    asset = llmrunner.LLMAssetDownloadSpec(
+        name="demo.llamafile",
+        path=fake_llm_config.text_model,
+        file_id="file-id",
+    )
+    calls: list[tuple[llmrunner.LLMAssetDownloadSpec, None]] = []
+
+    def fake_downloader(
+        spec: llmrunner.LLMAssetDownloadSpec,
+        progress: None,
+    ) -> None:
+        calls.append((spec, progress))
+
+    monkeypatch.setattr(llmrunner, "_download_google_drive_file", fake_downloader)
+    llmrunner.download_llm_asset(asset, None)
+    assert calls == [(asset, None)]
+
+
+def test_parse_drive_confirm_value_extracts_hidden_input() -> None:
+    body = '<input type="hidden" name="confirm" value="t"><a href=\'/uc?confirm=abc\'>'
+    assert llmrunner._parse_drive_confirm_value(body) == "t"
+
+
+def test_parse_drive_confirm_value_handles_query_string() -> None:
+    body = "https://drive.google.com/uc?export=download&confirm=xyz"
+    assert llmrunner._parse_drive_confirm_value(body) == "xyz"
+
+
+def test_parse_drive_hidden_input_supports_single_quotes() -> None:
+    body = "<input type='hidden' name='uuid' value='abc123'>"
+    assert llmrunner._parse_drive_hidden_input(body, "uuid") == "abc123"
+
+
+def test_parse_drive_html_metadata_returns_action_and_params() -> None:
+    body = (
+        '<form action="https://drive.usercontent.google.com/download?export=download">'
+        '<input type="hidden" name="confirm" value="token123">'
+        "<input type='hidden' name='uuid' value='uuid-789'>"
+        "</form>"
+    )
+    confirm, extra_params, action_url = llmrunner._parse_drive_html_metadata(body)
+    assert confirm == "token123"
+    assert extra_params == {"uuid": "uuid-789", "export": "download"}
+    assert action_url == "https://drive.usercontent.google.com/download"
+
+
+def test_get_missing_llm_assets_flags_checksum_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+    fake_llm_config: SimpleNamespace,
+) -> None:
+    path = fake_llm_config.text_model
+    path.write_text("corrupted")
+    monkeypatch.setitem(
+        llmrunner._LLM_ASSET_METADATA,
+        path.name.lower(),
+        ("file-id", "0" * 64),
+    )
+    missing = llmrunner.get_missing_llm_assets()
+    assert any(spec.path == path for spec in missing)
+
+
+def test_asset_needs_download_false_when_checksum_matches(tmp_path: Path) -> None:
+    payload = b"payload"
+    target = tmp_path / "asset.bin"
+    target.write_bytes(payload)
+    digest = hashlib.sha256(payload).hexdigest()
+    spec = llmrunner.LLMAssetDownloadSpec(
+        name="asset.bin",
+        path=target,
+        file_id="file",
+        sha256=digest,
+    )
+    assert llmrunner._asset_needs_download(spec) is False
+
+
+def test_download_llm_asset_raises_on_checksum_mismatch(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "asset.bin"
+    spec = llmrunner.LLMAssetDownloadSpec(
+        name="asset.bin",
+        path=target,
+        file_id="file",
+        sha256="0" * 64,
+    )
+
+    def fake_downloader(
+        asset: llmrunner.LLMAssetDownloadSpec,
+        progress: llmrunner.ProgressCallback | None,
+    ) -> None:
+        asset.path.write_text("contents")
+
+    monkeypatch.setattr(llmrunner, "_download_google_drive_file", fake_downloader)
+    with pytest.raises(RuntimeError, match="Checksum validation failed"):
+        llmrunner.download_llm_asset(spec, None)
+
+
 def test_server_runtime_launch_detects_existing_server(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -235,7 +358,7 @@ def test_server_runtime_launch_starts_process(
     tmp_path: Path,
 ) -> None:
     runtime = llmrunner._ServerRuntime()
-    text_model = tmp_path / "model.gguf"
+    text_model = tmp_path / "model.llamafile"
     text_model.write_text("model")
 
     def resolve_text_model(_path: Path | None) -> Path:
@@ -388,7 +511,7 @@ def test_server_runtime_launch_handles_popen_failure(
     tmp_path: Path,
 ) -> None:
     runtime = llmrunner._ServerRuntime()
-    text_model = tmp_path / "model.gguf"
+    text_model = tmp_path / "model.llamafile"
     text_model.write_text("model")
 
     def resolve_model(_path: Path | None) -> Path:
@@ -418,7 +541,7 @@ def test_server_runtime_launch_handles_process_exit(
     tmp_path: Path,
 ) -> None:
     runtime = llmrunner._ServerRuntime()
-    text_model = tmp_path / "model.gguf"
+    text_model = tmp_path / "model.llamafile"
     text_model.write_text("model")
 
     def resolve_model(_path: Path | None) -> Path:
@@ -456,7 +579,7 @@ def test_server_runtime_launch_times_out(
     tmp_path: Path,
 ) -> None:
     runtime = llmrunner._ServerRuntime()
-    text_model = tmp_path / "model.gguf"
+    text_model = tmp_path / "model.llamafile"
     text_model.write_text("model")
 
     def resolve_model(_path: Path | None) -> Path:
@@ -559,7 +682,7 @@ def test_reload_image_generation_defaults_swaps_global(
         image_steps=42,
         sd_binary=alt_dir / "sd",
         text_binary=alt_binary,
-        text_model=alt_dir / "model.gguf",
+        text_model=alt_dir / "model.llamafile",
         image_model=alt_dir / "image.safetensors",
         image_cfg_scale=5.0,
         name_prompt="P {vartext}",

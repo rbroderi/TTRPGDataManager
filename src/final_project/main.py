@@ -26,7 +26,6 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     from rich.console import Console
 
     from final_project import LogLevels
-    from final_project.llmrunner import start_text_llm_server_async
 
 
 ################## GLOBAL SETTINGS ###################################
@@ -147,7 +146,6 @@ def _handle_db_actions(args: argparse.Namespace) -> bool:
 def _launch_gui() -> None:
     """Start the CustomTkinter GUI after CLI setup."""
     logger.debug("starting gui")
-    start_text_llm_server_async()
     launch_gui()
 
 

@@ -206,7 +206,8 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 .venv
-data/llm/
+data/llm/*.safetensors
+data/llm/*.llamafile
 typings/
 .env
 .synctex.gz
