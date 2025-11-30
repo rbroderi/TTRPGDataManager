@@ -56,16 +56,16 @@ _GOOGLE_DRIVE_DOWNLOAD_URL = "https://drive.google.com/uc"
 _GOOGLE_DRIVE_EXPORT_PARAMS = {"export": "download"}
 _LLM_ASSET_SUFFIX_TO_FILE_ID: dict[str, str] = {
     ".safetensors": "1Aov0HExRaeSqg752nmXPLFbRHa1zd66n",
-    ".llamafile": "1mxb-WDPJmA3LwQP19cxma_cLeEU-pMOs",
+    ".llamafile": "1bzF7gxbC39vKSaHBfpol06mFpj4uPjGf",
 }
 _LLM_ASSET_METADATA: dict[str, tuple[str | None, str | None]] = {
     "dreamshaper_8.safetensors": (
         "1Aov0HExRaeSqg752nmXPLFbRHa1zd66n",
         "879DB523C30D3B9017143D56705015E15A2CB5628762C11D086FED9538ABD7FD",
     ),
-    "google_gemma-3-4b-it-q6_k.llamafile": (
-        "1mxb-WDPJmA3LwQP19cxma_cLeEU-pMOs",
-        "F1777A23BCA3410BA4E7940E468790D559B54680B5DD35FBA6F55BFC302B8463",
+    "google_gemma-3-4b-it-q8_0.llamafile": (
+        "1bzF7gxbC39vKSaHBfpol06mFpj4uPjGf",
+        "0BBFBAF289453CD2B617912F1A35B69A9BD60FE8CB0695197A286AC67E5B105C",
     ),
 }
 _DOWNLOAD_CHUNK_SIZE = 8 * 1024 * 1024
