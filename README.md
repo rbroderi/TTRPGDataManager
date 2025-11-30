@@ -3,7 +3,7 @@
 A Desktop based program for Game Masters, Store Tellers or Authors need to manage TTRPG games or store information. The application uses a CustomTkinter interface, SQLAlchemy modeled MySQL backend, and optional local LLM files to help construct images and names.
 
 ## 1. Project Overview
-- **Purpose:** give Game Masters (primary users) and optionally Authors a single control panel for CRUD workflows around campaigns, NPCs, locations, encounters, factions, and relationships.
+- **Purpose:** give Game Masters and Authors a single control panel for CRUD workflows around campaigns, NPCs, locations, encounters, factions, and relationships.
 - **Main features:** 
   - Campaign switching
   - NPC/location/encounter editors with portrait/image uploads/downloads
@@ -27,7 +27,6 @@ The ERD (authored in `docs/erd.uml`, rendered to `docs/images/erd.png`) illustra
 
 ![ERD Diagram](docs/images/erd.png)
 
-**Narrative:**
 - `CampaignRecord` is the abstract anchor. `NPC`, `Location`, and `Encounter` inherit from it (joined-table inheritance), so they share the same integer PK, the `campaign_name` FK, and a discriminator column. Cascading deletes flow through this single FK because every derived row ultimately hangs off the base table.
 - `Campaign` sits at the top of the hierarchy, with the 1→N edge into `CampaignRecord` representing every record that belongs to a campaign. Specialized tables store only their unique attributes.
 - `ImageStore` is a 0→1 with `CampaignRecord`. Any inheriting entity can opt into having a binary image without bloating its own table. Portraits, location art, and battlemaps all land in this shared LONGBLOB table keyed by the campaign record id.
@@ -72,66 +71,38 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
 ## 5. Run Instructions
 1. **Prerequisites:** Python 3.13+, `uv`, and a reachable MySQL 8 server. Optional: `.llamafile` models (drop into `data/llm/`) if you want AI-generated names.
 2. **Install dependencies:**
-   ```shell
-   pip install uv
-   git clone https://github.com/rbroderi/TTRPGDataManager.git
+  ```shell
+  pip install uv
+  git clone https://github.com/rbroderi/TTRPGDataManager.git
   ```
   or
   ```shell
-   unzip supplied zip to TTRPGDataManager/
-  ``` 
+  unzip supplied zip to TTRPGDataManager/
+  ```
   ```shell
-   cd TTRPGDataManager
-   uv sync
-   uv run -m final_project
-   ```
-3. **Configure secrets:**
-   ```ini
-   # .env
-   DB_USERNAME=USERNAME
-   DB_PASSWORD=PASSWORD
+  cd TTRPGDataManager
+  uv sync
+  ```
 
-   # config.toml
-   [DB]
-   drivername = "mysql+mysqlconnector"
-   host = "localhost"
-   port = 3306
-   database = "final_project"
-   ```
-4. **Initialize the database:**
+3. **Create .env file**
+  ```shell
+  uv run scripts\create_env.py
+  ```
+4. **Launch the GUI:**
    ```powershell
-   # Option A: build via SQLAlchemy
-   uv run python -m final_project.main --rebuild
-
-   # Option B: apply raw DDL for grading (runs mysql-connector loader)
-   uv run python -m final_project.main -d
+   uv run python -m final_project --load-with-ddl
    ```
-5. **Launch the GUI:**
-   ```powershell
-   uv run python -m final_project.main
-   ```
-6. **Seed sample content (optional but recommended):** when the GUI detects an empty database it shows a "Sample Data" prompt—choose **Yes** to ingest every bundled NPC, location, and encounter.
-7. **Environment variables:** besides DB credentials, set `LLM_MODEL_PATH` (optional) when pointing to alternate `.llamafile` assets.
-8. **Automated screenshots (Windows):** generate fresh images of the NPC/Location/Encounter forms plus the "Load Sample Data" prompt via `uv run python scripts/capture_ui_screens.py` (or `just capture_ui`). The script rebuilds the schema, launches the GUI, and saves PNGs to `docs/screenshots/` using `Pillow`'s `ImageGrab`, so it must run inside an interactive desktop session.
+5. **Download Local LLM Files (optional but required for name and image generation)**
+  - ![Missing LLM Files](docs/images/screenshots/missing_llm_files.png)
 
-## 6. Screenshots
-The `scripts/capture_ui_screens.py` automation rebuilds the database, loads the GUI, and saves the latest UI captures to `docs/images/screenshots/`. Key frames:
-
-- **Sample data onboarding:** prompt + summary captured while seeding the bundled fixtures.
-  - ![Sample Prompt](docs/images/screenshots/sample_data_prompt.png)
-  - ![Sample Summary](docs/images/screenshots/sample_data_summary.png)
-- **Core editors:** NPC, Location, and Encounter forms each with real sample data loaded via the automated search flow.
-  - ![NPC Form](docs/images/screenshots/npc_form.png)
-  - ![Location Form](docs/images/screenshots/location_form.png)
-  - ![Encounter Form](docs/images/screenshots/encounter_form.png)
-- **Auxiliary dialogs:** relationship manager (Tabular data via joins), faction creation dialog, README preview, and Settings window.
-  - ![Relationship Dialog](docs/images/screenshots/relationship_dialog.png)
-  - ![New Faction Dialog](docs/images/screenshots/new_faction_dialog.png)
-  - ![README Window](docs/images/screenshots/readme_window.png)
-  - ![Settings Dialog](docs/images/screenshots/settings_dialog.png)
+6. **Load Sample Content (optional but recommended):** when the GUI detects an empty database it shows a "Sample Data" prompt—choose **Yes** to ingest every bundled NPC, location, and encounter.
+  - ![Missing Data](docs/images/screenshots/sample_data_prompt.png)
 
 ## 7. Testing & Validation Notes
-- **Pytest suites:** `just pytest` (or `uv run pytest`) executes the unit tests. GUI-adjacent tests under `tests/test_dialogs.py` exercise the CustomTkinter dialogs headlessly (Settings/Relationships/Encounters/Campaign). Additional suites (`tests/test_db*.py`, `tests/test_settings_manager.py`) cover persistence helpers and default-setting flows. Use `just coverage` to run the same suite with coverage enabled.
+- **Pytest suites:**
+  - `just pytest` (or `uv run pytest`) executes the unit tests
+  - GUI-adjacent tests under `tests/test_dialogs.py` exercise the CustomTkinter dialogs headlessly (Settings/Relationships/Encounters/Campaign)
+  - Additional suites (`tests/test_db*.py`, `tests/test_settings_manager.py`) cover persistence helpers and default-setting flows. Use `just coverage` to run the same suite with coverage enabled.
 - **Structural tests:** `uv run python -m final_project.main --list-npcs` confirms the ORM can read data.
 - **Constraint verification:** running `python -m final_project.main --rebuild` followed by deleting a campaign in the GUI validates manual cascade logic—the referenced NPCs, relationships, faction members, and encounter participants are removed without FK violations.
 - **DDL loader checks:** `python -m final_project.main -vvv -d` applies `data/db.ddl` through mysql-connector; logs confirm each statement executes sequentially and indexes already present are skipped.
@@ -145,3 +116,33 @@ The `scripts/capture_ui_screens.py` automation rebuilds the database, loads the 
 - `docs/erd.uml` and `docs/images/erd.png` — ERD source + rendered asset.
 - `docs/proposal.pdf` — original requirements.
 - `data/sample_*.yaml` — sample content used by CLI seeders and GUI demos.
+
+## Screenshots
+The `scripts/capture_ui_screens.py` automation rebuilds the database, loads the GUI, and saves the latest UI captures to `docs/images/screenshots/`. Key frames:
+
+- **Sample data onboarding:** prompt + summary captured while seeding the bundled fixtures.
+  - ![Sample Prompt](docs/images/screenshots/sample_data_prompt.png)
+  - ![Sample Summary](docs/images/screenshots/sample_data_summary.png)
+- **Core editors:** NPC, Location, and Encounter forms each with sample data loaded.
+  - ![NPC Form](docs/images/screenshots/npc_form.png)
+  - ![Location Form](docs/images/screenshots/location_form.png)
+  - ![Encounter Form](docs/images/screenshots/encounter_form.png)
+- **Auxiliary dialogs:** relationship manager (Tabular data via joins), faction creation dialog, README preview, and Settings window.
+  - ![Relationship Dialog](docs/images/screenshots/relationship_dialog.png)
+  - ![New Faction Dialog](docs/images/screenshots/new_faction_dialog.png)
+  - ![README Window](docs/images/screenshots/readme_window.png)
+  - ![Settings Dialog](docs/images/screenshots/settings_dialog.png)
+
+## CLI Reference
+
+Run `uv run python -m final_project [options]` (or `python -m final_project` if the
+environment is already active) and combine the following flags as needed:
+
+- **`-m, --readme`** – Render this README in the terminal and exit.
+- **Logging verbosity** (mutually exclusive): `-v/--log-warning` (errors),
+  `-vv/--log-info` (info), `-vvv/--log-debug` (debug). Default is `ERROR`.
+- **`--load-with-ddl`, `-d`** – Apply `data/db.ddl` via mysql-connector before any other work
+- **`--rebuild`** – Drop and recreate all tables using the ORM metadata, then exit.
+- **`--list-npcs`** – Print every NPC currently in the database (requires connectivity).
+
+If no maintenance flags are supplied, the CLI launches the CustomTkinter GUI.
