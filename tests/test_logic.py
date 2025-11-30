@@ -306,7 +306,6 @@ def test_validate_required_fields_handles_special_columns_and_gender_numbers() -
     model = make_model(
         [
             FakeColumn("campaign_name", nullable=False),
-            FakeColumn("image_blob", nullable=False),
             FakeColumn("id", nullable=False),
             FakeColumn("gender", nullable=False),
             FakeColumn("overview", nullable=False),
@@ -577,7 +576,7 @@ def test_persist_pending_records_tracks_renamed_entries(
     model = make_model([FakeColumn("name"), FakeColumn("age")])
     model.name = "name"
     logic_obj._model_map["NPC"] = model
-    instance = SimpleNamespace(name="Old", age=1, image_blob=None)
+    instance = SimpleNamespace(name="Old", age=1, image=None)
     session.to_return = instance
     field_values = {"name": "New", "unused": "value"}
     pending_changes = {("NPC", "Old"): field_values}
@@ -591,7 +590,8 @@ def test_persist_pending_records_tracks_renamed_entries(
     assert result.applied_keys == {("NPC", "Old")}
     assert result.renamed_keys[("NPC", "Old")] == ("NPC", "New")
     assert instance.name == "New"
-    assert instance.image_blob == b"img"
+    assert instance.image is not None
+    assert instance.image.image_blob == b"img"
 
 
 def test_persist_pending_records_rolls_back_on_exception(
@@ -719,12 +719,11 @@ def test_build_new_record_payload_validations(monkeypatch: pytest.MonkeyPatch) -
     model = make_model(
         [
             FakeColumn("campaign_name"),
-            FakeColumn("image_blob"),
             FakeColumn("name", primary_key=True),
         ],
     )
     with pytest.raises(ValueError, match="Select a campaign"):
-        logic_obj._build_new_record_payload("NPC", model, {}, "", None, {})
+        logic_obj._build_new_record_payload("NPC", model, {}, "", {})
     spec_map = {"name": FieldSpec("Name", "name")}
     with pytest.raises(ValueError, match="required"):
         logic_obj._build_new_record_payload(
@@ -732,7 +731,6 @@ def test_build_new_record_payload_validations(monkeypatch: pytest.MonkeyPatch) -
             model,
             {"name": ""},
             "Camp",
-            None,
             spec_map,
         )
 
@@ -742,7 +740,6 @@ def test_build_new_record_payload_includes_campaign_and_image() -> None:
     model = make_model(
         [
             FakeColumn("campaign_name"),
-            FakeColumn("image_blob"),
             FakeColumn("name", primary_key=True),
         ],
     )
@@ -751,11 +748,9 @@ def test_build_new_record_payload_includes_campaign_and_image() -> None:
         model,
         {"name": "Ada"},
         "Camp",
-        b"img",
         {"name": FieldSpec("Name", "name")},
     )
     assert payload["campaign_name"] == "Camp"
-    assert payload["image_blob"] == b"img"
     assert payload["name"] == "Ada"
 
 
@@ -771,7 +766,6 @@ def test_build_new_record_payload_skips_non_applicable_columns() -> None:
         [
             NullKeyColumn(),
             FakeColumn("campaign_name"),
-            FakeColumn("image_blob"),
             FakeColumn("id", primary_key=True),
             FakeColumn("unused"),
             FakeColumn("name", primary_key=True),
@@ -782,7 +776,6 @@ def test_build_new_record_payload_skips_non_applicable_columns() -> None:
         model,
         {"name": "Ada"},
         "Quest",
-        b"img",
         {"name": FieldSpec("Name", "name")},
     )
     assert None not in payload
@@ -909,7 +902,7 @@ def test_coerce_value_falls_back_to_string() -> None:
 
 def test_apply_pending_to_instance_updates_and_images() -> None:
     model = make_model([FakeColumn("name"), FakeColumn("age")])
-    instance = SimpleNamespace(name="Ada", age=20, image_blob=None)
+    instance = SimpleNamespace(name="Ada", age=20, image=None)
     logic_obj = DataLogic()
     field_values = {"name": "Ada", "age": "30", "unknown": "value"}
     changed, identifier = logic_obj._apply_pending_to_instance(
@@ -922,7 +915,8 @@ def test_apply_pending_to_instance_updates_and_images() -> None:
     )
     assert changed is True
     assert identifier == "Ada"
-    assert instance.image_blob == b"img"
+    assert instance.image is not None
+    assert instance.image.image_blob == b"img"
     unchanged = logic_obj._apply_pending_to_instance(
         "NPC",
         model,
@@ -938,7 +932,7 @@ def test_apply_pending_skips_fields_when_prepare_value_false(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     model = make_model([FakeColumn("skip"), FakeColumn("name")])
-    instance = SimpleNamespace(name="Ada", skip="keep", image_blob=None)
+    instance = SimpleNamespace(name="Ada", skip="keep", image=None)
     logic_obj = DataLogic()
 
     def fake_prepare(
