@@ -60,6 +60,12 @@ with lazi:  # type: ignore[attr-defined]
     from pygments.token import Token
     from mistletoe import markdown as render_markdown
 
+    # Pillow 10+ removed Image.ANTIALIAS but tkhtmlview still references it when
+    # resizing images inside the README preview. Reintroduce the alias so the
+    # embedded HTML renderer keeps working across Pillow releases.
+    if not hasattr(Image, "ANTIALIAS") and hasattr(Image, "Resampling"):
+        Image.ANTIALIAS = Image.Resampling.LANCZOS  # type: ignore[attr-defined]
+
 # disable debug in pillow
 pil_logger = logging.getLogger("PIL")
 pil_logger.setLevel(logging.INFO)
