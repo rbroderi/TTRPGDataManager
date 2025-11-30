@@ -633,7 +633,8 @@ def test_list_all_npcs_and_query_helpers(
     assert "Wardens (Captain)" in output
     assert "Ally -> Sage" in output
     assert "Ally <- Hero" in output
-    assert "Scout" in output and "None" in output
+    assert "Scout" in output
+    assert "None" in output
 
     assert set(db.get_campaigns()) == {"Prime", "Side"}
     assert db.get_npcs() == ["Hero", "Sage", "Scout"]
