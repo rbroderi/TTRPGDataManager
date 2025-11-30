@@ -23,6 +23,8 @@ entity Faction {
   --
   description : TEXT
   campaign_name : VARCHAR <<FK>>
+  -- Indexes --
+  KEY ix_faction_campaign (campaign_name)
 }
 
 entity FactionMembers {
@@ -30,6 +32,8 @@ entity FactionMembers {
   *npc_id : INT <<PK,FK,UNIQUE>>
   --
   notes : TEXT
+  -- Constraints --
+  CONSTRAINT uq_faction_members_npc UNIQUE (npc_id)
 }
 
 entity Relationship {
@@ -44,6 +48,8 @@ entity EncounterParticipants {
   *npc_id : INT <<PK,FK>>
   --
   notes : TEXT
+  -- Indexes --
+  KEY ix_encounter_participants_encounter (encounter_id)
 }
 
 together {
@@ -65,6 +71,8 @@ together {
 	'TOWN',
 	'INTERIOR')
     description : TEXT
+  -- Constraints --
+  UNIQUE uq_location_campaign_name (campaign_name, name)
   }
 
   entity Encounter {
@@ -74,6 +82,9 @@ together {
     location_name : VARCHAR <<FK>>
     date : DATE
     description : TEXT
+    -- Constraints --
+    UNIQUE uq_encounter_campaign_location_date (campaign_name, location_name, date)
+    FK fk_encounter_location (campaign_name, location_name) REFERENCES location (campaign_name, name)
   }
 
   entity ImageStore {
@@ -107,6 +118,8 @@ entity NPC {
   description : TEXT
   species_name : VARCHAR <<FK>>
   abilities_json : JSON
+  -- Constraints --
+  UNIQUE uq_npc_campaign_name (campaign_name, name)
 }
 
 ' Relationships
@@ -127,34 +140,4 @@ Encounter "1" <-- "N" EncounterParticipants : encounter_id
 NPC "1" <-- "N" EncounterParticipants : npc_id
 NPC "1" <-- "N" Relationship : npc_id_1
 NPC "1" <-- "N" Relationship : npc_id_2
-
-note bottom of FactionMembers
-  CONSTRAINT uq_faction_members_npc UNIQUE (npc_id)
-end note
-
-note left of Faction
-  KEY ix_faction_campaign (campaign_name)
-end note
-
-note right of Location
-  UNIQUE uq_location_campaign_name (campaign_name, name)
-end note
-
-note bottom of Encounter
-  UNIQUE uq_encounter_campaign_location_date (campaign_name, location_name, date)
-end note
-
-note right of Encounter
-  FK fk_encounter_location (campaign_name, location_name)
-    REFERENCES location (campaign_name, name)
-end note
-
-note bottom of NPC
-  UNIQUE uq_npc_campaign_name (campaign_name, name)
-end note
-
-note left of EncounterParticipants
-  KEY ix_encounter_participants_encounter (encounter_id)
-end note
-
 @enduml

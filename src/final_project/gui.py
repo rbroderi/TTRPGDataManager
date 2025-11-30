@@ -18,6 +18,7 @@ from final_project.dialogs import FactionDialog
 from final_project.dialogs import LLMProgressDialog
 from final_project.dialogs import NpcOption
 from final_project.dialogs import RelationshipDialog
+from final_project.dialogs import ReadmeDialog
 from final_project.dialogs import SettingsDialog
 from final_project.logic import DataLogic
 from final_project.logic import DuplicateRecordError
@@ -34,7 +35,6 @@ from final_project.llmrunner import is_text_llm_server_ready
 from final_project.llmrunner import reload_image_generation_defaults
 from final_project.llmrunner import start_text_llm_server_async
 from final_project.widgets import AppMenuBar
-from final_project.widgets import HtmlPreviewWindow
 from final_project.widgets import RadioField
 from final_project.widgets import RandomIcon
 
@@ -392,7 +392,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         self._pending_readme_context: ReadmeDialogContext | None = None
         self._last_readme_context: ReadmeDialogContext | None = None
         self._readme_dialogs = _DialogTracker[
-            HtmlPreviewWindow,
+            ReadmeDialog,
             ReadmeDialogContext,
         ](
             name="README",
@@ -1134,8 +1134,8 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
     def _build_readme_window(
         self,
         context: ReadmeDialogContext,
-    ) -> HtmlPreviewWindow:
-        window_ref: HtmlPreviewWindow | None = None
+    ) -> ReadmeDialog:
+        window_ref: ReadmeDialog | None = None
 
         def _on_close() -> None:
             nonlocal window_ref
@@ -1143,7 +1143,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
                 self._readme_dialogs.clear(window_ref)
                 window_ref = None
 
-        window_ref = HtmlPreviewWindow(
+        window_ref = ReadmeDialog(
             self,
             title="Project README",
             initial_html=context.html_output,
@@ -1742,9 +1742,9 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
             logger.exception("failed to render readme markdown")
             messagebox.showerror("README", "Failed to render README content.")
             return
-        padding = HtmlPreviewWindow.PRE_PADDING_CHARS
+        padding = ReadmeDialog.PRE_PADDING_CHARS
         max_chars = max(40, self._readme_char_width() - padding)
-        stylized_html = HtmlPreviewWindow.prepare_html(html_output, max_chars)
+        stylized_html = ReadmeDialog.prepare_html(html_output, max_chars)
         self._display_readme_html(stylized_html, readme_path)
 
     def _display_readme_html(self, html_output: str, readme_path: Path) -> None:

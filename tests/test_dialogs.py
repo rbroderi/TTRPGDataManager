@@ -12,6 +12,7 @@ import customtkinter as ctk
 import pytest
 
 from final_project import dialogs
+from final_project.campaign_dialog import CampaignDialog
 
 
 @pytest.fixture(name="tk_app")
@@ -643,7 +644,7 @@ def test_encounter_dialog_refresh_npc_options_uses_combo_helper(
 def test_campaign_dialog_configure_status_combo_uses_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    dialog = dialogs.CampaignDialog.__new__(dialogs.CampaignDialog)
+    dialog = CampaignDialog.__new__(CampaignDialog)
     combo_stub = ComboStub("Active")
     dialog._status_combo = cast(ctk.CTkComboBox, combo_stub)
     combo_state = dialogs.ComboBoxState(values=("Active", "Paused"), selected="Paused")

@@ -13,11 +13,11 @@ from typing import Any
 import customtkinter as ctk  # type: ignore[import-untyped]
 from lazi.core import lazi
 
+from final_project.campaign_dialog import CampaignDialog
 from final_project.db import create_campaign
 from final_project.db import delete_campaign
 from final_project.db import get_campaigns
 from final_project.db import get_types
-from final_project.dialogs import CampaignDialog
 
 with lazi:  # type: ignore[attr-defined]
     import logging
@@ -851,7 +851,7 @@ class HtmlPreviewWindow(ctk.CTkToplevel):  # type: ignore[misc]
             if self._capturing_cell:
                 self._cell_buffer.append(data)
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         master: ctk.CTk,
         *,
@@ -859,15 +859,17 @@ class HtmlPreviewWindow(ctk.CTkToplevel):  # type: ignore[misc]
         initial_html: str,
         source_path: Path,
         on_close: CallableNoArgs,
+        size: tuple[int, int] = (1200, 640),
     ) -> None:
         """Initialize the modal window and populate it with HTML text."""
         super().__init__(master)
         self._on_close = on_close
         self.source_path = source_path
         self.title(title)
-        size = (960, 640)
-        self.geometry("x".join(map(str, size)))
-        self.minsize(*size)
+        width, height = size
+        geometry = f"{width}x{height}"
+        self.geometry(geometry)
+        self.minsize(width, height)
         self.protocol("WM_DELETE_WINDOW", self._handle_close)
         self.transient(master)
         self.grab_set()
