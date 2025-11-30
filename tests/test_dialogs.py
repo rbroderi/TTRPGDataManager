@@ -600,6 +600,33 @@ def test_encounter_dialog_refresh_npc_options_uses_combo_helper(
     }
 
 
+def test_campaign_dialog_configure_status_combo_uses_helper(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dialog = dialogs.CampaignDialog.__new__(dialogs.CampaignDialog)
+    combo_stub = ComboStub("Active")
+    dialog._status_combo = cast(ctk.CTkComboBox, combo_stub)
+    combo_state = dialogs.ComboBoxState(values=("Active", "Paused"), selected="Paused")
+    captured: dict[str, object] = {}
+
+    def fake_build(
+        options: Sequence[str],
+        current: str | None,
+    ) -> dialogs.ComboBoxState:
+        captured["options"] = tuple(options)
+        captured["current"] = current
+        return combo_state
+
+    monkeypatch.setattr(dialogs, "build_combo_box_state", fake_build)
+
+    dialog._configure_status_combo(["Active", "Paused"], "Paused")
+
+    assert captured["options"] == ("Active", "Paused")
+    assert captured["current"] == "Paused"
+    assert combo_stub.configured_values == combo_state.values
+    assert combo_stub.selected_value == combo_state.selected
+
+
 def test_build_settings_group_specs_formats_and_sorts() -> None:
     snapshot = {
         "zeta_options": {"beta_flag": True, "alpha_value": 5},
