@@ -113,7 +113,6 @@ def add_location(
         name=name,
         type="TOWN",
         description="desc",
-        image_blob=None,
         campaign=campaign,
     )
     session.add(location)
@@ -134,7 +133,6 @@ def add_npc(
         gender="UNSPECIFIED",
         alignment_name="TRUE NEUTRAL",
         description="npc",
-        image_blob=None,
         species=species,
         campaign=campaign,
         abilities_json={},
@@ -164,7 +162,6 @@ def seed_world(session: Session) -> dict[str, Any]:
         location=location,
         date=date(2024, 2, 1),
         description="Skirmish",
-        image_blob=None,
     )
     session.add(encounter)
     participant = db.EncounterParticipants(encounter=encounter, npc=npc, notes="Lead")
