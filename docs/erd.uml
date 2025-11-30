@@ -7,121 +7,145 @@ entity NPC {
   age : SMALLINT UNSIGNED
   gender : ENUM(\n\t'FEMALE', \n\t'MALE', \n\t'NONBINARY', \n\t'UNSPECIFIED')
   alignment_name : ENUM(\n\t'LAWFUL GOOD', \n\t'LAWFUL NEUTRAL', \n\t'LAWFUL EVIL', \n\t'NEUTRAL GOOD', \n\t'TRUE NEUTRAL', \n\t'NEUTRAL EVIL',\n\t'CHAOTIC GOOD',\n\t'CHAOTIC NEUTRAL', \n\t'CHAOTIC EVIL')
-  description : TEXT
-  species_name : VARCHAR <<FK>>
-  campaign_name : VARCHAR <<FK>>
-  abilities_json : JSON
-}
+  @startuml ERD
 
-entity Species {
-  *name : VARCHAR <<PK>>
-  --
-  traits_json : TEXT
-}
+  entity Campaign {
+    *name : VARCHAR <<PK>>
+    --
+    start_date : DATE
+    status : ENUM(
+  	'ACTIVE', 
+  	'ONHOLD', 
+  	'COMPLETED', 
+  	'CANCELED')
+  }
 
-entity Faction {
-  *name : VARCHAR <<PK>>
-  --
-  description : TEXT
-  campaign_name : VARCHAR <<FK>>
-}
+  entity CampaignRecord {
+    *id : INT <<PK>>
+    --
+    campaign_name : VARCHAR <<FK>>
+    record_type : VARCHAR
+  }
 
-entity FactionMembers {
-  *faction_name : VARCHAR <<PK,FK>>
-  *npc_name : VARCHAR <<PK,FK,UNIQUE>>
-  --
-  notes : TEXT
-}
+  entity NPC {
+    *id : INT <<PK,FK>>
+    --
+    name : VARCHAR <<UNIQUE>>
+    age : SMALLINT UNSIGNED
+    gender : ENUM(
+  	'FEMALE', 
+  	'MALE', 
+  	'NONBINARY', 
+  	'UNSPECIFIED')
+    alignment_name : ENUM(
+  	'LAWFUL GOOD', 
+  	'LAWFUL NEUTRAL', 
+  	'LAWFUL EVIL', 
+  	'NEUTRAL GOOD', 
+  	'TRUE NEUTRAL', 
+  	'NEUTRAL EVIL',
+  	'CHAOTIC GOOD',
+  	'CHAOTIC NEUTRAL', 
+  	'CHAOTIC EVIL')
+    description : TEXT
+    species_name : VARCHAR <<FK>>
+    abilities_json : JSON
+  }
 
-entity Location {
-  *id : INT <<PK>>
-  --
-  name : VARCHAR <<UNIQUE>>
-  type : ENUM(\n\t'DUNGEON', \n\t'WILDERNESS', \n\t'TOWN', \n\t'INTERIOR')
-  description : TEXT
-  campaign_name : VARCHAR <<FK>>
-}
+  entity Species {
+    *name : VARCHAR <<PK>>
+    --
+    traits_json : TEXT
+  }
 
-entity Campaign {
-  *name : VARCHAR <<PK>>
-  --
-  start_date : DATE
-  status : ENUM(\n\t'ACTIVE', \n\t'ONHOLD', \n\t'COMPLETED', \n\t'CANCELED')
-}
+  entity Faction {
+    *name : VARCHAR <<PK>>
+    --
+    description : TEXT
+    campaign_name : VARCHAR <<FK>>
+  }
 
-entity Relationship {
-  *npc_name_1 : VARCHAR <<PK,FK>>
-  *npc_name_2 : VARCHAR <<PK,FK>>
-  --
-  name : VARCHAR
-}
+  entity FactionMembers {
+    *faction_name : VARCHAR <<PK,FK>>
+    *npc_name : VARCHAR <<PK,FK,UNIQUE>>
+    --
+    notes : TEXT
+  }
 
-entity Encounter {
-  *id : INT <<PK>>
-  --
-  campaign_name : VARCHAR <<FK>>
-  location_name : VARCHAR <<FK>>
-  date : DATE
-  description : TEXT
-}
+  entity Location {
+    *id : INT <<PK,FK>>
+    --
+    name : VARCHAR <<UNIQUE>>
+    type : ENUM(
+  	'DUNGEON', 
+  	'WILDERNESS', 
+  	'TOWN', 
+  	'INTERIOR')
+    description : TEXT
+  }
 
-entity ImageStore {
-  *id : INT <<PK>>
-  --
-  image_blob : LONGBLOB
-  npc_id : INT <<FK,UNIQUE>>
-  location_id : INT <<FK,UNIQUE>>
-  encounter_id : INT <<FK,UNIQUE>>
-}
+  entity Relationship {
+    *npc_name_1 : VARCHAR <<PK,FK>>
+    *npc_name_2 : VARCHAR <<PK,FK>>
+    --
+    name : VARCHAR
+  }
 
-entity EncounterParticipants {
-  *encounter_id : INT <<PK,FK>>
-  *npc_name : VARCHAR <<PK,FK>>
-  --
-  notes : TEXT
-}
+  entity Encounter {
+    *id : INT <<PK,FK>>
+    --
+    location_name : VARCHAR <<FK>>
+    date : DATE
+    description : TEXT
+  }
 
-' Relationships
-Species "1" <-- "N" NPC : species_name
-Campaign "1" <-- "N" NPC : campaign_name
-Campaign "1" <-- "N" Location : campaign_name
-Campaign "1" <-- "N" Faction : campaign_name
-Campaign "1" <-- "N" Encounter : campaign_name
-Location "1" <-- "N" Encounter : location_name
-NPC "1" <-- "N" FactionMembers : npc_name
-Faction "1" <-- "N" FactionMembers : faction_name
-Encounter "1" <-- "N" EncounterParticipants : encounter_id
-NPC "1" <-- "N" EncounterParticipants : npc_name
-NPC "1" <-- "N" Relationship : npc_name_1
-NPC "1" <-- "N" Relationship : npc_name_2
-NPC "1" <-- "0..1" ImageStore : npc_id
-Location "1" <-- "0..1" ImageStore : location_id
-Encounter "1" <-- "0..1" ImageStore : encounter_id
+  entity ImageStore {
+    *campaign_record_id : INT <<PK,FK>>
+    --
+    image_blob : LONGBLOB
+  }
 
-note right of FactionMembers
-  CONSTRAINT uq_faction_members_npc UNIQUE (npc_name)
-end note
+  entity EncounterParticipants {
+    *encounter_id : INT <<PK,FK>>
+    *npc_name : VARCHAR <<PK,FK>>
+    --
+    notes : TEXT
+  }
 
-note right of Faction
-  KEY ix_faction_campaign (campaign_name)
-end note
+  ' Relationships
+  Campaign "1" <-- "N" CampaignRecord : campaign_name
+  CampaignRecord "1" <-- "1" NPC : id
+  CampaignRecord "1" <-- "1" Location : id
+  CampaignRecord "1" <-- "1" Encounter : id
+  Species "1" <-- "N" NPC : species_name
+  Campaign "1" <-- "N" Faction : campaign_name
+  Location "1" <-- "N" Encounter : location_name
+  NPC "1" <-- "N" FactionMembers : npc_name
+  Faction "1" <-- "N" FactionMembers : faction_name
+  Encounter "1" <-- "N" EncounterParticipants : encounter_id
+  NPC "1" <-- "N" EncounterParticipants : npc_name
+  NPC "1" <-- "N" Relationship : npc_name_1
+  NPC "1" <-- "N" Relationship : npc_name_2
+  CampaignRecord "1" <-- "0..1" ImageStore : campaign_record_id
 
-note right of Location
-  UNIQUE ix_location_name (name)
-  KEY ix_location_campaign (campaign_name)
-end note
+  note right of FactionMembers
+    CONSTRAINT uq_faction_members_npc UNIQUE (npc_name)
+  end note
 
-note right of NPC
-  UNIQUE ix_npc_name (name)
-  KEY ix_npc_campaign (campaign_name)
-end note
+  note right of Faction
+    KEY ix_faction_campaign (campaign_name)
+  end note
 
-note right of Encounter
-  KEY ix_encounter_campaign (campaign_name)
-end note
+  note right of Location
+    UNIQUE ix_location_name (name)
+  end note
 
-note right of EncounterParticipants
-  KEY ix_encounter_participants_encounter (encounter_id)
-end note
+  note right of NPC
+    UNIQUE ix_npc_name (name)
+  end note
 
-@enduml
+  note right of EncounterParticipants
+    KEY ix_encounter_participants_encounter (encounter_id)
+  end note
+
+  @enduml

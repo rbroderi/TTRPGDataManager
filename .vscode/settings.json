@@ -46,6 +46,7 @@
         "topbar",
         "Typehinting",
         "valleyish",
+        "VARCHAR",
         "vartext"
     ]
 }

@@ -14,6 +14,7 @@ from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import create_engine
+from sqlalchemy import text
 from sqlalchemy.dialects.mysql import SMALLINT
 from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import SQLAlchemyError
@@ -37,6 +38,7 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     from datetime import date as dtdate
     from functools import cache
     from pathlib import Path
+    from types import MappingProxyType
     from typing import Annotated
     from typing import Any
     from typing import Literal
@@ -281,17 +283,13 @@ class Campaign(Base):
 
 
 @beartype
-class Location(Base):
-    """Represents the location table."""
+class CampaignRecord(Base):
+    """Shared base for campaign-scoped records that may have images."""
 
-    __tablename__ = "location"
-    __table_args__ = (Index("ix_location_campaign", "campaign_name"),)
+    __tablename__ = "campaign_record"
+    __table_args__ = (Index("ix_campaign_record_campaign", "campaign_name"),)
+
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[Varchar256] = mapped_column(String(256), index=True, unique=True)
-    type: Mapped[Literal["DUNGEON", "WILDERNESS", "TOWN", "INTERIOR"]] = mapped_column(
-        Enum("DUNGEON", "WILDERNESS", "TOWN", "INTERIOR", name="location_type"),
-    )
-    description: Mapped[str] = mapped_column(Text)
     campaign_name: Mapped[Varchar256] = mapped_column(
         String(256),
         ForeignKey(
@@ -300,6 +298,43 @@ class Location(Base):
             ondelete="CASCADE",
         ),
     )
+    record_type: Mapped[str] = mapped_column(String(50))
+
+    image = relationship(
+        "ImageStore",
+        back_populates="campaign_record",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+        lazy="joined",
+    )
+
+    __mapper_args__ = MappingProxyType(
+        {
+            "polymorphic_on": record_type,
+            "polymorphic_identity": "campaign_record",
+        },
+    )
+
+
+@beartype
+class Location(CampaignRecord):
+    """Represents the location table."""
+
+    __tablename__ = "location"
+    id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "campaign_record.id",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
+        primary_key=True,
+    )
+    name: Mapped[Varchar256] = mapped_column(String(256), index=True, unique=True)
+    type: Mapped[Literal["DUNGEON", "WILDERNESS", "TOWN", "INTERIOR"]] = mapped_column(
+        Enum("DUNGEON", "WILDERNESS", "TOWN", "INTERIOR", name="location_type"),
+    )
+    description: Mapped[str] = mapped_column(Text)
 
     campaign = relationship("Campaign", back_populates="locations")
     encounters = relationship(
@@ -307,31 +342,23 @@ class Location(Base):
         back_populates="location",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        foreign_keys="Encounter.location_name",
     )
-    image = relationship(
-        "ImageStore",
-        back_populates="location",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-        uselist=False,
-        lazy="joined",
-    )
+    __mapper_args__ = MappingProxyType({"polymorphic_identity": "location"})
 
 
 @beartype
-class Encounter(Base):
+class Encounter(CampaignRecord):
     """Represents the encounter table."""
 
     __tablename__ = "encounter"
-    __table_args__ = (Index("ix_encounter_campaign", "campaign_name"),)
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    campaign_name: Mapped[Varchar256] = mapped_column(
-        String(256),
+    id: Mapped[int] = mapped_column(
         ForeignKey(
-            "campaign.name",
+            "campaign_record.id",
             onupdate="CASCADE",
             ondelete="CASCADE",
         ),
+        primary_key=True,
     )
     location_name: Mapped[Varchar256] = mapped_column(
         String(256),
@@ -345,30 +372,33 @@ class Encounter(Base):
     description: Mapped[str] = mapped_column(Text)
 
     campaign = relationship("Campaign", back_populates="encounters")
-    location = relationship("Location", back_populates="encounters")
+    location = relationship(
+        "Location",
+        back_populates="encounters",
+        foreign_keys=[location_name],
+    )
     participants = relationship(
         "EncounterParticipants",
         back_populates="encounter",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    image = relationship(
-        "ImageStore",
-        back_populates="encounter",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-        uselist=False,
-        lazy="joined",
-    )
+    __mapper_args__ = MappingProxyType({"polymorphic_identity": "encounter"})
 
 
 @beartype
-class NPC(Base):
+class NPC(CampaignRecord):
     """Represents the NPC table."""
 
     __tablename__ = "npc"
-    __table_args__ = (Index("ix_npc_campaign", "campaign_name"),)
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "campaign_record.id",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
+        primary_key=True,
+    )
     name: Mapped[Varchar256] = mapped_column(String(256), index=True, unique=True)
     age: Mapped[SmallInt] = mapped_column(SMALLINT(unsigned=True))
     gender: Mapped[Literal["FEMALE", "MALE", "NONBINARY", "UNSPECIFIED"]] = (
@@ -420,14 +450,6 @@ class NPC(Base):
             ondelete="RESTRICT",
         ),
     )
-    campaign_name: Mapped[Varchar256] = mapped_column(
-        String(256),
-        ForeignKey(
-            "campaign.name",
-            onupdate="CASCADE",
-            ondelete="CASCADE",
-        ),
-    )
     abilities_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=True)
 
     campaign = relationship("Campaign", back_populates="npcs")
@@ -451,14 +473,7 @@ class NPC(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    image = relationship(
-        "ImageStore",
-        back_populates="npc",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-        uselist=False,
-        lazy="joined",
-    )
+    __mapper_args__ = MappingProxyType({"polymorphic_identity": "npc"})
 
 
 @beartype
@@ -466,27 +481,21 @@ class ImageStore(Base):
     """Store image blobs linked to exactly one owner."""
 
     __tablename__ = "image_store"
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    campaign_record_id: Mapped[int] = mapped_column(
+        ForeignKey(
+            "campaign_record.id",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
+        primary_key=True,
+    )
     image_blob: Mapped[bytes] = mapped_column(LongBlob, nullable=False)
-    npc_id: Mapped[int | None] = mapped_column(
-        ForeignKey("npc.id", onupdate="CASCADE", ondelete="CASCADE"),
-        nullable=True,
-        unique=True,
-    )
-    location_id: Mapped[int | None] = mapped_column(
-        ForeignKey("location.id", onupdate="CASCADE", ondelete="CASCADE"),
-        nullable=True,
-        unique=True,
-    )
-    encounter_id: Mapped[int | None] = mapped_column(
-        ForeignKey("encounter.id", onupdate="CASCADE", ondelete="CASCADE"),
-        nullable=True,
-        unique=True,
-    )
 
-    npc = relationship("NPC", back_populates="image", uselist=False)
-    location = relationship("Location", back_populates="image", uselist=False)
-    encounter = relationship("Encounter", back_populates="image", uselist=False)
+    campaign_record = relationship(
+        "CampaignRecord",
+        back_populates="image",
+        uselist=False,
+    )
 
 
 @beartype
@@ -1306,7 +1315,18 @@ def setup_database(
     logger.debug("Create tables if missing.")
     if rebuild:
         logger.info("Dropping all tables and rebuilding schema.")
-        Base.metadata.drop_all(engine)
+        if engine.dialect.name.startswith("mysql"):
+            with engine.connect() as connection:
+                fk_checks_disabled = False
+                try:
+                    connection.execute(text("SET FOREIGN_KEY_CHECKS=0"))
+                    fk_checks_disabled = True
+                    Base.metadata.drop_all(connection)
+                finally:
+                    if fk_checks_disabled:
+                        connection.execute(text("SET FOREIGN_KEY_CHECKS=1"))
+        else:
+            Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
 
