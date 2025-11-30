@@ -221,7 +221,7 @@ class DataLogic:
         """Ensure a payload provides all required database columns."""
         columns = cast(
             "Iterable[Any]",
-            model_cls.__table__.columns,  # type: ignore[attr-defined]
+            self._column_collection_for(model_cls),
         )
         missing: list[str] = []
         for column in columns:
@@ -404,15 +404,14 @@ class DataLogic:
     ) -> tuple[FieldSpec, ...]:
         if ignore is None:
             ignore = ()
-        columns = cast(
-            "Iterable[Any]",
-            model_cls.__table__.columns,  # type: ignore[attr-defined]
-        )
+        columns = cast("Iterable[Any]", self._column_collection_for(model_cls))
         specs: list[FieldSpec] = []
         for column in columns:
             column_key = getattr(column, "key", None)
             lowered_key = str(column_key).lower()
             if lowered_key == "id":
+                continue
+            if lowered_key == "record_type":
                 continue
             try:
                 python_type = column.type.python_type
@@ -489,10 +488,7 @@ class DataLogic:
             msg = "Select a campaign before creating entries."
             raise ValueError(msg)
         payload: dict[str, Any] = {}
-        columns = cast(
-            "Iterable[Any]",
-            model_cls.__table__.columns,  # type: ignore[attr-defined]
-        )
+        columns = cast("Iterable[Any]", self._column_collection_for(model_cls))
         for column in columns:
             column_key = getattr(column, "key", None)
             if not column_key:
@@ -598,9 +594,10 @@ class DataLogic:
         spec_map: dict[str, FieldSpec],
         image_payload: bytes | None,
     ) -> tuple[bool, str | None]:
+        columns = self._column_collection_for(model_cls)
         changed = False
         for field_name, raw_value in field_values.items():
-            column = model_cls.__table__.columns.get(field_name)  # type: ignore[attr-defined]
+            column = self._lookup_column(columns, field_name)
             if column is None:
                 continue
             should_update, converted = self._prepare_value(
@@ -668,3 +665,23 @@ class DataLogic:
         if spec is None:
             return True
         return not (spec.enum_values or spec.preset_values)
+
+    @staticmethod
+    def _column_collection_for(model_cls: type) -> Iterable[Any]:
+        mapper = getattr(model_cls, "__mapper__", None)
+        if mapper is not None:
+            return mapper.columns
+        table = getattr(model_cls, "__table__", None)
+        if table is not None:
+            return table.columns  # type: ignore[attr-defined]
+        return ()
+
+    @staticmethod
+    def _lookup_column(columns: Iterable[Any], key: str) -> Any | None:
+        getter = getattr(columns, "get", None)
+        if callable(getter):
+            return getter(key)
+        for column in columns:
+            if getattr(column, "key", None) == key:
+                return column
+        return None
