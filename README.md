@@ -1,6 +1,6 @@
 # TTRPG Data Manager
 
-A desktop-first toolkit for Game Masters and Lore Keepers who curate tabletop RPG campaigns, player factions, NPC rosters, and set-piece encounters. The application pairs a CustomTkinter interface with SQLAlchemy models, a MySQL backend, and optional local LLM aides for fast world-building.
+A Desktop based program for Game Masters, Store Tellers or Authors need to manage TTRPG games or store information. The application uses a CustomTkinter interface, SQLAlchemy modeled MySQL backend, and optional local LLM files to help construct images and names.
 
 ## 1. Project Overview
 - **Purpose:** give Game Masters (primary users) and optionally Assistant Storytellers a single control panel for CRUD workflows around campaigns, NPCs, locations, encounters, factions, and relationships.
