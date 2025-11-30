@@ -10,6 +10,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = REPO_ROOT / "docs"
 DEFAULT_JAR = Path.home() / "plantuml" / "plantuml-1.2025.9.jar"
+TARGET_FORMATS = ("eps", "png")
 
 
 def _resolve_jar() -> Path:
@@ -19,12 +20,12 @@ def _resolve_jar() -> Path:
     return DEFAULT_JAR
 
 
-def _eps_target(source: Path) -> Path:
-    return source.with_suffix(".eps")
+def _target_path(source: Path, fmt: str) -> Path:
+    return source.with_suffix(f".{fmt}")
 
 
-def _run_plantuml(jar: Path, uml_file: Path) -> None:
-    cmd = ["java", "-jar", str(jar), "-teps", str(uml_file)]
+def _run_plantuml(jar: Path, uml_file: Path, fmt: str) -> None:
+    cmd = ["java", "-jar", str(jar), f"-t{fmt}", str(uml_file)]
     subprocess.run(cmd, check=True)  # noqa: S603
 
 
@@ -39,12 +40,14 @@ def main() -> int:
         print("No UML files found under docs/.")
         return 0
     for uml in uml_files:
-        print(f"Rendering {uml} -> {_eps_target(uml)}")
-        try:
-            _run_plantuml(jar, uml)
-        except subprocess.CalledProcessError as exc:
-            print(f"Failed to render {uml}: {exc}", file=sys.stderr)
-            return exc.returncode or 1
+        for fmt in TARGET_FORMATS:
+            target = _target_path(uml, fmt)
+            print(f"Rendering {uml} -> {target}")
+            try:
+                _run_plantuml(jar, uml, fmt)
+            except subprocess.CalledProcessError as exc:
+                print(f"Failed to render {uml} as {fmt}: {exc}", file=sys.stderr)
+                return exc.returncode or 1
     return 0
 
 

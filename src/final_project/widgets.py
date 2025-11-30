@@ -868,7 +868,6 @@ class HtmlPreviewWindow(ctk.CTkToplevel):  # type: ignore[misc]
         size = (960, 640)
         self.geometry("x".join(map(str, size)))
         self.minsize(*size)
-        self.maxsize(*size)
         self.protocol("WM_DELETE_WINDOW", self._handle_close)
         self.transient(master)
         self.grab_set()
@@ -886,7 +885,15 @@ class HtmlPreviewWindow(ctk.CTkToplevel):  # type: ignore[misc]
             relief="flat",
             background=self._resolve_tk_color(container),
         )
+        self.html_view.configure(wrap="word")
         self.html_view.pack(fill="both", expand=True)
+        self._hscroll = tk.Scrollbar(
+            container,
+            orient="horizontal",
+            command=self.html_view.xview,
+        )
+        self.html_view.configure(xscrollcommand=self._hscroll.set)
+        self._hscroll.pack(fill="x", pady=(6, 0))
 
         button_bar = ctk.CTkFrame(self, fg_color="transparent")
         button_bar.pack(fill="x", padx=16, pady=(0, 16))
