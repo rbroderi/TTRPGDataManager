@@ -83,6 +83,7 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
   ```shell
    cd TTRPGDataManager
    uv sync
+   uv run -m final_project
    ```
 3. **Configure secrets:**
    ```ini
