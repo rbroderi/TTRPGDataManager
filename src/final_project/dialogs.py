@@ -9,7 +9,6 @@ import customtkinter as ctk  # type: ignore[import-untyped]
 from lazi.core import lazi
 
 from final_project import settings_manager
-from final_project.campaign_dialog import CampaignDialog as _CampaignDialog
 from final_project.widgets import HtmlPreviewWindow
 
 with lazi:  # type: ignore[attr-defined]
@@ -29,8 +28,6 @@ with lazi:  # type: ignore[attr-defined]
     import structlog
     import tkfontawesome as tkfa  # type: ignore[import-untyped]
     from PIL import ImageTk
-
-CampaignDialog = _CampaignDialog
 
 logger = structlog.getLogger("final_project")
 
