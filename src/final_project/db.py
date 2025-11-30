@@ -25,6 +25,7 @@ from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import Session as SessionType
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
+from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateIndex
 from sqlalchemy.schema import CreateTable
@@ -56,6 +57,7 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     from dotenv import load_dotenv
     from pydantic import BaseModel
     from pydantic import Field
+    from tabulate import tabulate
 
     from final_project import LogLevels
     from final_project.settings_manager import path_from_settings
@@ -931,13 +933,89 @@ def load_all_sample_data() -> dict[str, int]:
         session.close()
 
 
+def _format_faction_entry(membership: FactionMembers) -> str:
+    faction_name = (
+        membership.faction.name if membership.faction is not None else "Unknown"
+    )
+    notes = (membership.notes or "").strip()
+    return f"{faction_name} ({notes})" if notes else faction_name
+
+
+def _format_relationships(npc: NPC) -> str:
+    relationships: list[str] = []
+    origin_relationships = sorted(
+        npc.relationships,
+        key=lambda rel: (
+            rel.name,
+            rel.target.name if rel.target is not None else "",
+        ),
+    )
+    for rel in origin_relationships:
+        target_name = rel.target.name if rel.target is not None else "Unknown"
+        relationships.append(f"{rel.name} -> {target_name}")
+
+    inbound_relationships = sorted(
+        npc.related_to,
+        key=lambda rel: (
+            rel.name,
+            rel.origin.name if rel.origin is not None else "",
+        ),
+    )
+    for rel in inbound_relationships:
+        origin_name = rel.origin.name if rel.origin is not None else "Unknown"
+        relationships.append(f"{rel.name} <- {origin_name}")
+
+    return "; ".join(relationships) if relationships else "None"
+
+
 @beartype
 def list_all_npcs(session: SessionType) -> None:
     """Return all NPCs currently stored in the database."""
     try:
-        npcs = session.query(NPC).all()
+        npcs = (
+            session.query(NPC)
+            .options(
+                selectinload(NPC.campaign),
+                selectinload(NPC.factions).selectinload(FactionMembers.faction),
+                selectinload(NPC.relationships).selectinload(Relationship.target),
+                selectinload(NPC.related_to).selectinload(Relationship.origin),
+            )
+            .order_by(NPC.campaign_name, NPC.name)
+            .all()
+        )
+        if not npcs:
+            print("No NPCs found.")
+            return
+
+        rows: list[dict[str, str]] = []
         for npc in npcs:
-            print(f"NPC: {npc.name}, Age: {npc.age}, Alignment: {npc.alignment_name}")
+            campaign_name = (
+                npc.campaign.name
+                if npc.campaign is not None
+                else (npc.campaign_name or "Unknown")
+            )
+            faction_labels = [
+                _format_faction_entry(membership)
+                for membership in sorted(
+                    npc.factions,
+                    key=lambda member: (
+                        member.faction.name if member.faction is not None else "",
+                        member.npc_id,
+                    ),
+                )
+                if membership.faction is not None
+            ]
+            relationships = _format_relationships(npc)
+            rows.append(
+                {
+                    "NPC": npc.name,
+                    "Campaign": campaign_name,
+                    "Faction": ", ".join(faction_labels) if faction_labels else "None",
+                    "Relationships": relationships,
+                },
+            )
+
+        print(tabulate(rows, headers="keys", tablefmt="github"))
     finally:
         session.close()
 

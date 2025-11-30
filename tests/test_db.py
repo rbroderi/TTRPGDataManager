@@ -628,9 +628,12 @@ def test_list_all_npcs_and_query_helpers(
     viewer = make_session()
     db.list_all_npcs(viewer)
     output = capsys.readouterr().out
-    assert "NPC: Hero" in output
-    assert "NPC: Sage" in output
-    assert "NPC: Scout" in output
+    assert "| NPC" in output
+    assert "| Hero" in output
+    assert "Wardens (Captain)" in output
+    assert "Ally -> Sage" in output
+    assert "Ally <- Hero" in output
+    assert "Scout" in output and "None" in output
 
     assert set(db.get_campaigns()) == {"Prime", "Side"}
     assert db.get_npcs() == ["Hero", "Sage", "Scout"]
