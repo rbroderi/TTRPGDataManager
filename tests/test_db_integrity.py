@@ -1,7 +1,5 @@
 """Database integrity and cascade regression tests."""
 
-# ruff: noqa: S101
-
 from __future__ import annotations
 
 from datetime import date as dtdate

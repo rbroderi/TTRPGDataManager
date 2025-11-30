@@ -203,6 +203,13 @@ def test_relationship_helpers_call_db(monkeypatch: pytest.MonkeyPatch) -> None:
     assert deleted[-1] == ("s", "t")
 
 
+def test_relationship_targets_without_exclusions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(logic, "get_npcs", lambda campaign=None: ["A", "B"])
+    assert DataLogic().relationship_targets_for_campaign("camp") == ["A", "B"]
+
+
 def test_fetch_relationship_rows_and_members(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(logic, "get_relationship_rows", lambda name: [(name, "ally")])
     assert DataLogic.fetch_relationship_rows("npc") == [("npc", "ally")]
@@ -295,6 +302,27 @@ def test_validate_required_fields_detects_missing(
         DataLogic().validate_required_fields(model, values, spec_map)
 
 
+def test_validate_required_fields_handles_special_columns_and_gender_numbers() -> None:
+    model = make_model(
+        [
+            FakeColumn("campaign_name", nullable=False),
+            FakeColumn("image_blob", nullable=False),
+            FakeColumn("id", nullable=False),
+            FakeColumn("gender", nullable=False),
+            FakeColumn("overview", nullable=False),
+        ],
+    )
+    values = {"overview": "Story", "gender": 7}
+    spec_map = {"overview": FieldSpec("Overview", "overview")}
+    DataLogic().validate_required_fields(model, values, spec_map)
+    assert values["gender"] == "7"
+
+
+def test_validate_required_fields_skips_nullable_columns() -> None:
+    model = make_model([FakeColumn("notes", nullable=True)])
+    DataLogic().validate_required_fields(model, {}, {})
+
+
 def test_create_entry_success_and_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     session = make_session()
     monkeypatch.setattr(logic, "get_session", lambda: session)
@@ -339,6 +367,86 @@ def test_create_entry_success_and_failure(monkeypatch: pytest.MonkeyPatch) -> No
     assert session.rolled_back is True
 
 
+def test_create_entry_rolls_back_on_unexpected_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = make_session()
+    monkeypatch.setattr(logic, "get_session", lambda: session)
+    logic_obj = DataLogic()
+    monkeypatch.setattr(logic_obj, "_ensure_unique_name", lambda *_a, **_k: None)
+
+    def boom(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        message = "boom"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(logic_obj, "_build_new_record_payload", boom)
+    with pytest.raises(RuntimeError, match="boom"):
+        logic_obj.create_entry(
+            "NPC",
+            SimpleNamespace,
+            {"name": "Ada"},
+            "Camp",
+            None,
+            {},
+        )
+    assert session.rolled_back is True
+    assert session.closed is True
+
+
+def test_create_entry_rolls_back_when_model_init_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = make_session()
+    monkeypatch.setattr(logic, "get_session", lambda: session)
+    logic_obj = DataLogic()
+    monkeypatch.setattr(logic_obj, "_ensure_unique_name", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        logic_obj,
+        "_build_new_record_payload",
+        lambda *_a, **_k: {"name": "Ada"},
+    )
+
+    class BadModel:
+        def __init__(self, **_kwargs: Any) -> None:
+            message = "fail"
+            raise RuntimeError(message)
+
+    with pytest.raises(RuntimeError, match="fail"):
+        logic_obj.create_entry("NPC", BadModel, {"name": "Ada"}, "Camp", None, {})
+    assert session.rolled_back is True
+
+
+def test_create_entry_rolls_back_when_session_add_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = make_session()
+
+    def broken_add(_instance: Any) -> None:
+        message = "session add failed"
+        raise RuntimeError(message)
+
+    session.add = broken_add  # type: ignore[method-assign]
+    monkeypatch.setattr(logic, "get_session", lambda: session)
+    logic_obj = DataLogic()
+    monkeypatch.setattr(logic_obj, "_ensure_unique_name", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        logic_obj,
+        "_build_new_record_payload",
+        lambda *_a, **_k: {"name": "Ada"},
+    )
+    with pytest.raises(RuntimeError, match="session add failed"):
+        logic_obj.create_entry(
+            "NPC",
+            SimpleNamespace,
+            {"name": "Ada"},
+            "Camp",
+            None,
+            {},
+        )
+    assert session.rolled_back is True
+    assert session.closed is True
+
+
 def test_delete_entry_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     logic_obj = DataLogic()
     with pytest.raises(ValueError, match="Unsupported entry type"):
@@ -353,6 +461,27 @@ def test_delete_entry_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(logic_obj, "_fetch_instance", lambda *a, **k: instance)
     assert logic_obj.delete_entry("NPC", "Alice") is True
     assert session.deleted[-1] is instance
+
+
+def test_delete_entry_rolls_back_on_exception(monkeypatch: pytest.MonkeyPatch) -> None:
+    logic_obj = DataLogic()
+    session = make_session()
+
+    def bad_delete(_instance: Any) -> None:
+        message = "delete failed"
+        raise RuntimeError(message)
+
+    session.delete = bad_delete  # type: ignore[method-assign]
+    monkeypatch.setattr(logic, "get_session", lambda: session)
+    monkeypatch.setattr(
+        logic_obj,
+        "_fetch_instance",
+        lambda *_a, **_k: SimpleNamespace(),
+    )
+    with pytest.raises(RuntimeError, match="delete failed"):
+        logic_obj.delete_entry("NPC", "Alice")
+    assert session.rolled_back is True
+    assert session.closed is True
 
 
 def test_search_entries_partial_and_exact(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -423,6 +552,93 @@ def test_persist_pending_records_handles_cases(monkeypatch: pytest.MonkeyPatch) 
     assert empty_result.updated == 0
 
 
+def test_persist_pending_records_ignores_unknown_entry_type(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = make_session()
+    monkeypatch.setattr(logic, "get_session", lambda: session)
+    logic_obj = DataLogic()
+    result = logic_obj.persist_pending_records(
+        {("Mystery", "X"): {"name": "X"}},
+        {},
+        lambda _: {},
+    )
+    assert result.updated == 0
+    assert result.applied_keys == set()
+    assert result.renamed_keys == {}
+
+
+def test_persist_pending_records_tracks_renamed_entries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = make_session()
+    monkeypatch.setattr(logic, "get_session", lambda: session)
+    logic_obj = DataLogic()
+    model = make_model([FakeColumn("name"), FakeColumn("age")])
+    model.name = "name"
+    logic_obj._model_map["NPC"] = model
+    instance = SimpleNamespace(name="Old", age=1, image_blob=None)
+    session.to_return = instance
+    field_values = {"name": "New", "unused": "value"}
+    pending_changes = {("NPC", "Old"): field_values}
+    pending_images = {("NPC", "Old"): b"img"}
+    result = logic_obj.persist_pending_records(
+        pending_changes,
+        pending_images,
+        lambda _entry: {"name": FieldSpec("Name", "name")},
+    )
+    assert result.updated == 1
+    assert result.applied_keys == {("NPC", "Old")}
+    assert result.renamed_keys[("NPC", "Old")] == ("NPC", "New")
+    assert instance.name == "New"
+    assert instance.image_blob == b"img"
+
+
+def test_persist_pending_records_rolls_back_on_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = make_session()
+    monkeypatch.setattr(logic, "get_session", lambda: session)
+    logic_obj = DataLogic()
+    logic_obj._model_map["NPC"] = make_model([FakeColumn("name")])
+
+    def boom(*_args: Any, **_kwargs: Any) -> None:
+        message = "fail"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(logic_obj, "_fetch_instance", boom)
+    with pytest.raises(RuntimeError, match="fail"):
+        logic_obj.persist_pending_records(
+            {("NPC", "Ada"): {"name": "Ada"}},
+            {},
+            lambda _entry: {},
+        )
+    assert session.rolled_back is True
+
+
+def test_persist_pending_records_skips_when_no_changes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = make_session()
+    monkeypatch.setattr(logic, "get_session", lambda: session)
+    logic_obj = DataLogic()
+    logic_obj._model_map["NPC"] = make_model([FakeColumn("name")])
+    instance = SimpleNamespace(name="Ada")
+    monkeypatch.setattr(logic_obj, "_fetch_instance", lambda *_a, **_k: instance)
+    monkeypatch.setattr(
+        logic_obj,
+        "_apply_pending_to_instance",
+        lambda *_a, **_k: (False, None),
+    )
+    result = logic_obj.persist_pending_records(
+        {("NPC", "Ada"): {"name": "Ada"}},
+        {},
+        lambda _entry: {},
+    )
+    assert result.updated == 0
+    assert session.committed is True
+
+
 def test_coerce_value_delegates(monkeypatch: pytest.MonkeyPatch) -> None:
     logic_obj = DataLogic()
     monkeypatch.setattr(logic_obj, "_coerce_value", lambda *_: "coerced")
@@ -454,6 +670,37 @@ def test_get_field_specs_builds_expected(monkeypatch: pytest.MonkeyPatch) -> Non
         for spec in specs
     )
     assert any(spec.key == "abilities_json" and spec.is_json for spec in specs)
+
+
+def test_get_field_specs_honors_ignore_labels() -> None:
+    model = make_model([FakeColumn("secret_code"), FakeColumn("title")])
+    specs = DataLogic()._get_field_specs(model, ignore=("Secret Code",))
+    assert all(spec.key != "secret_code" for spec in specs)
+    assert any(spec.key == "title" for spec in specs)
+
+
+def test_get_field_specs_handles_problem_columns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(logic, "is_text_column", lambda _column: False)
+
+    class NullKeyColumn:
+        def __init__(self) -> None:
+            self.key = None
+            self.nullable = True
+            self.primary_key = False
+            self.type = SimpleNamespace(python_type=str)
+
+    columns = [
+        NullKeyColumn(),
+        FakeColumn("blob", python_type=bytes),
+        FakeColumn("tricky", python_type=ValueError("bad")),
+        FakeColumn("title"),
+    ]
+    model = make_model(columns)
+    specs = DataLogic()._get_field_specs(model)
+    assert any(spec.key == "title" for spec in specs)
+    assert all(spec.key != "blob" for spec in specs)
 
 
 def test_order_npc_specs_respects_priority() -> None:
@@ -490,6 +737,59 @@ def test_build_new_record_payload_validations(monkeypatch: pytest.MonkeyPatch) -
         )
 
 
+def test_build_new_record_payload_includes_campaign_and_image() -> None:
+    logic_obj = DataLogic()
+    model = make_model(
+        [
+            FakeColumn("campaign_name"),
+            FakeColumn("image_blob"),
+            FakeColumn("name", primary_key=True),
+        ],
+    )
+    payload = logic_obj._build_new_record_payload(
+        "NPC",
+        model,
+        {"name": "Ada"},
+        "Camp",
+        b"img",
+        {"name": FieldSpec("Name", "name")},
+    )
+    assert payload["campaign_name"] == "Camp"
+    assert payload["image_blob"] == b"img"
+    assert payload["name"] == "Ada"
+
+
+def test_build_new_record_payload_skips_non_applicable_columns() -> None:
+    logic_obj = DataLogic()
+
+    class NullKeyColumn(FakeColumn):
+        def __init__(self) -> None:
+            super().__init__("temp")
+            self.key = None
+
+    model = make_model(
+        [
+            NullKeyColumn(),
+            FakeColumn("campaign_name"),
+            FakeColumn("image_blob"),
+            FakeColumn("id", primary_key=True),
+            FakeColumn("unused"),
+            FakeColumn("name", primary_key=True),
+        ],
+    )
+    payload = logic_obj._build_new_record_payload(
+        "Encounter",
+        model,
+        {"name": "Ada"},
+        "Quest",
+        b"img",
+        {"name": FieldSpec("Name", "name")},
+    )
+    assert None not in payload
+    assert "id" not in payload
+    assert "unused" not in payload
+
+
 def test_ensure_unique_name_handles_duplicates(monkeypatch: pytest.MonkeyPatch) -> None:
     logic_obj = DataLogic()
     session = make_session()
@@ -503,6 +803,28 @@ def test_ensure_unique_name_handles_duplicates(monkeypatch: pytest.MonkeyPatch) 
     session.to_return = object()
     with pytest.raises(DuplicateRecordError):
         logic_obj._ensure_unique_name(session, "NPC", model, "Alice")
+
+
+def test_ensure_unique_name_early_return_paths() -> None:
+    logic_obj = DataLogic()
+    session = make_session()
+    logic_obj._ensure_unique_name(
+        session,
+        "Encounter",
+        type("Encounter", (), {}),
+        "Ada",
+    )
+
+    class Nameless:
+        pass
+
+    logic_obj._ensure_unique_name(session, "NPC", Nameless, "Ada")
+    logic_obj._ensure_unique_name(
+        session,
+        "NPC",
+        type("Model", (), {"name": "name"}),
+        "",
+    )
 
 
 def test_prepare_value_json_and_numbers(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -521,6 +843,18 @@ def test_prepare_value_json_and_numbers(monkeypatch: pytest.MonkeyPatch) -> None
     assert (
         logic_obj._prepare_value(int_column, test_score_input, None)[1]
         == expected_score
+    )
+
+
+def test_prepare_value_handles_bad_column_type_and_non_string_input() -> None:
+    logic_obj = DataLogic()
+    bad_column = FakeColumn("note", python_type=ValueError("boom"))
+    assert logic_obj._prepare_value(bad_column, " text ", None)[1] == " text "
+    int_column = FakeColumn("score", python_type=int)
+    raw_value = 7
+    assert (
+        logic_obj._prepare_value(int_column, raw_value, FieldSpec("Score", "score"))[1]
+        == raw_value
     )
 
 
@@ -567,11 +901,17 @@ def test_coerce_value_types() -> None:
     )
 
 
+def test_coerce_value_falls_back_to_string() -> None:
+    logic_obj = DataLogic()
+    bad_column = FakeColumn("note", python_type=ValueError("bad"))
+    assert logic_obj._coerce_value(bad_column, "value") == "value"
+
+
 def test_apply_pending_to_instance_updates_and_images() -> None:
     model = make_model([FakeColumn("name"), FakeColumn("age")])
     instance = SimpleNamespace(name="Ada", age=20, image_blob=None)
     logic_obj = DataLogic()
-    field_values = {"name": "Ada", "age": "30"}
+    field_values = {"name": "Ada", "age": "30", "unknown": "value"}
     changed, identifier = logic_obj._apply_pending_to_instance(
         "NPC",
         model,
@@ -592,6 +932,62 @@ def test_apply_pending_to_instance_updates_and_images() -> None:
         None,
     )
     assert unchanged == (False, None)
+
+
+def test_apply_pending_skips_fields_when_prepare_value_false(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model = make_model([FakeColumn("skip"), FakeColumn("name")])
+    instance = SimpleNamespace(name="Ada", skip="keep", image_blob=None)
+    logic_obj = DataLogic()
+
+    def fake_prepare(
+        column: Any,
+        raw_value: Any,
+        spec: FieldSpec | None,
+    ) -> tuple[bool, Any]:
+        if column.key == "skip":
+            return False, None
+        return True, raw_value
+
+    monkeypatch.setattr(logic_obj, "_prepare_value", fake_prepare)
+    changed, identifier = logic_obj._apply_pending_to_instance(
+        "NPC",
+        model,
+        instance,
+        {"skip": "new", "name": "Ada"},
+        {"name": FieldSpec("Name", "name"), "skip": FieldSpec("Skip", "skip")},
+        None,
+    )
+    assert changed is True
+    assert identifier == "Ada"
+    assert instance.skip == "keep"
+
+
+def test_fetch_instance_rejects_bad_encounter_identifier() -> None:
+    session = make_session()
+    assert (
+        DataLogic._fetch_instance(
+            session,
+            "Encounter",
+            type("Encounter", (), {}),
+            "abc",
+        )
+        is None
+    )
+
+
+def test_fetch_instance_returns_none_without_name_column() -> None:
+    session = make_session()
+    assert (
+        DataLogic._fetch_instance(
+            session,
+            "NPC",
+            type("Nameless", (), {}),
+            "Ada",
+        )
+        is None
+    )
 
 
 def test_extract_instance_identifier() -> None:
