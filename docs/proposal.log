@@ -1,4 +1,4 @@
-This is LuaHBTeX, Version 1.18.1 (MiKTeX 24.4) (format=lualatex 2025.1.19)  10 NOV 2025 17:50
+This is LuaHBTeX, Version 1.18.1 (MiKTeX 24.4) (format=lualatex 2025.1.19)  30 NOV 2025 00:52
  restricted system commands enabled.
 **proposal.tex
 (./proposal.tex
@@ -1717,29 +1717,28 @@ Package microtype Info: Loading generic protrusion settings for font family
 File: mt-cmr.cfg 2013/05/19 v2.2 microtype config. file: Computer Modern Roman 
 (RS)
 )
-Package epstopdf Info: Source file: <prelimERD.eps>
-(epstopdf)                    date: 2025-11-03 19:05:28
-(epstopdf)                    size: 125224 bytes
-(epstopdf)             Output file: <prelimERD-eps-converted-to.pdf>
-(epstopdf)                    date: 2025-11-03 19:05:34
-(epstopdf)                    size: 138994 bytes
-(epstopdf)             Command: <miktex-epstopdf --outfile=prelimERD-eps-conver
-ted-to.pdf prelimERD.eps>
+Package epstopdf Info: Source file: <ERD.eps>
+(epstopdf)                    date: 2025-11-30 00:12:55
+(epstopdf)                    size: 165925 bytes
+(epstopdf)             Output file: <ERD-eps-converted-to.pdf>
+(epstopdf)                    date: 2025-11-30 00:52:04
+(epstopdf)                    size: 188108 bytes
+(epstopdf)             Command: <miktex-epstopdf --outfile=ERD-eps-converted-to
+.pdf ERD.eps>
 (epstopdf)             \includegraphics on input line 74.
 Package epstopdf Info: Output file is already uptodate.
-<prelimERD-eps-converted-to.pdf, id=26, 899.36pt x 803.0pt>
-File: prelimERD-eps-converted-to.pdf Graphic file (type pdf)
-<use prelimERD-eps-converted-to.pdf>
-Package luatex.def Info: prelimERD-eps-converted-to.pdf  used on input line 74.
-
-(luatex.def)             Requested size: 465.06004pt x 415.23438pt.
+<ERD-eps-converted-to.pdf, id=26, 1683.28876pt x 932.48375pt>
+File: ERD-eps-converted-to.pdf Graphic file (type pdf)
+<use ERD-eps-converted-to.pdf>
+Package luatex.def Info: ERD-eps-converted-to.pdf  used on input line 74.
+(luatex.def)             Requested size: 465.06004pt x 257.6219pt.
 
 
 [1
 
 {C:/Users/richa/AppData/Local/MiKTeX/fonts/map/pdftex/pdftex.map}]
 
-[2<./prelimERD-eps-converted-to.pdf>] (./proposal.aux)
+[2<./ERD-eps-converted-to.pdf>] (./proposal.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 1
 L3 programming layer <2024-12-25>
@@ -1758,7 +1757,7 @@ Here is how much of LuaTeX's memory you used:
  612 words of node memory still in use:
    7 hlist, 2 vlist, 2 rule, 1 local_par, 4 glue, 4 kern, 1 penalty, 3 glyph, 15
  attribute, 63 glue_spec, 9 attribute_list, 2 write nodes
-   avail lists: 1:1,2:677,3:228,4:138,5:137,6:55,7:5493,8:3,9:270,10:8,11:340
+   avail lists: 1:1,2:677,3:228,4:138,5:137,6:55,7:5478,8:3,9:270,10:8,11:337
  58417 multiletter control sequences out of 65536+600000
  51 fonts using 3901023 bytes
  121i,6n,125p,1004b,529s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -1766,7 +1765,7 @@ Here is how much of LuaTeX's memory you used:
 fonts/Baskerville1757.ttf><c:/program files/miktex/fonts/opentype/public/lm/lmsa
 ns10-bold.otf><C:/Program Files/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb
 >
-Output written on proposal.pdf (2 pages, 178439 bytes).
+Output written on proposal.pdf (2 pages, 227542 bytes).
 
 PDF statistics: 75 PDF objects out of 1000 (max. 8388607)
  9 named destinations out of 1000 (max. 131072)

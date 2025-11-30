@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Protocol
 from typing import runtime_checkable
 
@@ -12,6 +13,7 @@ from final_project import settings_manager
 with lazi:  # type: ignore[attr-defined]
     import atexit
     import contextlib
+    import hashlib
     import logging
     import os
     import re
@@ -27,6 +29,8 @@ with lazi:  # type: ignore[attr-defined]
     from pathlib import Path
     from typing import Any
     from typing import cast
+    from urllib.parse import parse_qsl
+    from urllib.parse import urljoin
 
     import requests
     import structlog
@@ -46,6 +50,27 @@ SCRIPTROOT = Path(__file__).parent.resolve()
 # 'project' directory is a work around so that src directory can be symlinked
 # to onedrive for backup.
 PROJECT_ROOT = (SCRIPTROOT / ".." / ".." / "project").resolve() / ".."
+
+LLM_DOWNLOAD_SIZE_GB = 6
+_GOOGLE_DRIVE_DOWNLOAD_URL = "https://drive.google.com/uc"
+_GOOGLE_DRIVE_EXPORT_PARAMS = {"export": "download"}
+_LLM_ASSET_SUFFIX_TO_FILE_ID: dict[str, str] = {
+    ".safetensors": "1Aov0HExRaeSqg752nmXPLFbRHa1zd66n",
+    ".llamafile": "1mxb-WDPJmA3LwQP19cxma_cLeEU-pMOs",
+}
+_LLM_ASSET_METADATA: dict[str, tuple[str | None, str | None]] = {
+    "dreamshaper_8.safetensors": (
+        "1Aov0HExRaeSqg752nmXPLFbRHa1zd66n",
+        "879DB523C30D3B9017143D56705015E15A2CB5628762C11D086FED9538ABD7FD",
+    ),
+    "google_gemma-3-4b-it-q6_k.llamafile": (
+        "1mxb-WDPJmA3LwQP19cxma_cLeEU-pMOs",
+        "F1777A23BCA3410BA4E7940E468790D559B54680B5DD35FBA6F55BFC302B8463",
+    ),
+}
+_DOWNLOAD_CHUNK_SIZE = 8 * 1024 * 1024
+_SIZE_UNIT = 1024.0
+_DOWNLOAD_TIMEOUT = 60
 
 
 @runtime_checkable
@@ -107,6 +132,19 @@ class _TextLLMConfig(BaseModel):
         return (base_path / path).resolve()
 
 
+@dataclass(frozen=True, slots=True)
+class LLMAssetDownloadSpec:
+    """Describe a downloadable LLM resource."""
+
+    name: str
+    path: Path
+    file_id: str
+    sha256: str | None = None
+
+
+ProgressCallback = Callable[[str, float | None], None]
+
+
 def _build_text_llm_config() -> _TextLLMConfig:
     settings_manager.ensure_settings_initialized()
     snapshot = settings_manager.get_settings_snapshot()
@@ -116,6 +154,290 @@ def _build_text_llm_config() -> _TextLLMConfig:
         raise TypeError(msg)
     settings = dict(cast(Mapping[str, Any], group))
     return _TextLLMConfig(**settings)
+
+
+def get_llm_asset_requirements() -> tuple[LLMAssetDownloadSpec, ...]:
+    """Return the configured LLM assets that can be auto-downloaded."""
+    config = _text_llm_config
+    specs: list[LLMAssetDownloadSpec] = []
+    for path in (config.image_model, config.text_model):
+        spec = _build_asset_download_spec(path)
+        if spec is not None:
+            specs.append(spec)
+    return tuple(specs)
+
+
+def get_missing_llm_assets() -> tuple[LLMAssetDownloadSpec, ...]:
+    """Return downloadable LLM assets whose files are not present."""
+    return tuple(
+        spec for spec in get_llm_asset_requirements() if _asset_needs_download(spec)
+    )
+
+
+def download_llm_asset(
+    spec: LLMAssetDownloadSpec,
+    progress_callback: ProgressCallback | None = None,
+) -> None:
+    """Download the provided asset into its configured location."""
+    _download_google_drive_file(spec, progress_callback)
+    _ensure_asset_checksum(spec)
+
+
+def _build_asset_download_spec(path: Path) -> LLMAssetDownloadSpec | None:
+    metadata = _LLM_ASSET_METADATA.get(path.name.lower())
+    if metadata is not None:
+        file_id, sha256 = metadata
+    else:
+        file_id = _LLM_ASSET_SUFFIX_TO_FILE_ID.get(path.suffix.lower())
+        sha256 = None
+    if file_id is None:
+        return None
+    return LLMAssetDownloadSpec(
+        name=path.name,
+        path=path,
+        file_id=file_id,
+        sha256=sha256,
+    )
+
+
+def _download_google_drive_file(
+    spec: LLMAssetDownloadSpec,
+    progress_callback: ProgressCallback | None,
+) -> None:
+    destination = spec.path
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    params = dict(_GOOGLE_DRIVE_EXPORT_PARAMS)
+    params["id"] = spec.file_id
+    logger.info("downloading llm asset", target=str(destination), name=spec.name)
+    with requests.Session() as session:
+        response = session.get(
+            _GOOGLE_DRIVE_DOWNLOAD_URL,
+            params=params,
+            stream=True,
+            timeout=_DOWNLOAD_TIMEOUT,
+        )
+        token = _extract_drive_confirm_token(response)
+        download_url = _GOOGLE_DRIVE_DOWNLOAD_URL
+        extra_params: dict[str, str] = {}
+        if token is None:
+            token, html_params, action_url = _extract_drive_confirm_from_html(response)
+            extra_params.update(html_params)
+            if action_url:
+                download_url = action_url
+        if token:
+            response.close()
+            params = dict(params)
+            params["confirm"] = token
+            params.update(extra_params)
+            response = session.get(
+                download_url,
+                params=params,
+                stream=True,
+                timeout=_DOWNLOAD_TIMEOUT,
+            )
+        try:
+            _stream_drive_response(
+                response,
+                destination,
+                label=spec.name,
+                progress_callback=progress_callback,
+            )
+        finally:
+            response.close()
+
+
+def _extract_drive_confirm_token(response: requests.Response) -> str | None:
+    for key, value in response.cookies.items():
+        if key.startswith("download_warning"):
+            return value
+    return None
+
+
+def _extract_drive_confirm_from_html(
+    response: requests.Response,
+) -> tuple[str | None, dict[str, str], str | None]:
+    content_type = response.headers.get("Content-Type", "")
+    if "text/html" not in content_type.lower():
+        return (None, {}, None)
+    try:
+        body = response.text
+    except requests.RequestException:
+        return (None, {}, None)
+    confirm, extra_params, action_url = _parse_drive_html_metadata(body)
+    if action_url:
+        action_url = urljoin(response.url, action_url)
+    return confirm, extra_params, action_url
+
+
+def _parse_drive_confirm_value(body: str) -> str | None:
+    match = re.search(r'name="confirm"\s+value="(?P<token>[^"]+)"', body)
+    if match:
+        return match.group("token")
+    match = re.search(r"confirm=([A-Za-z0-9_-]+)", body)
+    if match:
+        return match.group(1)
+    return None
+
+
+def _parse_drive_html_metadata(
+    body: str,
+) -> tuple[str | None, dict[str, str], str | None]:
+    confirm = _parse_drive_hidden_input(body, "confirm")
+    if not confirm:
+        confirm = _parse_drive_confirm_value(body)
+    extra_params: dict[str, str] = {}
+    uuid = _parse_drive_hidden_input(body, "uuid")
+    if uuid:
+        extra_params["uuid"] = uuid
+    action_url, action_params = _parse_drive_form_action(body)
+    extra_params.update(action_params)
+    return confirm, extra_params, action_url
+
+
+def _parse_drive_hidden_input(body: str, field: str) -> str | None:
+    input_pattern = re.compile(r"<input[^>]+>", flags=re.IGNORECASE)
+    for match in input_pattern.finditer(body):
+        tag = match.group(0)
+        name_pattern = rf"name\s*=\s*[\"\']{re.escape(field)}[\"\']"
+        if not re.search(name_pattern, tag, flags=re.IGNORECASE):
+            continue
+        value_match = re.search(r"value\s*=\s*[\"\']([^\"\']+)[\"\']", tag)
+        if value_match:
+            return value_match.group(1)
+    return None
+
+
+def _parse_drive_form_action(body: str) -> tuple[str | None, dict[str, str]]:
+    match = re.search(
+        r"<form[^>]+action=[\"\']([^\"\']+)[\"\']",
+        body,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return (None, {})
+    raw_url = match.group(1)
+    base_url, _, query = raw_url.partition("?")
+    params = dict(parse_qsl(query, keep_blank_values=True)) if query else {}
+    return base_url or None, params
+
+
+def _stream_drive_response(
+    response: requests.Response,
+    destination: Path,
+    *,
+    label: str,
+    progress_callback: ProgressCallback | None,
+) -> None:
+    response.raise_for_status()
+    total_bytes = _safe_int(response.headers.get("Content-Length"))
+    downloaded = 0
+    start_message = _format_download_message(label, downloaded, total_bytes)
+    if progress_callback is not None:
+        progress_callback(start_message, 0.0 if total_bytes else None)
+    with tempfile.NamedTemporaryFile(delete=False, dir=str(destination.parent)) as tmp:
+        tmp_path = Path(tmp.name)
+        try:
+            for chunk in response.iter_content(_DOWNLOAD_CHUNK_SIZE):
+                if not chunk:
+                    continue
+                tmp.write(chunk)
+                downloaded += len(chunk)
+                if progress_callback is not None:
+                    percent = (
+                        (downloaded / total_bytes) * 100.0 if total_bytes else None
+                    )
+                    progress_callback(
+                        _format_download_message(label, downloaded, total_bytes),
+                        percent,
+                    )
+        except Exception:
+            tmp.flush()
+            tmp.close()
+            with contextlib.suppress(OSError):
+                tmp_path.unlink()
+            raise
+    tmp_path.replace(destination)
+    if progress_callback is not None:
+        progress_callback(
+            f"Finished downloading {label}",
+            100.0 if total_bytes else None,
+        )
+
+
+def _asset_needs_download(spec: LLMAssetDownloadSpec) -> bool:
+    if not spec.path.exists():
+        return True
+    if spec.sha256 is None:
+        return False
+    actual = _compute_sha256(spec.path)
+    if _hashes_match(actual, spec.sha256):
+        return False
+    logger.warning(
+        "llm asset checksum mismatch",
+        path=str(spec.path),
+        expected=spec.sha256,
+        actual=actual,
+    )
+    return True
+
+
+def _ensure_asset_checksum(spec: LLMAssetDownloadSpec) -> None:
+    if spec.sha256 is None:
+        return
+    actual = _compute_sha256(spec.path)
+    if _hashes_match(actual, spec.sha256):
+        return
+    message = (
+        f"Checksum validation failed for {spec.name}. "
+        f"Expected {spec.sha256} but got {actual}."
+    )
+    raise RuntimeError(message)
+
+
+def _hashes_match(left: str | None, right: str | None) -> bool:
+    if left is None or right is None:
+        return False
+    return left.strip().lower() == right.strip().lower()
+
+
+def _compute_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _safe_int(value: str | None) -> int | None:
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _format_download_message(
+    label: str,
+    downloaded: int,
+    total_bytes: int | None,
+) -> str:
+    downloaded_label = _format_size(downloaded)
+    if total_bytes:
+        return f"Downloading {label}: {downloaded_label} / {_format_size(total_bytes)}"
+    return f"Downloading {label}: {downloaded_label}"
+
+
+def _format_size(value: int) -> str:
+    units = ("B", "KB", "MB", "GB", "TB")
+    remaining = float(max(0, value))
+    for unit in units:
+        if remaining < _SIZE_UNIT or unit == units[-1]:
+            if unit == "B":
+                return f"{int(remaining)} {unit}"
+            return f"{remaining:.1f} {unit}"
+        remaining /= _SIZE_UNIT
+    return f"{remaining:.1f} TB"
 
 
 class _ServerRuntime:
@@ -225,8 +547,6 @@ class _ServerRuntime:
 
 
 # Type aliases
-type ProgressCallback = Callable[[str, float | None], None]
-
 # Module constants
 VALID_NAME_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-'")
 PROMPT_PROGRESS_PATTERN = re.compile(r"Prompt evaluation:\s+(?P<pct>\d+(?:\.\d+)?)%")

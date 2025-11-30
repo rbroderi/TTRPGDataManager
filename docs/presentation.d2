@@ -110,6 +110,11 @@ layers: {
 		text: |md
 			# Lessons Learned
 			- Automate screenshots + sample data so demos stay deterministic.
+			- The more separated the concerns are the better, it makes it much easier to test.
+			- Use protocols and dataclasses to generalize data that is passed between methods.
+			- SQLAlchemy can simplify many aspects of database handling.
+			  - It also abstracts what type of database is connected.
+			  - This is used in testing as a small in-memory SQLite database is used to test some methods.
 		|
 	}
 }
