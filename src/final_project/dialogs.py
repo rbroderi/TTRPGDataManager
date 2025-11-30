@@ -55,6 +55,7 @@ class SettingGroupSpec:
 class RelationshipRowSpec:
     """Represent a relationship row ready for rendering."""
 
+    target_id: int
     target_name: str
     relation_name: str
 
@@ -63,8 +64,26 @@ class RelationshipRowSpec:
 class EncounterMemberSpec:
     """Describe an encounter member row for display."""
 
+    npc_id: int
     npc_name: str
     notes: str
+
+
+@dataclass(frozen=True, slots=True)
+class NpcOption:
+    """Describe an NPC option exposed via dialog drop-downs."""
+
+    identifier: int
+    name: str
+    campaign: str | None = None
+
+
+def format_npc_option_label(option: NpcOption) -> str:
+    """Return a human-friendly label for NPC combo box entries."""
+    suffix = f"#{option.identifier}"
+    if option.campaign:
+        suffix = f"{suffix}, {option.campaign}"
+    return f"{option.name} ({suffix})"
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,25 +132,34 @@ def build_settings_group_specs(
 
 
 def build_relationship_row_specs(
-    rows: Sequence[tuple[str, str]] | None,
+    rows: Sequence[tuple[int, str, str]] | None,
 ) -> tuple[RelationshipRowSpec, ...]:
     """Convert manager rows into deterministic relationship specs."""
     if not rows:
         return ()
     return tuple(
-        RelationshipRowSpec(target_name=target, relation_name=relation)
-        for target, relation in rows
+        RelationshipRowSpec(
+            target_id=target_id,
+            target_name=target,
+            relation_name=relation,
+        )
+        for target_id, target, relation in rows
     )
 
 
 def build_encounter_member_specs(
-    rows: Sequence[tuple[str, str | None]] | None,
+    rows: Sequence[tuple[int, str, str | None]] | None,
 ) -> tuple[EncounterMemberSpec, ...]:
     """Normalize encounter member rows for rendering."""
     if not rows:
         return ()
     return tuple(
-        EncounterMemberSpec(npc_name=name, notes=(notes or "")) for name, notes in rows
+        EncounterMemberSpec(
+            npc_id=npc_id,
+            npc_name=name,
+            notes=(notes or ""),
+        )
+        for npc_id, name, notes in rows
     )
 
 
@@ -159,28 +187,28 @@ class DialogManager(Protocol):
         self,
         campaign: str | None,
         *,
-        exclude: Sequence[str] | None = None,
-    ) -> Sequence[str]:
-        """Return NPC names available for the provided campaign context."""
+        exclude: Sequence[int] | None = None,
+    ) -> Sequence[NpcOption]:
+        """Return NPC options available for the provided campaign context."""
         ...
 
     def fetch_relationship_rows(
         self,
-        source_name: str,
-    ) -> Sequence[tuple[str, str]]:
+        source_id: int,
+    ) -> Sequence[tuple[int, str, str]]:
         """Fetch relationship tuples for the given NPC."""
         ...
 
     def upsert_relationship(
         self,
-        source_name: str,
-        target_name: str,
+        source_id: int,
+        target_id: int,
         relation_name: str,
     ) -> None:
         """Create or update the relationship between two NPCs."""
         ...
 
-    def delete_relationship(self, source_name: str, target_name: str) -> None:
+    def delete_relationship(self, source_id: int, target_id: int) -> None:
         """Remove the relationship between the two NPCs."""
         ...
 
@@ -191,14 +219,14 @@ class DialogManager(Protocol):
     def fetch_encounter_members(
         self,
         encounter_id: int,
-    ) -> Sequence[tuple[str, str | None]]:
+    ) -> Sequence[tuple[int, str, str | None]]:
         """Return encounter member rows for the given encounter id."""
         ...
 
     def add_encounter_member(
         self,
         encounter_id: int,
-        npc_name: str,
+        npc_id: int,
         notes: str,
     ) -> None:
         """Attach the specified NPC to an encounter."""
@@ -207,7 +235,7 @@ class DialogManager(Protocol):
     def remove_encounter_member(
         self,
         encounter_id: int,
-        npc_name: str,
+        npc_id: int,
     ) -> None:
         """Detach the specified NPC from an encounter."""
         ...
@@ -232,7 +260,10 @@ class LLMProgressDialog(ctk.CTkToplevel):  # type: ignore[misc]
         self.attributes("-topmost", 1)
         self._mode = "indeterminate"
         self.protocol("WM_DELETE_WINDOW", lambda: None)
-        self.status_label = ctk.CTkLabel(self, text="Contacting local LLM...")
+        self.status_label = ctk.CTkLabel(
+            self,
+            text="Contacting local LLM...",
+        )
         self.status_label.pack(padx=20, pady=(20, 10))
         self.progress = ctk.CTkProgressBar(self, mode="indeterminate")
         self.progress.pack(fill="x", padx=20, pady=(0, 20))
@@ -499,14 +530,17 @@ class RelationshipDialog(ctk.CTkToplevel):  # type: ignore[misc]
     def __init__(
         self,
         manager: DialogManager,
+        source_id: int,
         source_name: str,
         campaign: str | None,
     ) -> None:
         """Build the relationship dialog and load the current NPC context."""
         super().__init__(manager)
         self.manager: DialogManager = manager
+        self.source_id = source_id
         self.source_name = source_name
         self.campaign = campaign
+        self._target_option_map: dict[str, int] = {}
         trash_photo = tkfa.icon_to_image(
             "trash",
             fill="white",
@@ -520,7 +554,7 @@ class RelationshipDialog(ctk.CTkToplevel):  # type: ignore[misc]
         self.title("Relationships")
         self._build_layout()
         self.protocol("WM_DELETE_WINDOW", self._handle_close)
-        self.update_context(source_name, campaign)
+        self.update_context(source_id, source_name, campaign)
         self.grab_set()
 
     def _build_layout(self) -> None:
@@ -569,8 +603,14 @@ class RelationshipDialog(ctk.CTkToplevel):  # type: ignore[misc]
         add_btn = ctk.CTkButton(controls, text="Add", command=self._handle_add)
         add_btn.pack(side="left")
 
-    def update_context(self, source_name: str, campaign: str | None) -> None:
+    def update_context(
+        self,
+        source_id: int,
+        source_name: str,
+        campaign: str | None,
+    ) -> None:
         """Refresh the dialog contents for a different NPC or campaign."""
+        self.source_id = source_id
         self.source_name = source_name
         self.campaign = campaign
         self._header_label.configure(text=f"Relationships - {source_name}")
@@ -578,11 +618,17 @@ class RelationshipDialog(ctk.CTkToplevel):  # type: ignore[misc]
         self._reload_rows()
 
     def _refresh_target_options(self) -> None:
-        values = self.manager.relationship_targets_for_campaign(
+        options = self.manager.relationship_targets_for_campaign(
             self.campaign,
-            exclude=[self.source_name],
+            exclude=(self.source_id,),
         )
-        combo_state = build_combo_box_state(values, self._target_combo.get())
+        option_labels: list[str] = []
+        self._target_option_map.clear()
+        for option in options:
+            label = format_npc_option_label(option)
+            self._target_option_map[label] = option.identifier
+            option_labels.append(label)
+        combo_state = build_combo_box_state(option_labels, self._target_combo.get())
         self._target_combo.configure(values=combo_state.values)
         self._target_combo.set(combo_state.selected)
 
@@ -590,7 +636,7 @@ class RelationshipDialog(ctk.CTkToplevel):  # type: ignore[misc]
         for child in self._rows_frame.winfo_children():
             child.destroy()
         row_specs = build_relationship_row_specs(
-            self.manager.fetch_relationship_rows(self.source_name),
+            self.manager.fetch_relationship_rows(self.source_id),
         )
         if not row_specs:
             ctk.CTkLabel(
@@ -617,25 +663,29 @@ class RelationshipDialog(ctk.CTkToplevel):  # type: ignore[misc]
                 text="",
                 width=36,
                 image=self._delete_icon,
-                command=lambda target_name=spec.target_name: self._handle_delete(
-                    target_name,
+                command=lambda target_id=spec.target_id: self._handle_delete(
+                    target_id,
                 ),
             )
             delete_btn.pack(side="left", padx=(5, 0))
 
     def _handle_add(self) -> None:
-        target_name = self._target_combo.get().strip()
+        target_label = self._target_combo.get().strip()
         relation_name = self._type_entry.get().strip()
-        if not target_name:
+        if not target_label:
             messagebox.showerror("Relationships", "Select an NPC to relate to.")
             return
         if not relation_name:
             messagebox.showerror("Relationships", "Enter a relationship type.")
             return
+        target_id = self._target_option_map.get(target_label)
+        if target_id is None:
+            messagebox.showerror("Relationships", "Select a valid NPC to relate to.")
+            return
         try:
             self.manager.upsert_relationship(
-                self.source_name,
-                target_name,
+                self.source_id,
+                target_id,
                 relation_name,
             )
         except ValueError as exc:
@@ -648,9 +698,9 @@ class RelationshipDialog(ctk.CTkToplevel):  # type: ignore[misc]
         self._type_entry.delete(0, tk.END)
         self._reload_rows()
 
-    def _handle_delete(self, target_name: str) -> None:
+    def _handle_delete(self, target_id: int) -> None:
         try:
-            self.manager.delete_relationship(self.source_name, target_name)
+            self.manager.delete_relationship(self.source_id, target_id)
         except RuntimeError as exc:
             logger.exception("failed to delete relationship")
             messagebox.showerror("Relationships", str(exc))
@@ -676,7 +726,8 @@ class EncounterMembersDialog(ctk.CTkToplevel):  # type: ignore[misc]
         self.manager: DialogManager = manager
         self.encounter_id = encounter_id
         self.campaign = campaign
-        self._current_members: set[str] = set()
+        self._current_members: set[int] = set()
+        self._npc_option_map: dict[str, int] = {}
 
         trash_photo = tkfa.icon_to_image(
             "trash",
@@ -754,11 +805,17 @@ class EncounterMembersDialog(ctk.CTkToplevel):  # type: ignore[misc]
         self._refresh_npc_options()
 
     def _refresh_npc_options(self) -> None:
-        values = self.manager.relationship_targets_for_campaign(
+        options = self.manager.relationship_targets_for_campaign(
             self.campaign,
             exclude=tuple(self._current_members),
         )
-        combo_state = build_combo_box_state(values, self._npc_combo.get())
+        option_labels: list[str] = []
+        self._npc_option_map.clear()
+        for option in options:
+            label = format_npc_option_label(option)
+            self._npc_option_map[label] = option.identifier
+            option_labels.append(label)
+        combo_state = build_combo_box_state(option_labels, self._npc_combo.get())
         self._npc_combo.configure(values=combo_state.values)
         self._npc_combo.set(combo_state.selected)
 
@@ -768,7 +825,7 @@ class EncounterMembersDialog(ctk.CTkToplevel):  # type: ignore[misc]
         row_specs = build_encounter_member_specs(
             self.manager.fetch_encounter_members(self.encounter_id),
         )
-        self._current_members = {spec.npc_name for spec in row_specs}
+        self._current_members = {spec.npc_id for spec in row_specs}
         if not row_specs:
             ctk.CTkLabel(
                 self._rows_frame,
@@ -794,18 +851,22 @@ class EncounterMembersDialog(ctk.CTkToplevel):  # type: ignore[misc]
                 text="",
                 width=36,
                 image=self._delete_icon,
-                command=lambda name=spec.npc_name: self._handle_remove(name),
+                command=lambda npc_id=spec.npc_id: self._handle_remove(npc_id),
             )
             delete_btn.pack(side="left", padx=(5, 0))
 
     def _handle_add(self) -> None:
-        npc_name = self._npc_combo.get().strip()
+        npc_label = self._npc_combo.get().strip()
         notes = self._notes_entry.get("1.0", tk.END).strip()
-        if not npc_name:
+        if not npc_label:
             messagebox.showerror("Encounter Members", "Select an NPC to add.")
             return
+        npc_id = self._npc_option_map.get(npc_label)
+        if npc_id is None:
+            messagebox.showerror("Encounter Members", "Select a valid NPC to add.")
+            return
         try:
-            self.manager.add_encounter_member(self.encounter_id, npc_name, notes)
+            self.manager.add_encounter_member(self.encounter_id, npc_id, notes)
         except ValueError as exc:
             messagebox.showerror("Encounter Members", str(exc))
             return
@@ -817,9 +878,9 @@ class EncounterMembersDialog(ctk.CTkToplevel):  # type: ignore[misc]
         self._reload_rows()
         self._refresh_npc_options()
 
-    def _handle_remove(self, npc_name: str) -> None:
+    def _handle_remove(self, npc_id: int) -> None:
         try:
-            self.manager.remove_encounter_member(self.encounter_id, npc_name)
+            self.manager.remove_encounter_member(self.encounter_id, npc_id)
         except RuntimeError as exc:
             logger.exception("failed to remove encounter member")
             messagebox.showerror("Encounter Members", str(exc))

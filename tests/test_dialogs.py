@@ -283,24 +283,28 @@ def test_settings_dialog_reset_defaults_failure_shows_error(
 
 def test_build_relationship_row_specs_handles_none_rows() -> None:
     assert dialogs.build_relationship_row_specs(None) == ()
+    first_target_id = 10
     rows = dialogs.build_relationship_row_specs(
         [
-            ("Aelin", "Mentor"),
-            ("Nyx", ""),
+            (first_target_id, "Aelin", "Mentor"),
+            (11, "Nyx", ""),
         ],
     )
+    assert rows[0].target_id == first_target_id
     assert rows[0].target_name == "Aelin"
     assert rows[1].relation_name == ""
 
 
 def test_build_encounter_member_specs_normalizes_notes() -> None:
     assert dialogs.build_encounter_member_specs(None) == ()
+    first_member_id = 5
     rows = dialogs.build_encounter_member_specs(
         [
-            ("Rian", None),
-            ("Seren", "Scout"),
+            (first_member_id, "Rian", None),
+            (6, "Seren", "Scout"),
         ],
     )
+    assert rows[0].npc_id == first_member_id
     assert rows[0].npc_name == "Rian"
     assert rows[0].notes == ""
     assert rows[1].notes == "Scout"
@@ -319,36 +323,39 @@ def test_build_combo_box_state_handles_empty_options() -> None:
 
 
 class RelationshipManagerStub:
-    def __init__(self, targets: Sequence[str] | None = None) -> None:
-        self.requested_source: str | None = None
-        self.targets = list(targets or [])
+    def __init__(
+        self,
+        targets: Sequence[dialogs.NpcOption] | None = None,
+    ) -> None:
+        self.requested_source_id: int | None = None
+        self.targets = tuple(targets or ())
         self.last_target_request: dict[str, object] | None = None
 
     def relationship_targets_for_campaign(
         self,
         campaign: str | None,
         *,
-        exclude: Sequence[str] | None = None,
-    ) -> list[str]:
+        exclude: Sequence[int] | None = None,
+    ) -> list[dialogs.NpcOption]:
         self.last_target_request = {
             "campaign": campaign,
             "exclude": tuple(exclude or ()),
         }
         return list(self.targets)
 
-    def fetch_relationship_rows(self, source_name: str) -> list[tuple[str, str]]:
-        self.requested_source = source_name
-        return [("ignored", "ignored")]
+    def fetch_relationship_rows(self, source_id: int) -> list[tuple[int, str, str]]:
+        self.requested_source_id = source_id
+        return [(999, "ignored", "ignored")]
 
     def upsert_relationship(
         self,
-        source_name: str,
-        target_name: str,
+        source_id: int,
+        target_id: int,
         relation_name: str,
     ) -> None:
         raise NotImplementedError
 
-    def delete_relationship(self, source_name: str, target_name: str) -> None:
+    def delete_relationship(self, source_id: int, target_id: int) -> None:
         raise NotImplementedError
 
     def on_relationship_dialog_close(
@@ -360,18 +367,18 @@ class RelationshipManagerStub:
     def fetch_encounter_members(
         self,
         encounter_id: int,
-    ) -> list[tuple[str, str | None]]:
+    ) -> list[tuple[int, str, str | None]]:
         return []
 
     def add_encounter_member(
         self,
         encounter_id: int,
-        npc_name: str,
+        npc_id: int,
         notes: str,
     ) -> None:
         raise NotImplementedError
 
-    def remove_encounter_member(self, encounter_id: int, npc_name: str) -> None:
+    def remove_encounter_member(self, encounter_id: int, npc_id: int) -> None:
         raise NotImplementedError
 
     def on_encounter_members_dialog_close(
@@ -389,9 +396,15 @@ def test_relationship_dialog_reload_rows_uses_specs(
     manager = RelationshipManagerStub()
     dialog.manager = cast(dialogs.DialogManager, manager)
     dialog.source_name = "Aelin"
+    source_id = 77
+    dialog.source_id = source_id
     dialog._rows_frame = ctk.CTkScrollableFrame(tk_app)
     dialog._delete_icon = cast(ctk.CTkImage, None)
-    sentinel = dialogs.RelationshipRowSpec("Quill", "Ally")
+    sentinel = dialogs.RelationshipRowSpec(
+        target_id=88,
+        target_name="Quill",
+        relation_name="Ally",
+    )
     monkeypatch.setattr(
         dialogs,
         "build_relationship_row_specs",
@@ -401,7 +414,7 @@ def test_relationship_dialog_reload_rows_uses_specs(
     dialog._reload_rows()
 
     try:
-        assert manager.requested_source == "Aelin"
+        assert manager.requested_source_id == source_id
         rows = dialog._rows_frame.winfo_children()
         assert len(rows) == 1
         labels = [
@@ -416,35 +429,38 @@ def test_relationship_dialog_reload_rows_uses_specs(
 
 
 class EncounterManagerStub:
-    def __init__(self, targets: Sequence[str] | None = None) -> None:
+    def __init__(
+        self,
+        targets: Sequence[dialogs.NpcOption] | None = None,
+    ) -> None:
         self.requested_id: int | None = None
-        self.targets = list(targets or [])
+        self.targets = tuple(targets or ())
         self.last_target_request: dict[str, object] | None = None
 
     def relationship_targets_for_campaign(
         self,
         campaign: str | None,
         *,
-        exclude: Sequence[str] | None = None,
-    ) -> list[str]:
+        exclude: Sequence[int] | None = None,
+    ) -> list[dialogs.NpcOption]:
         self.last_target_request = {
             "campaign": campaign,
             "exclude": tuple(exclude or ()),
         }
         return list(self.targets)
 
-    def fetch_relationship_rows(self, source_name: str) -> list[tuple[str, str]]:
+    def fetch_relationship_rows(self, source_id: int) -> list[tuple[int, str, str]]:
         return []
 
     def upsert_relationship(
         self,
-        source_name: str,
-        target_name: str,
+        source_id: int,
+        target_id: int,
         relation_name: str,
     ) -> None:
         raise NotImplementedError
 
-    def delete_relationship(self, source_name: str, target_name: str) -> None:
+    def delete_relationship(self, source_id: int, target_id: int) -> None:
         raise NotImplementedError
 
     def on_relationship_dialog_close(
@@ -456,19 +472,19 @@ class EncounterManagerStub:
     def fetch_encounter_members(
         self,
         encounter_id: int,
-    ) -> list[tuple[str, str | None]]:
+    ) -> list[tuple[int, str, str | None]]:
         self.requested_id = encounter_id
-        return [("ignored", None)]
+        return [(101, "ignored", None)]
 
     def add_encounter_member(
         self,
         encounter_id: int,
-        npc_name: str,
+        npc_id: int,
         notes: str,
     ) -> None:
         raise NotImplementedError
 
-    def remove_encounter_member(self, encounter_id: int, npc_name: str) -> None:
+    def remove_encounter_member(self, encounter_id: int, npc_id: int) -> None:
         raise NotImplementedError
 
     def on_encounter_members_dialog_close(
@@ -490,7 +506,11 @@ def test_encounter_dialog_reload_rows_uses_specs(
     dialog._rows_frame = ctk.CTkScrollableFrame(tk_app)
     dialog._delete_icon = cast(ctk.CTkImage, None)
     dialog._current_members = set()
-    sentinel = dialogs.EncounterMemberSpec("Nyx", "Scout")
+    sentinel = dialogs.EncounterMemberSpec(
+        npc_id=91,
+        npc_name="Nyx",
+        notes="Scout",
+    )
     monkeypatch.setattr(
         dialogs,
         "build_encounter_member_specs",
@@ -501,7 +521,7 @@ def test_encounter_dialog_reload_rows_uses_specs(
 
     try:
         assert manager.requested_id == encounter_id
-        assert dialog._current_members == {sentinel.npc_name}
+        assert dialog._current_members == {sentinel.npc_id}
         rows = dialog._rows_frame.winfo_children()
         assert len(rows) == 1
         labels = [
@@ -534,11 +554,18 @@ def test_relationship_dialog_refresh_target_options_uses_combo_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     dialog = dialogs.RelationshipDialog.__new__(dialogs.RelationshipDialog)
-    manager = RelationshipManagerStub(targets=["Quill", "Nyx"])
+    targets: tuple[dialogs.NpcOption, ...] = (
+        dialogs.NpcOption(identifier=11, name="Quill", campaign="alpha"),
+        dialogs.NpcOption(identifier=12, name="Nyx", campaign=None),
+    )
+    manager = RelationshipManagerStub(targets=targets)
     dialog.manager = cast(dialogs.DialogManager, manager)
     dialog.source_name = "Aelin"
+    dialog.source_id = 70
     dialog.campaign = "alpha"
-    combo_stub = ComboStub("Nyx")
+    dialog._target_option_map = {}
+    selected_label = dialogs.format_npc_option_label(targets[1])
+    combo_stub = ComboStub(selected_label)
     dialog._target_combo = cast(ctk.CTkComboBox, combo_stub)
     combo_state = dialogs.ComboBoxState(values=("Quill",), selected="Quill")
     captured: dict[str, object] = {}
@@ -555,13 +582,16 @@ def test_relationship_dialog_refresh_target_options_uses_combo_helper(
 
     dialog._refresh_target_options()
 
-    assert captured["options"] == tuple(manager.targets)
-    assert captured["current"] == "Nyx"
+    expected_options = tuple(
+        dialogs.format_npc_option_label(option) for option in manager.targets
+    )
+    assert captured["options"] == expected_options
+    assert captured["current"] == selected_label
     assert combo_stub.configured_values == combo_state.values
     assert combo_stub.selected_value == combo_state.selected
     assert manager.last_target_request == {
         "campaign": "alpha",
-        "exclude": ("Aelin",),
+        "exclude": (dialog.source_id,),
     }
 
 
@@ -569,11 +599,18 @@ def test_encounter_dialog_refresh_npc_options_uses_combo_helper(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     dialog = dialogs.EncounterMembersDialog.__new__(dialogs.EncounterMembersDialog)
-    manager = EncounterManagerStub(targets=["Nyx", "Rian"])
+    targets: tuple[dialogs.NpcOption, ...] = (
+        dialogs.NpcOption(identifier=15, name="Nyx", campaign="beta"),
+        dialogs.NpcOption(identifier=16, name="Rian", campaign=None),
+    )
+    manager = EncounterManagerStub(targets=targets)
     dialog.manager = cast(dialogs.DialogManager, manager)
     dialog.campaign = "beta"
-    dialog._current_members = {"Nyx"}
-    combo_stub = ComboStub("Nyx")
+    existing_member_id = targets[0].identifier
+    dialog._current_members = {existing_member_id}
+    dialog._npc_option_map = {}
+    selected_label = dialogs.format_npc_option_label(targets[0])
+    combo_stub = ComboStub(selected_label)
     dialog._npc_combo = cast(ctk.CTkComboBox, combo_stub)
     combo_state = dialogs.ComboBoxState(values=("Rian",), selected="Rian")
     captured: dict[str, object] = {}
@@ -590,13 +627,16 @@ def test_encounter_dialog_refresh_npc_options_uses_combo_helper(
 
     dialog._refresh_npc_options()
 
-    assert captured["options"] == tuple(manager.targets)
-    assert captured["current"] == "Nyx"
+    expected_options = tuple(
+        dialogs.format_npc_option_label(option) for option in manager.targets
+    )
+    assert captured["options"] == expected_options
+    assert captured["current"] == selected_label
     assert combo_stub.configured_values == combo_state.values
     assert combo_stub.selected_value == combo_state.selected
     assert manager.last_target_request == {
         "campaign": "beta",
-        "exclude": ("Nyx",),
+        "exclude": (existing_member_id,),
     }
 
 

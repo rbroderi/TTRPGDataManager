@@ -17,6 +17,25 @@
     favored_spell: "song of restoration"
     signature_weapon: "silver rapier"
   image_path: "data/img/placeholder.png"
+- name: "Elandril Moonwhisper"
+  gender: MALE
+  age: 145
+  alignment_name: "CHAOTIC GOOD"
+  description: "An elven loremaster who keeps sprawling journals about every ruin he explores."
+  campaign:
+    name: "Iron Pact"
+    start_date: 2025-11-19
+    status: "ACTIVE"
+  species:
+    name: "High Elf"
+    traits:
+      vision: "darkvision"
+      lifespan: "immortal"
+      demeanor: "patient"
+  abilities:
+    favored_spell: "song of restoration"
+    signature_weapon: "silver rapier"
+  image_path: "data/img/placeholder.png"
 - name: "Brynn Stoneward"
   gender: FEMALE
   age: 38

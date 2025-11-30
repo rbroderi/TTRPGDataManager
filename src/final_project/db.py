@@ -473,6 +473,13 @@ class NPC(CampaignRecord):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    related_to = relationship(
+        "Relationship",
+        foreign_keys="[Relationship.npc_id_2]",
+        back_populates="target",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     __mapper_args__ = MappingProxyType({"polymorphic_identity": "npc"})
 
 
@@ -635,7 +642,7 @@ class Relationship(Base):
     target = relationship(
         "NPC",
         foreign_keys=[npc_id_2],
-        back_populates="relationships",
+        back_populates="related_to",
         passive_deletes=True,
     )
 
@@ -947,6 +954,21 @@ def get_npcs(campaign: str | None = None) -> list[str]:
         session.close()
 
 
+def get_npc_identity_rows(
+    campaign: str | None = None,
+) -> list[tuple[int, str, str]]:
+    """Return (id, name, campaign_name) rows for NPCs, optionally filtered."""
+    session = SessionType(bind=connect())
+    try:
+        query = session.query(NPC.id, NPC.name, NPC.campaign_name)
+        if campaign:
+            query = query.filter(NPC.campaign_name == campaign)
+        rows = query.order_by(NPC.name).all()
+        return [(npc_id, name, campaign_name) for npc_id, name, campaign_name in rows]
+    finally:
+        session.close()
+
+
 def get_species(campaign: str | None = None) -> list[str]:
     """Return species names, optionally restricted to a single campaign."""
     session = SessionType(bind=connect())
@@ -1016,16 +1038,13 @@ def get_faction_details(name: str) -> tuple[str, str] | None:
         session.close()
 
 
-def get_faction_membership(npc_name: str) -> tuple[str, str] | None:
-    """Return the first faction membership (name, notes) for the NPC."""
+def get_faction_membership(npc_id: int) -> tuple[str, str] | None:
+    """Return the first faction membership (name, notes) for the NPC id."""
     session = SessionType(bind=connect())
     try:
-        npc = session.query(NPC).filter(NPC.name == npc_name).one_or_none()
-        if npc is None:
-            return None
         membership = (
             session.query(FactionMembers)
-            .filter(FactionMembers.npc_id == npc.id)
+            .filter(FactionMembers.npc_id == npc_id)
             .order_by(FactionMembers.faction_name)
             .first()
         )
@@ -1061,23 +1080,23 @@ def upsert_faction(name: str, description: str, campaign_name: str) -> None:
         session.close()
 
 
-def assign_faction_member(npc_name: str, faction_name: str, notes: str) -> None:
+def assign_faction_member(npc_id: int, faction_name: str, notes: str) -> None:
     """Assign an NPC to a faction, replacing previous memberships."""
     session = get_session()
     try:
-        npc = session.query(NPC).filter(NPC.name == npc_name).one_or_none()
+        npc = session.get(NPC, npc_id)
         if npc is None:
             session.rollback()
             msg = "Select a valid NPC before assigning a faction."
             raise ValueError(msg)
         (
             session.query(FactionMembers)
-            .filter(FactionMembers.npc_id == npc.id)
+            .filter(FactionMembers.npc_id == npc_id)
             .delete(synchronize_session=False)
         )
         member = FactionMembers(
             faction_name=faction_name,
-            npc_id=npc.id,
+            npc_id=npc_id,
             notes=notes,
         )
         session.add(member)
@@ -1086,7 +1105,7 @@ def assign_faction_member(npc_name: str, faction_name: str, notes: str) -> None:
         session.rollback()
         logger.exception(
             "failed to assign faction membership",
-            npc=npc_name,
+            npc_id=npc_id,
             faction=faction_name,
         )
         msg = "Unable to update the faction membership. Check logs for details."
@@ -1095,40 +1114,40 @@ def assign_faction_member(npc_name: str, faction_name: str, notes: str) -> None:
         session.close()
 
 
-def clear_faction_membership(npc_name: str) -> None:
+def clear_faction_membership(npc_id: int) -> None:
     """Remove any faction memberships for the specified NPC."""
     session = get_session()
     try:
-        npc = session.query(NPC).filter(NPC.name == npc_name).one_or_none()
+        npc = session.get(NPC, npc_id)
         if npc is None:
             return
         (
             session.query(FactionMembers)
-            .filter(FactionMembers.npc_id == npc.id)
+            .filter(FactionMembers.npc_id == npc_id)
             .delete(synchronize_session=False)
         )
         session.commit()
     except SQLAlchemyError as exc:
         session.rollback()
-        logger.exception("failed to clear faction membership", npc=npc_name)
+        logger.exception("failed to clear faction membership", npc_id=npc_id)
         msg = "Unable to clear the faction membership. Check logs for details."
         raise RuntimeError(msg) from exc
     finally:
         session.close()
 
 
-def get_encounter_participants(encounter_id: int) -> list[tuple[str, str]]:
-    """Return (npc_name, notes) rows for the encounter."""
+def get_encounter_participants(encounter_id: int) -> list[tuple[int, str, str | None]]:
+    """Return (npc_id, npc_name, notes) rows for the encounter."""
     session = get_session()
     try:
         rows = (
-            session.query(NPC.name, EncounterParticipants.notes)
+            session.query(NPC.id, NPC.name, EncounterParticipants.notes)
             .join(NPC, NPC.id == EncounterParticipants.npc_id)
             .filter(EncounterParticipants.encounter_id == encounter_id)
             .order_by(NPC.name)
             .all()
         )
-        return [(npc, notes) for npc, notes in rows]
+        return [(npc_id, npc_name, notes) for npc_id, npc_name, notes in rows]
     except SQLAlchemyError:
         logger.exception(
             "failed to load encounter participants",
@@ -1141,7 +1160,7 @@ def get_encounter_participants(encounter_id: int) -> list[tuple[str, str]]:
 
 def upsert_encounter_participant(
     encounter_id: int,
-    npc_name: str,
+    npc_id: int,
     notes: str,
 ) -> None:
     """Insert or update a participant row for the encounter."""
@@ -1152,7 +1171,7 @@ def upsert_encounter_participant(
             session.rollback()
             msg = "Save the encounter before editing participants."
             raise ValueError(msg)
-        npc = session.query(NPC).filter(NPC.name == npc_name).one_or_none()
+        npc = session.get(NPC, npc_id)
         if npc is None:
             session.rollback()
             msg = "Select a valid NPC before adding them to the encounter."
@@ -1180,7 +1199,7 @@ def upsert_encounter_participant(
         logger.exception(
             "failed to update encounter participant",
             encounter=encounter_id,
-            npc=npc_name,
+            npc_id=npc_id,
         )
         msg = "Unable to update encounter participants. Check logs for details."
         raise RuntimeError(msg) from exc
@@ -1188,18 +1207,15 @@ def upsert_encounter_participant(
         session.close()
 
 
-def delete_encounter_participant(encounter_id: int, npc_name: str) -> None:
+def delete_encounter_participant(encounter_id: int, npc_id: int) -> None:
     """Remove the NPC from the encounter participants list."""
     session = get_session()
     try:
-        npc = session.query(NPC).filter(NPC.name == npc_name).one_or_none()
-        if npc is None:
-            return
         (
             session.query(EncounterParticipants)
             .filter(
                 EncounterParticipants.encounter_id == encounter_id,
-                EncounterParticipants.npc_id == npc.id,
+                EncounterParticipants.npc_id == npc_id,
             )
             .delete(synchronize_session=False)
         )
@@ -1209,7 +1225,7 @@ def delete_encounter_participant(encounter_id: int, npc_name: str) -> None:
         logger.exception(
             "failed to delete encounter participant",
             encounter=encounter_id,
-            npc=npc_name,
+            npc_id=npc_id,
         )
         msg = "Unable to remove the encounter participant. Check logs for details."
         raise RuntimeError(msg) from exc
@@ -1222,44 +1238,44 @@ def is_text_column(column: Any) -> bool:
     return isinstance(getattr(column, "type", None), Text)
 
 
-def get_relationship_rows(source_name: str) -> list[tuple[str, str]]:
-    """Return pairs of (target_npc, relation_name) for the given NPC."""
+def get_relationship_rows(source_id: int) -> list[tuple[int, str, str]]:
+    """Return (target_id, target_name, relation_name) rows for the NPC."""
     session = get_session()
     try:
-        source = session.query(NPC).filter(NPC.name == source_name).one_or_none()
-        if source is None:
-            return []
         rows = (
-            session.query(NPC.name, Relationship.name)
+            session.query(NPC.id, NPC.name, Relationship.name)
             .join(NPC, NPC.id == Relationship.npc_id_2)
-            .filter(Relationship.npc_id_1 == source.id)
+            .filter(Relationship.npc_id_1 == source_id)
             .order_by(NPC.name)
             .all()
         )
-        return [(target, relation) for target, relation in rows]
+        return [
+            (target_id, target_name, relation)
+            for target_id, target_name, relation in rows
+        ]
     except SQLAlchemyError:
-        logger.exception("failed to load relationships", npc=source_name)
+        logger.exception("failed to load relationships", npc_id=source_id)
         return []
     finally:
         session.close()
 
 
 def save_relationship(
-    source_name: str,
-    target_name: str,
+    source_id: int,
+    target_id: int,
     relation_name: str,
 ) -> None:
     """Create or update an NPC relationship."""
-    if source_name == target_name:
+    if source_id == target_id:
         msg = "Select a different NPC for the relationship."
         raise ValueError(msg)
     session = get_session()
     try:
-        source = session.query(NPC).filter(NPC.name == source_name).one_or_none()
+        source = session.get(NPC, source_id)
         if source is None:
             msg = "Save the NPC before adding relationships."
             raise ValueError(msg)
-        target = session.query(NPC).filter(NPC.name == target_name).one_or_none()
+        target = session.get(NPC, target_id)
         if target is None:
             msg = "Select a valid related NPC."
             raise ValueError(msg)
@@ -1283,26 +1299,22 @@ def save_relationship(
         session.commit()
     except SQLAlchemyError as exc:
         session.rollback()
-        logger.exception("failed to save relationship", npc=source_name)
+        logger.exception("failed to save relationship", npc_id=source_id)
         msg = "Unable to save the relationship. Check logs for details."
         raise RuntimeError(msg) from exc
     finally:
         session.close()
 
 
-def delete_relationship(source_name: str, target_name: str) -> None:
+def delete_relationship(source_id: int, target_id: int) -> None:
     """Remove a relationship between two NPCs if it exists."""
     session = get_session()
     try:
-        source = session.query(NPC).filter(NPC.name == source_name).one_or_none()
-        target = session.query(NPC).filter(NPC.name == target_name).one_or_none()
-        if source is None or target is None:
-            return
         relation = (
             session.query(Relationship)
             .filter(
-                Relationship.npc_id_1 == source.id,
-                Relationship.npc_id_2 == target.id,
+                Relationship.npc_id_1 == source_id,
+                Relationship.npc_id_2 == target_id,
             )
             .one_or_none()
         )
@@ -1312,7 +1324,7 @@ def delete_relationship(source_name: str, target_name: str) -> None:
         session.commit()
     except SQLAlchemyError as exc:
         session.rollback()
-        logger.exception("failed to delete relationship", npc=source_name)
+        logger.exception("failed to delete relationship", npc_id=source_id)
         msg = "Unable to delete the relationship. Check logs for details."
         raise RuntimeError(msg) from exc
     finally:

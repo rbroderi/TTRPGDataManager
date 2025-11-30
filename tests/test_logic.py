@@ -182,66 +182,87 @@ def test_seed_and_sample_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_relationship_helpers_call_db(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(logic, "get_npcs", lambda campaign=None: ["A", "B"])
+    monkeypatch.setattr(
+        logic,
+        "get_npc_identity_rows",
+        lambda campaign=None: [(1, "A", campaign), (2, "B", campaign)],
+    )
     logic_obj = DataLogic()
-    assert logic_obj.relationship_targets_for_campaign("camp", exclude=["B"]) == ["A"]
-    called: list[tuple[str, str, str]] = []
+    assert logic_obj.relationship_targets_for_campaign("camp", exclude=[2]) == [
+        (1, "A", "camp"),
+    ]
+    called: list[tuple[int, int, str]] = []
 
-    def fake_save(source: str, target: str, relation: str) -> None:
+    def fake_save(source: int, target: int, relation: str) -> None:
         called.append((source, target, relation))
 
     monkeypatch.setattr(logic, "save_relationship", fake_save)
-    logic_obj.upsert_relationship("s", "t", "ally")
-    assert called == [("s", "t", "ally")]
-    deleted: list[tuple[str, str]] = []
+    logic_obj.upsert_relationship(10, 20, "ally")
+    assert called == [(10, 20, "ally")]
+    deleted: list[tuple[int, int]] = []
 
-    def fake_delete(source: str, target: str) -> None:
+    def fake_delete(source: int, target: int) -> None:
         deleted.append((source, target))
 
     monkeypatch.setattr(logic, "delete_relationship", fake_delete)
-    logic_obj.delete_relationship("s", "t")
-    assert deleted[-1] == ("s", "t")
+    logic_obj.delete_relationship(10, 20)
+    assert deleted[-1] == (10, 20)
 
 
 def test_relationship_targets_without_exclusions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(logic, "get_npcs", lambda campaign=None: ["A", "B"])
-    assert DataLogic().relationship_targets_for_campaign("camp") == ["A", "B"]
+    monkeypatch.setattr(
+        logic,
+        "get_npc_identity_rows",
+        lambda campaign=None: [(1, "A", campaign), (2, "B", campaign)],
+    )
+    assert DataLogic().relationship_targets_for_campaign("camp") == [
+        (1, "A", "camp"),
+        (2, "B", "camp"),
+    ]
 
 
 def test_fetch_relationship_rows_and_members(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(logic, "get_relationship_rows", lambda name: [(name, "ally")])
-    assert DataLogic.fetch_relationship_rows("npc") == [("npc", "ally")]
-    monkeypatch.setattr(logic, "get_encounter_participants", lambda enc: [(enc, "npc")])
-    assert DataLogic.fetch_encounter_members(1) == [(1, "npc")]
+    monkeypatch.setattr(
+        logic,
+        "get_relationship_rows",
+        lambda npc_id: [(npc_id + 1, "Ally", "Friend")],
+    )
+    assert DataLogic.fetch_relationship_rows(7) == [(8, "Ally", "Friend")]
+    monkeypatch.setattr(
+        logic,
+        "get_encounter_participants",
+        lambda enc: [(enc + 3, "npc", "note")],
+    )
+    assert DataLogic.fetch_encounter_members(1) == [(4, "npc", "note")]
     assert DataLogic.fetch_encounter_members(0) == []
 
 
 def test_add_and_remove_encounter_member(monkeypatch: pytest.MonkeyPatch) -> None:
     logic_obj = DataLogic()
     with pytest.raises(ValueError, match="Save the encounter"):
-        logic_obj.add_encounter_member(0, "npc", "note")
-    with pytest.raises(ValueError, match="Select an NPC"):
-        logic_obj.add_encounter_member(1, "   ", "note")
-    captured: list[tuple[int, str, str]] = []
+        logic_obj.add_encounter_member(0, 1, "note")
+    with pytest.raises(ValueError, match="Select an NPC to add"):
+        logic_obj.add_encounter_member(1, 0, "note")
+    captured: list[tuple[int, int, str]] = []
 
-    def fake_upsert(enc_id: int, name: str, notes: str) -> None:
-        captured.append((enc_id, name, notes))
+    def fake_upsert(enc_id: int, npc_id: int, notes: str) -> None:
+        captured.append((enc_id, npc_id, notes))
 
     monkeypatch.setattr(logic, "upsert_encounter_participant", fake_upsert)
-    logic_obj.add_encounter_member(2, "  Mira  ", "  note  ")
-    assert captured == [(2, "Mira", "note")]
-    removed: list[tuple[int, str]] = []
+    logic_obj.add_encounter_member(2, 5, "  note  ")
+    assert captured == [(2, 5, "note")]
+    removed: list[tuple[int, int]] = []
 
-    def fake_delete_participant(enc_id: int, name: str) -> None:
-        removed.append((enc_id, name))
+    def fake_delete_participant(enc_id: int, npc_id: int) -> None:
+        removed.append((enc_id, npc_id))
 
     monkeypatch.setattr(logic, "delete_encounter_participant", fake_delete_participant)
-    logic_obj.remove_encounter_member(0, "npc")
+    logic_obj.remove_encounter_member(0, 1)
     assert not removed
-    logic_obj.remove_encounter_member(2, "  Mira  ")
-    assert removed == [(2, "Mira")]
+    logic_obj.remove_encounter_member(2, 5)
+    assert removed == [(2, 5)]
 
 
 def test_faction_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -258,31 +279,37 @@ def test_faction_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(logic, "upsert_faction", fake_faction)
     logic_obj.ensure_faction("  Name  ", " Desc ", "Camp")
     assert captured == [("Name", "Desc", "Camp")]
-    monkeypatch.setattr(logic, "get_faction_membership", lambda name: (name, "notes"))
-    assert DataLogic.fetch_faction_membership("") is None
-    assert DataLogic.fetch_faction_membership("npc") == ("npc", "notes")
+    monkeypatch.setattr(
+        logic,
+        "get_faction_membership",
+        lambda npc_id: ("Wardens", f"notes-{npc_id}"),
+    )
+    assert DataLogic.fetch_faction_membership(0) is None
+    assert DataLogic.fetch_faction_membership(7) == ("Wardens", "notes-7")
     monkeypatch.setattr(logic, "get_faction_details", lambda name: ("desc", name))
     assert DataLogic.fetch_faction_details("") is None
     assert DataLogic.fetch_faction_details("guild") == ("desc", "guild")
 
 
 def test_assign_and_clear_faction_membership(monkeypatch: pytest.MonkeyPatch) -> None:
-    with pytest.raises(ValueError, match="NPC name is required"):
-        DataLogic.assign_faction_to_npc("", "faction", "")
-    cleared: list[str] = []
+    with pytest.raises(ValueError, match="NPC identifier is required"):
+        DataLogic.assign_faction_to_npc(0, "faction", "")
+    cleared: list[int] = []
     monkeypatch.setattr(logic, "db_clear_faction_membership", cleared.append)
-    DataLogic.assign_faction_to_npc("npc", "", "secret")
-    assert cleared == ["npc"]
-    assigned: list[tuple[str, str, str]] = []
+    cleared_npc_id = 5
+    DataLogic.assign_faction_to_npc(cleared_npc_id, "", "secret")
+    assert cleared == [cleared_npc_id]
+    assigned: list[tuple[int, str, str]] = []
     monkeypatch.setattr(
         logic,
         "assign_faction_member",
         lambda npc, faction, notes: assigned.append((npc, faction, notes)),
     )
-    DataLogic.assign_faction_to_npc("npc", "guild", "  notes  ")
-    assert assigned == [("npc", "guild", "notes")]
-    DataLogic.clear_faction_membership("npc")
-    assert cleared[-1] == "npc"
+    assigned_npc_id = 6
+    DataLogic.assign_faction_to_npc(assigned_npc_id, "guild", "  notes  ")
+    assert assigned == [(assigned_npc_id, "guild", "notes")]
+    DataLogic.clear_faction_membership(assigned_npc_id)
+    assert cleared[-1] == assigned_npc_id
 
 
 def test_validate_required_fields_detects_missing(
@@ -567,7 +594,7 @@ def test_persist_pending_records_ignores_unknown_entry_type(
     assert result.renamed_keys == {}
 
 
-def test_persist_pending_records_tracks_renamed_entries(
+def test_persist_pending_records_updates_images_and_fields(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     session = make_session()
@@ -576,19 +603,19 @@ def test_persist_pending_records_tracks_renamed_entries(
     model = make_model([FakeColumn("name"), FakeColumn("age")])
     model.name = "name"
     logic_obj._model_map["NPC"] = model
-    instance = SimpleNamespace(name="Old", age=1, image=None)
+    instance = SimpleNamespace(id=101, name="Old", age=1, image=None)
     session.to_return = instance
     field_values = {"name": "New", "unused": "value"}
-    pending_changes = {("NPC", "Old"): field_values}
-    pending_images = {("NPC", "Old"): b"img"}
+    pending_changes = {("NPC", "101"): field_values}
+    pending_images = {("NPC", "101"): b"img"}
     result = logic_obj.persist_pending_records(
         pending_changes,
         pending_images,
         lambda _entry: {"name": FieldSpec("Name", "name")},
     )
     assert result.updated == 1
-    assert result.applied_keys == {("NPC", "Old")}
-    assert result.renamed_keys[("NPC", "Old")] == ("NPC", "New")
+    assert result.applied_keys == {("NPC", "101")}
+    assert result.renamed_keys == {}
     assert instance.name == "New"
     assert instance.image is not None
     assert instance.image.image_blob == b"img"
@@ -792,10 +819,10 @@ def test_ensure_unique_name_handles_duplicates(monkeypatch: pytest.MonkeyPatch) 
 
     model = Model
     session.to_return = None
-    logic_obj._ensure_unique_name(session, "NPC", model, "Alice")
+    logic_obj._ensure_unique_name(session, "NPC", model, "Alice", "Prime")
     session.to_return = object()
     with pytest.raises(DuplicateRecordError):
-        logic_obj._ensure_unique_name(session, "NPC", model, "Alice")
+        logic_obj._ensure_unique_name(session, "NPC", model, "Alice", "Prime")
 
 
 def test_ensure_unique_name_early_return_paths() -> None:
@@ -806,17 +833,19 @@ def test_ensure_unique_name_early_return_paths() -> None:
         "Encounter",
         type("Encounter", (), {}),
         "Ada",
+        "Prime",
     )
 
     class Nameless:
         pass
 
-    logic_obj._ensure_unique_name(session, "NPC", Nameless, "Ada")
+    logic_obj._ensure_unique_name(session, "NPC", Nameless, "Ada", "Prime")
     logic_obj._ensure_unique_name(
         session,
         "NPC",
         type("Model", (), {"name": "name"}),
         "",
+        "Prime",
     )
 
 
@@ -902,7 +931,7 @@ def test_coerce_value_falls_back_to_string() -> None:
 
 def test_apply_pending_to_instance_updates_and_images() -> None:
     model = make_model([FakeColumn("name"), FakeColumn("age")])
-    instance = SimpleNamespace(name="Ada", age=20, image=None)
+    instance = SimpleNamespace(id=5, name="Ada", age=20, image=None)
     logic_obj = DataLogic()
     field_values = {"name": "Ada", "age": "30", "unknown": "value"}
     changed, identifier = logic_obj._apply_pending_to_instance(
@@ -914,7 +943,7 @@ def test_apply_pending_to_instance_updates_and_images() -> None:
         b"img",
     )
     assert changed is True
-    assert identifier == "Ada"
+    assert identifier == "5"
     assert instance.image is not None
     assert instance.image.image_blob == b"img"
     unchanged = logic_obj._apply_pending_to_instance(
@@ -932,7 +961,7 @@ def test_apply_pending_skips_fields_when_prepare_value_false(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     model = make_model([FakeColumn("skip"), FakeColumn("name")])
-    instance = SimpleNamespace(name="Ada", skip="keep", image=None)
+    instance = SimpleNamespace(id=7, name="Ada", skip="keep", image=None)
     logic_obj = DataLogic()
 
     def fake_prepare(
@@ -954,7 +983,7 @@ def test_apply_pending_skips_fields_when_prepare_value_false(
         None,
     )
     assert changed is True
-    assert identifier == "Ada"
+    assert identifier == "7"
     assert instance.skip == "keep"
 
 
@@ -985,17 +1014,9 @@ def test_fetch_instance_returns_none_without_name_column() -> None:
 
 
 def test_extract_instance_identifier() -> None:
-    assert (
-        DataLogic._extract_instance_identifier("Encounter", SimpleNamespace(id=5))
-        == "5"
-    )
-    assert (
-        DataLogic._extract_instance_identifier("NPC", SimpleNamespace(name="Ada"))
-        == "Ada"
-    )
-    assert (
-        DataLogic._extract_instance_identifier("NPC", SimpleNamespace(name="")) is None
-    )
+    assert DataLogic._extract_instance_identifier(SimpleNamespace(id=5)) == "5"
+    assert DataLogic._extract_instance_identifier(SimpleNamespace(id="42")) == "42"
+    assert DataLogic._extract_instance_identifier(SimpleNamespace(id=None)) is None
 
 
 def test_fetch_instance_paths(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1019,7 +1040,7 @@ def test_fetch_instance_paths(monkeypatch: pytest.MonkeyPatch) -> None:
     model = type("NPCModel", (), {"name": "name"})
     session.to_return = SimpleNamespace(name="Ada")
     result = DataLogic._fetch_instance(session, "NPC", model, "Ada")
-    assert result is session.to_return
+    assert result is None
     session.to_return = SimpleNamespace(id=2)
     assert (
         DataLogic._fetch_instance(session, "Other", type("Other", (), {}), "2")
