@@ -28,7 +28,7 @@ from final_project.db import get_faction_details
 from final_project.db import get_faction_membership
 from final_project.db import get_factions
 from final_project.db import get_locations
-from final_project.db import get_npcs
+from final_project.db import get_npc_identity_rows
 from final_project.db import get_relationship_rows
 from final_project.db import get_session
 from final_project.db import get_species
@@ -118,59 +118,64 @@ class DataLogic:
         self,
         campaign: str | None,
         *,
-        exclude: Sequence[str] | None = None,
-    ) -> list[str]:
-        """Return available NPC names for relationship dropdowns."""
-        names = list(get_npcs(campaign))
+        exclude: Sequence[int] | None = None,
+    ) -> list[tuple[int, str, str]]:
+        """Return available NPC identifiers for relationship dropdowns."""
+        rows = get_npc_identity_rows(campaign)
         if not exclude:
-            return names
-        exclusions = set(exclude)
-        return [name for name in names if name not in exclusions]
+            return rows
+        exclusions = {int(value) for value in exclude}
+        return [
+            (npc_id, name, npc_campaign)
+            for npc_id, name, npc_campaign in rows
+            if npc_id not in exclusions
+        ]
 
     @staticmethod
-    def fetch_relationship_rows(source_name: str) -> list[tuple[str, str]]:
+    def fetch_relationship_rows(source_id: int) -> list[tuple[int, str, str]]:
         """Fetch persisted relationships for display in the dialog."""
-        return get_relationship_rows(source_name)
+        if not source_id:
+            return []
+        return get_relationship_rows(source_id)
 
     @staticmethod
     def upsert_relationship(
-        source_name: str,
-        target_name: str,
+        source_id: int,
+        target_id: int,
         relation_name: str,
     ) -> None:
         """Create or update the relationship between two NPCs."""
-        save_relationship(source_name, target_name, relation_name)
+        save_relationship(source_id, target_id, relation_name)
 
     @staticmethod
-    def delete_relationship(source_name: str, target_name: str) -> None:
+    def delete_relationship(source_id: int, target_id: int) -> None:
         """Delete an existing relationship between two NPCs."""
-        delete_relationship(source_name, target_name)
+        delete_relationship(source_id, target_id)
 
     @staticmethod
-    def fetch_encounter_members(encounter_id: int) -> list[tuple[str, str]]:
+    def fetch_encounter_members(encounter_id: int) -> list[tuple[int, str, str | None]]:
         """Return the participants for a persisted encounter."""
         if not encounter_id:
             return []
         return get_encounter_participants(encounter_id)
 
     @staticmethod
-    def add_encounter_member(encounter_id: int, npc_name: str, notes: str) -> None:
+    def add_encounter_member(encounter_id: int, npc_id: int, notes: str) -> None:
         """Assign an NPC to an encounter with optional notes."""
         if not encounter_id:
             msg = "Save the encounter before editing participants."
             raise ValueError(msg)
-        cleaned_name = npc_name.strip()
-        if not cleaned_name:
+        if not npc_id:
             msg = "Select an NPC to add to the encounter."
             raise ValueError(msg)
-        upsert_encounter_participant(encounter_id, cleaned_name, notes.strip())
+        upsert_encounter_participant(encounter_id, int(npc_id), notes.strip())
 
     @staticmethod
-    def remove_encounter_member(encounter_id: int, npc_name: str) -> None:
+    def remove_encounter_member(encounter_id: int, npc_id: int) -> None:
         """Remove an NPC from a stored encounter."""
-        if not encounter_id or not npc_name.strip():
+        if not encounter_id or not npc_id:
             return
-        delete_encounter_participant(encounter_id, npc_name.strip())
+        delete_encounter_participant(encounter_id, int(npc_id))
 
     def ensure_faction(self, name: str, description: str, campaign_name: str) -> None:
         """Create or update a faction definition."""
@@ -183,11 +188,11 @@ class DataLogic:
         upsert_faction(name.strip(), description.strip(), campaign_name)
 
     @staticmethod
-    def fetch_faction_membership(npc_name: str) -> tuple[str, str] | None:
+    def fetch_faction_membership(npc_id: int) -> tuple[str, str] | None:
         """Return the first faction membership for an NPC."""
-        if not npc_name:
+        if not npc_id:
             return None
-        return get_faction_membership(npc_name)
+        return get_faction_membership(int(npc_id))
 
     @staticmethod
     def fetch_faction_details(name: str) -> tuple[str, str] | None:
@@ -197,20 +202,22 @@ class DataLogic:
         return get_faction_details(name)
 
     @staticmethod
-    def assign_faction_to_npc(npc_name: str, faction_name: str, notes: str) -> None:
+    def assign_faction_to_npc(npc_id: int, faction_name: str, notes: str) -> None:
         """Assign or update an NPC's faction membership."""
-        if not npc_name:
-            msg = "NPC name is required for faction assignment."
+        if not npc_id:
+            msg = "NPC identifier is required for faction assignment."
             raise ValueError(msg)
         if not faction_name:
-            db_clear_faction_membership(npc_name)
+            db_clear_faction_membership(int(npc_id))
             return
-        assign_faction_member(npc_name, faction_name, notes.strip())
+        assign_faction_member(int(npc_id), faction_name, notes.strip())
 
     @staticmethod
-    def clear_faction_membership(npc_name: str) -> None:
+    def clear_faction_membership(npc_id: int) -> None:
         """Remove all faction memberships for an NPC."""
-        db_clear_faction_membership(npc_name)
+        if not npc_id:
+            return
+        db_clear_faction_membership(int(npc_id))
 
     def validate_required_fields(
         self,
@@ -265,7 +272,13 @@ class DataLogic:
         session = get_session()
         try:
             name_value = field_values.get("name", "").strip()
-            self._ensure_unique_name(session, entry_type, model_cls, name_value)
+            self._ensure_unique_name(
+                session,
+                entry_type,
+                model_cls,
+                name_value,
+                campaign_name,
+            )
             payload = self._build_new_record_payload(
                 entry_type,
                 model_cls,
@@ -518,6 +531,7 @@ class DataLogic:
         entry_type: str,
         model_cls: type,
         name_value: str,
+        campaign_name: str,
     ) -> None:
         if entry_type not in {"NPC", "Location"}:
             return
@@ -526,12 +540,15 @@ class DataLogic:
             return
         if not name_value:
             return
-        existing = (
-            session.query(model_cls).filter(name_column == name_value).one_or_none()
-        )
+        query = session.query(model_cls).filter(name_column == name_value)
+        campaign_column = getattr(model_cls, "campaign_name", None)
+        if campaign_column is not None and campaign_name:
+            query = query.filter(campaign_column == campaign_name)
+        existing = query.one_or_none()
         if existing is None:
             return
-        msg = f"A {entry_type.lower()} named '{name_value}' already exists."
+        context = f" in campaign '{campaign_name}'" if campaign_name else ""
+        msg = f"A {entry_type.lower()} named '{name_value}' already exists{context}."
         raise DuplicateRecordError(msg)
 
     def _prepare_value(
@@ -594,6 +611,7 @@ class DataLogic:
         spec_map: dict[str, FieldSpec],
         image_payload: bytes | None,
     ) -> tuple[bool, str | None]:
+        del entry_type  # entry type no longer influences identifier updates
         columns = self._column_collection_for(model_cls)
         changed = False
         for field_name, raw_value in field_values.items():
@@ -613,7 +631,7 @@ class DataLogic:
             changed = True
         if not changed:
             return False, None
-        new_identifier = self._extract_instance_identifier(entry_type, instance)
+        new_identifier = self._extract_instance_identifier(instance)
         return True, new_identifier
 
     @staticmethod
@@ -628,11 +646,8 @@ class DataLogic:
         return True
 
     @staticmethod
-    def _extract_instance_identifier(entry_type: str, instance: Any) -> str | None:
-        if entry_type == "Encounter":
-            identifier = getattr(instance, "id", None)
-        else:
-            identifier = getattr(instance, "name", None)
+    def _extract_instance_identifier(instance: Any) -> str | None:
+        identifier = getattr(instance, "id", None)
         if identifier in (None, ""):
             return None
         return str(identifier)
@@ -644,20 +659,11 @@ class DataLogic:
         model_cls: type,
         identifier: str,
     ) -> Any | None:
-        pk_value: Any = identifier
-        if entry_type == "Encounter":
-            try:
-                pk_value = int(identifier)
-            except ValueError:
-                logger.warning("invalid encounter id '%s'", identifier)
-                return None
-        if entry_type in {"NPC", "Location"}:
-            name_column = getattr(model_cls, "name", None)
-            if name_column is None:
-                return None
-            return (
-                session.query(model_cls).filter(name_column == identifier).one_or_none()
-            )
+        try:
+            pk_value = int(identifier)
+        except (TypeError, ValueError):
+            logger.warning("invalid %s identifier '%s'", entry_type, identifier)
+            return None
         return session.get(model_cls, pk_value)
 
     @staticmethod

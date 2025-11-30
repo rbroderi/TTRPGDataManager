@@ -16,6 +16,7 @@ from final_project import version
 from final_project.dialogs import EncounterMembersDialog
 from final_project.dialogs import FactionDialog
 from final_project.dialogs import LLMProgressDialog
+from final_project.dialogs import NpcOption
 from final_project.dialogs import RelationshipDialog
 from final_project.dialogs import SettingsDialog
 from final_project.logic import DataLogic
@@ -103,6 +104,7 @@ class ButtonRowSpec:
 class RelationshipDialogContext:
     """Hold the NPC/campaign pair used when opening the relationships dialog."""
 
+    source_id: int
     source_name: str
     campaign: str | None
 
@@ -352,6 +354,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
             ),
             builder=self._build_relationship_dialog,
             updater=lambda dialog, ctx: dialog.update_context(
+                ctx.source_id,
                 ctx.source_name,
                 ctx.campaign,
             ),
@@ -993,8 +996,18 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
                     "Select an NPC before managing relationships.",
                 )
             return None
+        source_id = self._current_npc_id()
+        if source_id is None:
+            if not silent:
+                messagebox.showwarning(
+                    "Relationships",
+                    "Save the NPC before managing relationships.",
+                )
+            return None
+        source_name = self._current_npc_name() or f"NPC #{source_id}"
         return RelationshipDialogContext(
-            source_name=key[1],
+            source_id=source_id,
+            source_name=source_name,
             campaign=self._current_campaign_name(),
         )
 
@@ -1004,6 +1017,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
     ) -> RelationshipDialog:
         return RelationshipDialog(
             self,
+            context.source_id,
             context.source_name,
             context.campaign,
         )
@@ -1156,40 +1170,51 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         self,
         campaign: str | None,
         *,
-        exclude: Sequence[str] | None = None,
-    ) -> list[str]:
-        """Return available NPC names for relationship dropdowns."""
+        exclude: Sequence[int] | None = None,
+    ) -> list[NpcOption]:
+        """Return available NPC details for relationship dropdowns."""
         try:
-            return self.logic.relationship_targets_for_campaign(
+            rows = self.logic.relationship_targets_for_campaign(
                 campaign,
                 exclude=exclude,
             )
         except Exception:
             logger.exception("failed to load npc list for relationships")
             return []
+        return [
+            NpcOption(
+                identifier=npc_id,
+                name=name,
+                campaign=npc_campaign,
+            )
+            for npc_id, name, npc_campaign in rows
+        ]
 
-    def fetch_relationship_rows(self, source_name: str) -> list[tuple[str, str]]:
+    def fetch_relationship_rows(self, source_id: int) -> list[tuple[int, str, str]]:
         """Fetch persisted relationships for display in the dialog."""
         try:
-            return self.logic.fetch_relationship_rows(source_name)
+            return self.logic.fetch_relationship_rows(source_id)
         except Exception:
             logger.exception("failed to fetch relationships")
             return []
 
     def upsert_relationship(
         self,
-        source_name: str,
-        target_name: str,
+        source_id: int,
+        target_id: int,
         relation_name: str,
     ) -> None:
         """Create or update the relationship between two NPCs."""
-        self.logic.upsert_relationship(source_name, target_name, relation_name)
+        self.logic.upsert_relationship(source_id, target_id, relation_name)
 
-    def delete_relationship(self, source_name: str, target_name: str) -> None:
+    def delete_relationship(self, source_id: int, target_id: int) -> None:
         """Delete an existing relationship between two NPCs."""
-        self.logic.delete_relationship(source_name, target_name)
+        self.logic.delete_relationship(source_id, target_id)
 
-    def fetch_encounter_members(self, encounter_id: int) -> list[tuple[str, str]]:
+    def fetch_encounter_members(
+        self,
+        encounter_id: int,
+    ) -> list[tuple[int, str, str | None]]:
         """Fetch encounter participants for display in the dialog."""
         try:
             return self.logic.fetch_encounter_members(encounter_id)
@@ -1200,19 +1225,19 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
     def add_encounter_member(
         self,
         encounter_id: int,
-        npc_name: str,
+        npc_id: int,
         notes: str,
     ) -> None:
         """Assign an NPC to the encounter."""
-        self.logic.add_encounter_member(encounter_id, npc_name, notes)
+        self.logic.add_encounter_member(encounter_id, npc_id, notes)
 
     def remove_encounter_member(
         self,
         encounter_id: int,
-        npc_name: str,
+        npc_id: int,
     ) -> None:
         """Remove an NPC from the encounter."""
-        self.logic.remove_encounter_member(encounter_id, npc_name)
+        self.logic.remove_encounter_member(encounter_id, npc_id)
 
     def _show_form(self, entry_type: str, *, clear_campaign: bool = False) -> None:
         self._remember_current_form()
@@ -1316,6 +1341,23 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
             return None
         fields = cast("dict[str, EntryWidget]", form["fields"])
         return fields.get(field_key)
+
+    def _current_npc_id(self) -> int | None:
+        key = self._current_record_key
+        if key is None or key[0] != "NPC":
+            return None
+        try:
+            return int(key[1])
+        except (TypeError, ValueError):
+            return None
+
+    def _current_npc_name(self) -> str:
+        widget = self._get_form_widget("NPC", "name")
+        if isinstance(widget, CTkEntry):
+            return widget.get().strip()
+        if isinstance(widget, ctk.CTkComboBox):
+            return widget.get().strip()
+        return ""
 
     def _get_faction_widget(self) -> ctk.CTkComboBox | None:
         if self._npc_faction_widget is not None:
@@ -1782,7 +1824,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         self._update_campaign_dropdowns()
         if entry_type == "NPC":
             self._apply_pending_faction_for_new_record(
-                getattr(created_instance, "name", ""),
+                getattr(created_instance, "id", None),
             )
 
         if entry_type == "Encounter":
@@ -2615,17 +2657,14 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         entry_type: str,
         instance: Any,
     ) -> tuple[str, str] | None:
-        identifier = TTRPGDataManager._extract_instance_identifier(entry_type, instance)
+        identifier = TTRPGDataManager._extract_instance_identifier(instance)
         if identifier in (None, ""):
             return None
         return entry_type, cast(str, identifier)  # pyright: ignore[reportUnnecessaryCast]
 
     @staticmethod
-    def _extract_instance_identifier(entry_type: str, instance: Any) -> str | None:
-        if entry_type == "Encounter":
-            identifier = getattr(instance, "id", None)
-        else:
-            identifier = getattr(instance, "name", None)
+    def _extract_instance_identifier(instance: Any) -> str | None:
+        identifier = getattr(instance, "id", None)
         if identifier in (None, ""):
             return None
         return str(identifier)
@@ -2711,7 +2750,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         remaining: list[Any] = []
         removed_index: int | None = None
         for idx, instance in enumerate(self._search_results):
-            current_id = self._extract_instance_identifier(entry_type, instance)
+            current_id = self._extract_instance_identifier(instance)
             if current_id == identifier and removed_index is None:
                 removed_index = idx
                 continue
@@ -2744,7 +2783,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
             spec = specs.get(field_key)
             self._set_widget_value(widget, value, spec)
         if entry_type == "NPC":
-            self._load_faction_membership(getattr(instance, "name", None))
+            self._load_faction_membership(getattr(instance, "id", None))
 
     def _set_widget_value(
         self,
@@ -2848,20 +2887,20 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
             return bytes(image_value)
         return None
 
-    def _load_faction_membership(self, npc_name: str | None) -> None:
+    def _load_faction_membership(self, npc_id: int | None) -> None:
         widget = self._get_faction_widget()
         if widget is None:
             return
-        if not npc_name:
+        if not npc_id:
             widget.set("")
             self._current_faction_value = None
             self._current_faction_note = ""
             self._update_faction_view_state("")
             return
         try:
-            membership = self.logic.fetch_faction_membership(npc_name)
+            membership = self.logic.fetch_faction_membership(npc_id)
         except Exception:
-            logger.exception("failed to load faction membership", npc=npc_name)
+            logger.exception("failed to load faction membership", npc_id=npc_id)
             membership = None
         if membership is None:
             widget.set("")
@@ -2876,21 +2915,21 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         self._current_faction_note = notes
         self._update_faction_view_state(faction_name)
 
-    def _apply_pending_faction_for_new_record(self, npc_name: str) -> None:
+    def _apply_pending_faction_for_new_record(self, npc_id: int | None) -> None:
         assignment = self._pending_faction_for_new_record
         if assignment is None:
             return
-        if not npc_name:
+        if not npc_id:
             self._pending_faction_for_new_record = None
             return
         faction_name, notes = assignment
         try:
             if faction_name:
-                self.logic.assign_faction_to_npc(npc_name, faction_name, notes)
+                self.logic.assign_faction_to_npc(npc_id, faction_name, notes)
             else:
-                self.logic.clear_faction_membership(npc_name)
+                self.logic.clear_faction_membership(npc_id)
         except Exception:
-            logger.exception("failed to assign faction to new npc", npc=npc_name)
+            logger.exception("failed to assign faction to new npc", npc_id=npc_id)
             messagebox.showerror(
                 "Faction",
                 "Unable to save the faction membership for the new NPC.",
@@ -2917,12 +2956,20 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
             if entry_type != "NPC":
                 continue
             try:
+                npc_id = int(identifier)
+            except (TypeError, ValueError):
+                failures.append(identifier)
+                continue
+            try:
                 if faction_name:
-                    self.logic.assign_faction_to_npc(identifier, faction_name, notes)
+                    self.logic.assign_faction_to_npc(npc_id, faction_name, notes)
                 else:
-                    self.logic.clear_faction_membership(identifier)
+                    self.logic.clear_faction_membership(npc_id)
             except Exception:
-                logger.exception("failed to update faction membership", npc=identifier)
+                logger.exception(
+                    "failed to update faction membership",
+                    npc_id=npc_id,
+                )
                 failures.append(identifier)
                 continue
             del self._pending_faction_changes[key]

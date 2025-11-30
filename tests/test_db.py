@@ -669,8 +669,8 @@ def test_get_factions_and_memberships(make_session: sessionmaker[Session]) -> No
     assert db.get_faction_details("Wardens") == ("Defense", "Prime")
     assert db.get_faction_details("Missing") is None
 
-    assert db.get_faction_membership(data["npc"].name) == ("Wardens", "Captain")
-    assert db.get_faction_membership("Nobody") is None
+    assert db.get_faction_membership(data["npc"].id) == ("Wardens", "Captain")
+    assert db.get_faction_membership(-1) is None
 
 
 def test_delete_campaign_paths(
@@ -819,7 +819,7 @@ def test_assign_and_clear_faction_membership(
 
     assign_session = make_session()
     monkeypatch.setattr(db, "get_session", lambda: assign_session)
-    db.assign_faction_member(data["ally"].name, "Wardens", "Support")
+    db.assign_faction_member(data["ally"].id, "Wardens", "Support")
     verify = make_session()
     membership = (
         verify.query(db.FactionMembers)
@@ -831,7 +831,7 @@ def test_assign_and_clear_faction_membership(
 
     clear_session = make_session()
     monkeypatch.setattr(db, "get_session", lambda: clear_session)
-    db.clear_faction_membership(data["ally"].name)
+    db.clear_faction_membership(data["ally"].id)
     verify_clear = make_session()
     assert (
         verify_clear.query(db.FactionMembers)
@@ -857,7 +857,7 @@ def test_assign_and_clear_faction_membership(
     monkeypatch.setattr(error_session, "rollback", tracking_assign_rollback)
     monkeypatch.setattr(db, "get_session", lambda: error_session)
     with pytest.raises(RuntimeError, match="Unable to update the faction membership"):
-        db.assign_faction_member(data["npc"].name, "Wardens", "Lead")
+        db.assign_faction_member(data["npc"].id, "Wardens", "Lead")
     assert rollback_calls["assign"] == 1
 
     clear_error_session = make_session()
@@ -871,7 +871,7 @@ def test_assign_and_clear_faction_membership(
     monkeypatch.setattr(clear_error_session, "rollback", tracking_clear_rollback)
     monkeypatch.setattr(db, "get_session", lambda: clear_error_session)
     with pytest.raises(RuntimeError, match="Unable to clear the faction membership"):
-        db.clear_faction_membership(data["npc"].name)
+        db.clear_faction_membership(data["npc"].id)
     assert rollback_calls["clear"] == 1
 
 
@@ -884,7 +884,7 @@ def test_get_encounter_participants_branches(
     session.close()
 
     participants = db.get_encounter_participants(data["encounter"].id)
-    assert participants == [(data["npc"].name, "Lead")]
+    assert participants == [(data["npc"].id, data["npc"].name, "Lead")]
 
     error_session = make_session()
 
@@ -908,16 +908,16 @@ def test_upsert_encounter_participant_paths(
     missing_enc_session = make_session()
     monkeypatch.setattr(db, "get_session", lambda: missing_enc_session)
     with pytest.raises(ValueError, match="Save the encounter"):
-        db.upsert_encounter_participant(9999, data["npc"].name, "Notes")
+        db.upsert_encounter_participant(9999, data["npc"].id, "Notes")
 
     missing_npc_session = make_session()
     monkeypatch.setattr(db, "get_session", lambda: missing_npc_session)
     with pytest.raises(ValueError, match="Select a valid NPC"):
-        db.upsert_encounter_participant(data["encounter"].id, "Ghost", "Notes")
+        db.upsert_encounter_participant(data["encounter"].id, -1, "Notes")
 
     insert_session = make_session()
     monkeypatch.setattr(db, "get_session", lambda: insert_session)
-    db.upsert_encounter_participant(data["encounter"].id, data["ally"].name, "Backup")
+    db.upsert_encounter_participant(data["encounter"].id, data["ally"].id, "Backup")
     verify = make_session()
     participant = (
         verify.query(db.EncounterParticipants)
@@ -929,7 +929,7 @@ def test_upsert_encounter_participant_paths(
 
     update_session = make_session()
     monkeypatch.setattr(db, "get_session", lambda: update_session)
-    db.upsert_encounter_participant(data["encounter"].id, data["ally"].name, "Updated")
+    db.upsert_encounter_participant(data["encounter"].id, data["ally"].id, "Updated")
     verify_update = make_session()
     participant = (
         verify_update.query(db.EncounterParticipants)
@@ -955,7 +955,7 @@ def test_upsert_encounter_participant_paths(
     monkeypatch.setattr(error_session, "rollback", tracking_rollback)
     monkeypatch.setattr(db, "get_session", lambda: error_session)
     with pytest.raises(RuntimeError, match="Unable to update encounter participants"):
-        db.upsert_encounter_participant(data["encounter"].id, data["npc"].name, "Text")
+        db.upsert_encounter_participant(data["encounter"].id, data["npc"].id, "Text")
     assert rollback_calls["count"] == 1
 
 
@@ -969,7 +969,7 @@ def test_delete_encounter_participant_paths(
 
     success_session = make_session()
     monkeypatch.setattr(db, "get_session", lambda: success_session)
-    db.delete_encounter_participant(data["encounter"].id, data["npc"].name)
+    db.delete_encounter_participant(data["encounter"].id, data["npc"].id)
     verify = make_session()
     assert (
         verify.query(db.EncounterParticipants)
@@ -999,7 +999,7 @@ def test_delete_encounter_participant_paths(
         RuntimeError,
         match="Unable to remove the encounter participant",
     ):
-        db.delete_encounter_participant(data["encounter"].id, data["ally"].name)
+        db.delete_encounter_participant(data["encounter"].id, data["ally"].id)
     assert rollback_calls["count"] == 1
 
 
@@ -1011,7 +1011,9 @@ def test_relationship_helpers(
     data = seed_world(session)
     session.close()
 
-    assert db.get_relationship_rows(data["npc"].name) == [(data["ally"].name, "Ally")]
+    assert db.get_relationship_rows(data["npc"].id) == [
+        (data["ally"].id, data["ally"].name, "Ally"),
+    ]
 
     error_session = make_session()
 
@@ -1021,23 +1023,23 @@ def test_relationship_helpers(
 
     monkeypatch.setattr(error_session, "query", failing_query)
     monkeypatch.setattr(db, "get_session", lambda: error_session)
-    assert db.get_relationship_rows("Unknown") == []
+    assert db.get_relationship_rows(-1) == []
 
     # Restore the default session factory before exercising other code paths.
     monkeypatch.setattr(db, "get_session", lambda: make_session())
 
     with pytest.raises(ValueError, match="Select a different NPC"):
-        db.save_relationship("Hero", "Hero", "Self")
+        db.save_relationship(data["npc"].id, data["npc"].id, "Self")
 
     with pytest.raises(ValueError, match="Save the NPC before adding relationships"):
-        db.save_relationship("Missing", data["ally"].name, "Test")
+        db.save_relationship(-1, data["ally"].id, "Test")
 
     with pytest.raises(ValueError, match="Select a valid related NPC"):
-        db.save_relationship(data["npc"].name, "Ghost", "Test")
+        db.save_relationship(data["npc"].id, -1, "Test")
 
     insert_session = make_session()
     monkeypatch.setattr(db, "get_session", lambda: insert_session)
-    db.save_relationship(data["ally"].name, data["extra"].name, "Friend")
+    db.save_relationship(data["ally"].id, data["extra"].id, "Friend")
     verify = make_session()
     relation = (
         verify.query(db.Relationship)
@@ -1052,7 +1054,7 @@ def test_relationship_helpers(
 
     update_session = make_session()
     monkeypatch.setattr(db, "get_session", lambda: update_session)
-    db.save_relationship(data["npc"].name, data["ally"].name, "Partner")
+    db.save_relationship(data["npc"].id, data["ally"].id, "Partner")
     verify_update = make_session()
     relation = (
         verify_update.query(db.Relationship)
@@ -1081,7 +1083,7 @@ def test_relationship_helpers(
     monkeypatch.setattr(error_session, "rollback", tracking_rollback)
     monkeypatch.setattr(db, "get_session", lambda: error_session)
     with pytest.raises(RuntimeError, match="Unable to save the relationship"):
-        db.save_relationship(data["npc"].name, data["extra"].name, "Allies")
+        db.save_relationship(data["npc"].id, data["extra"].id, "Allies")
     assert rollback_calls["count"] == 1
 
     assert db.is_text_column(db.NPC.description) is True
@@ -1096,14 +1098,14 @@ def test_delete_relationship_paths(
     data = seed_world(session)
     session.close()
 
-    db.delete_relationship("Unknown", "Other")
+    db.delete_relationship(-1, -1)
     verify_none = make_session()
     assert verify_none.query(db.Relationship).count() == 1
     verify_none.close()
 
     success_session = make_session()
     monkeypatch.setattr(db, "get_session", lambda: success_session)
-    db.delete_relationship(data["npc"].name, data["ally"].name)
+    db.delete_relationship(data["npc"].id, data["ally"].id)
     verify = make_session()
     assert (
         verify.query(db.Relationship)
@@ -1144,7 +1146,7 @@ def test_delete_relationship_paths(
     monkeypatch.setattr(error_session, "rollback", tracking_rollback)
     monkeypatch.setattr(db, "get_session", lambda: error_session)
     with pytest.raises(RuntimeError, match="Unable to delete the relationship"):
-        db.delete_relationship(data["ally"].name, data["extra"].name)
+        db.delete_relationship(data["ally"].id, data["extra"].id)
     assert rollback_calls["count"] == 1
 
 

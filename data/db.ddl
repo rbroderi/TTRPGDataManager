@@ -1,5 +1,3 @@
-DROP DATABASE IF EXISTS final_project;
-
 CREATE DATABASE IF NOT EXISTS final_project
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
