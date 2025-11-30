@@ -999,8 +999,7 @@ class CampaignDialog(ctk.CTkToplevel):  # type: ignore[misc]
             values=list(CAMPAIGN_STATUSES),
             state="readonly",
         )
-        status_combo = cast(Any, self._status_combo)
-        status_combo.set(CAMPAIGN_STATUSES[0])
+        self._configure_status_combo(list(CAMPAIGN_STATUSES), CAMPAIGN_STATUSES[0])
         self._status_combo.pack(fill="x", pady=(0, 10))
 
         button_row = ctk.CTkFrame(container)
@@ -1037,3 +1036,13 @@ class CampaignDialog(ctk.CTkToplevel):  # type: ignore[misc]
         if self._on_cancel is not None:
             self._on_cancel()
         self.destroy()
+
+    def _configure_status_combo(
+        self,
+        statuses: Sequence[str],
+        current: str | None,
+    ) -> None:
+        combo_state = build_combo_box_state(statuses, current)
+        status_combo = cast(Any, self._status_combo)
+        self._status_combo.configure(values=combo_state.values)
+        status_combo.set(combo_state.selected)
