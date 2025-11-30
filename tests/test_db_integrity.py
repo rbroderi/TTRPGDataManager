@@ -94,8 +94,8 @@ def _seed_graph(session: Session) -> dict[str, Any]:
         notes="Led patrol",
     )
     relationship = Relationship(
-        npc_name_1=primary_npc.name,
-        npc_name_2=secondary_npc.name,
+        origin=primary_npc,
+        target=secondary_npc,
         name="Trusted Ally",
     )
     session.add_all(

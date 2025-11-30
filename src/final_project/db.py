@@ -468,7 +468,7 @@ class NPC(CampaignRecord):
     )
     relationships = relationship(
         "Relationship",
-        foreign_keys="[Relationship.npc_name_1]",
+        foreign_keys="[Relationship.npc_id_1]",
         back_populates="origin",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -544,7 +544,7 @@ class FactionMembers(Base):
     """Represents join table that holds which faction has which members."""
 
     __tablename__ = "faction_members"
-    __table_args__ = (UniqueConstraint("npc_name", name="uq_faction_members_npc"),)
+    __table_args__ = (UniqueConstraint("npc_id", name="uq_faction_members_npc"),)
     faction_name: Mapped[Varchar256] = mapped_column(
         String(256),
         ForeignKey(
@@ -554,10 +554,9 @@ class FactionMembers(Base):
         ),
         primary_key=True,
     )
-    npc_name: Mapped[Varchar256] = mapped_column(
-        String(256),
+    npc_id: Mapped[int] = mapped_column(
         ForeignKey(
-            "npc.name",
+            "npc.id",
             onupdate="CASCADE",
             ondelete="CASCADE",
         ),
@@ -575,10 +574,9 @@ class EncounterParticipants(Base):
 
     __tablename__ = "encounter_participants"
     __table_args__ = (Index("ix_encounter_participants_encounter", "encounter_id"),)
-    npc_name: Mapped[Varchar256] = mapped_column(
-        String(256),
+    npc_id: Mapped[int] = mapped_column(
         ForeignKey(
-            "npc.name",
+            "npc.id",
             onupdate="CASCADE",
             ondelete="CASCADE",
         ),
@@ -611,19 +609,17 @@ class Relationship(Base):
     """Represents relationships between NPCs."""
 
     __tablename__ = "relationship"
-    npc_name_1: Mapped[Varchar256] = mapped_column(
-        String(256),
+    npc_id_1: Mapped[int] = mapped_column(
         ForeignKey(
-            "npc.name",
+            "npc.id",
             onupdate="CASCADE",
             ondelete="CASCADE",
         ),
         primary_key=True,
     )
-    npc_name_2: Mapped[Varchar256] = mapped_column(
-        String(256),
+    npc_id_2: Mapped[int] = mapped_column(
         ForeignKey(
-            "npc.name",
+            "npc.id",
             onupdate="CASCADE",
             ondelete="CASCADE",
         ),
@@ -633,12 +629,12 @@ class Relationship(Base):
 
     origin = relationship(
         "NPC",
-        foreign_keys=[npc_name_1],
+        foreign_keys=[npc_id_1],
         back_populates="relationships",
     )
     target = relationship(
         "NPC",
-        foreign_keys=[npc_name_2],
+        foreign_keys=[npc_id_2],
         back_populates="relationships",
         passive_deletes=True,
     )
@@ -1024,9 +1020,12 @@ def get_faction_membership(npc_name: str) -> tuple[str, str] | None:
     """Return the first faction membership (name, notes) for the NPC."""
     session = SessionType(bind=connect())
     try:
+        npc = session.query(NPC).filter(NPC.name == npc_name).one_or_none()
+        if npc is None:
+            return None
         membership = (
             session.query(FactionMembers)
-            .filter(FactionMembers.npc_name == npc_name)
+            .filter(FactionMembers.npc_id == npc.id)
             .order_by(FactionMembers.faction_name)
             .first()
         )
@@ -1066,14 +1065,19 @@ def assign_faction_member(npc_name: str, faction_name: str, notes: str) -> None:
     """Assign an NPC to a faction, replacing previous memberships."""
     session = get_session()
     try:
+        npc = session.query(NPC).filter(NPC.name == npc_name).one_or_none()
+        if npc is None:
+            session.rollback()
+            msg = "Select a valid NPC before assigning a faction."
+            raise ValueError(msg)
         (
             session.query(FactionMembers)
-            .filter(FactionMembers.npc_name == npc_name)
+            .filter(FactionMembers.npc_id == npc.id)
             .delete(synchronize_session=False)
         )
         member = FactionMembers(
             faction_name=faction_name,
-            npc_name=npc_name,
+            npc_id=npc.id,
             notes=notes,
         )
         session.add(member)
@@ -1095,9 +1099,12 @@ def clear_faction_membership(npc_name: str) -> None:
     """Remove any faction memberships for the specified NPC."""
     session = get_session()
     try:
+        npc = session.query(NPC).filter(NPC.name == npc_name).one_or_none()
+        if npc is None:
+            return
         (
             session.query(FactionMembers)
-            .filter(FactionMembers.npc_name == npc_name)
+            .filter(FactionMembers.npc_id == npc.id)
             .delete(synchronize_session=False)
         )
         session.commit()
@@ -1115,9 +1122,10 @@ def get_encounter_participants(encounter_id: int) -> list[tuple[str, str]]:
     session = get_session()
     try:
         rows = (
-            session.query(EncounterParticipants.npc_name, EncounterParticipants.notes)
+            session.query(NPC.name, EncounterParticipants.notes)
+            .join(NPC, NPC.id == EncounterParticipants.npc_id)
             .filter(EncounterParticipants.encounter_id == encounter_id)
-            .order_by(EncounterParticipants.npc_name)
+            .order_by(NPC.name)
             .all()
         )
         return [(npc, notes) for npc, notes in rows]
@@ -1153,14 +1161,14 @@ def upsert_encounter_participant(
             session.query(EncounterParticipants)
             .filter(
                 EncounterParticipants.encounter_id == encounter_id,
-                EncounterParticipants.npc_name == npc_name,
+                EncounterParticipants.npc_id == npc.id,
             )
             .one_or_none()
         )
         if participant is None:
             participant = EncounterParticipants(
                 encounter_id=encounter_id,
-                npc_name=npc_name,
+                npc_id=npc.id,
                 notes=notes,
             )
             session.add(participant)
@@ -1184,11 +1192,14 @@ def delete_encounter_participant(encounter_id: int, npc_name: str) -> None:
     """Remove the NPC from the encounter participants list."""
     session = get_session()
     try:
+        npc = session.query(NPC).filter(NPC.name == npc_name).one_or_none()
+        if npc is None:
+            return
         (
             session.query(EncounterParticipants)
             .filter(
                 EncounterParticipants.encounter_id == encounter_id,
-                EncounterParticipants.npc_name == npc_name,
+                EncounterParticipants.npc_id == npc.id,
             )
             .delete(synchronize_session=False)
         )
@@ -1215,10 +1226,14 @@ def get_relationship_rows(source_name: str) -> list[tuple[str, str]]:
     """Return pairs of (target_npc, relation_name) for the given NPC."""
     session = get_session()
     try:
+        source = session.query(NPC).filter(NPC.name == source_name).one_or_none()
+        if source is None:
+            return []
         rows = (
-            session.query(Relationship.npc_name_2, Relationship.name)
-            .filter(Relationship.npc_name_1 == source_name)
-            .order_by(Relationship.npc_name_2)
+            session.query(NPC.name, Relationship.name)
+            .join(NPC, NPC.id == Relationship.npc_id_2)
+            .filter(Relationship.npc_id_1 == source.id)
+            .order_by(NPC.name)
             .all()
         )
         return [(target, relation) for target, relation in rows]
@@ -1251,15 +1266,15 @@ def save_relationship(
         relation = (
             session.query(Relationship)
             .filter(
-                Relationship.npc_name_1 == source_name,
-                Relationship.npc_name_2 == target_name,
+                Relationship.npc_id_1 == source.id,
+                Relationship.npc_id_2 == target.id,
             )
             .one_or_none()
         )
         if relation is None:
             relation = Relationship(
-                npc_name_1=source_name,
-                npc_name_2=target_name,
+                npc_id_1=source.id,
+                npc_id_2=target.id,
                 name=relation_name,
             )
             session.add(relation)
@@ -1279,11 +1294,15 @@ def delete_relationship(source_name: str, target_name: str) -> None:
     """Remove a relationship between two NPCs if it exists."""
     session = get_session()
     try:
+        source = session.query(NPC).filter(NPC.name == source_name).one_or_none()
+        target = session.query(NPC).filter(NPC.name == target_name).one_or_none()
+        if source is None or target is None:
+            return
         relation = (
             session.query(Relationship)
             .filter(
-                Relationship.npc_name_1 == source_name,
-                Relationship.npc_name_2 == target_name,
+                Relationship.npc_id_1 == source.id,
+                Relationship.npc_id_2 == target.id,
             )
             .one_or_none()
         )

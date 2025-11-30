@@ -3,26 +3,42 @@
 A Desktop based program for Game Masters, Store Tellers or Authors need to manage TTRPG games or store information. The application uses a CustomTkinter interface, SQLAlchemy modeled MySQL backend, and optional local LLM files to help construct images and names.
 
 ## 1. Project Overview
-- **Purpose:** give Game Masters (primary users) and optionally Assistant Storytellers a single control panel for CRUD workflows around campaigns, NPCs, locations, encounters, factions, and relationships.
-- **Main features:** campaign switching, NPC/location/encounter editors with portrait/image uploads, faction membership management, NPC relationship graphs, encounter participant tracking, YAML-driven sample data seeding, and opt-in LLM utilities for naming.
+- **Purpose:** give Game Masters (primary users) and optionally Authors a single control panel for CRUD workflows around campaigns, NPCs, locations, encounters, factions, and relationships.
+- **Main features:** 
+  - Campaign switching
+  - NPC/location/encounter editors with portrait/image uploads/downloads
+  - Faction membership management
+  - NPC relationship tracking
+  - Encounter participant tracking
+  - YAML-driven sample data loading
+  - Local offline LLM capabilities for generating names and images.
 - **User roles:**
-  - *Lead GM:* owns campaign setup, schema maintenance flags, and high-risk destructive actions (rebuild, delete campaign).
-  - *Assistant GM/Homebrew Author:* focuses on day-to-day CRUD (NPCs, encounters, factions) using the GUI forms.
-- **Architecture highlights:** `gui.py` renders CustomTkinter widgets, `logic.py` houses form validation and orchestration, while `db.py` centralizes SQLAlchemy models plus MySQL connector helpers. Observability relies on `structlog` JSON logs and `rich` CLI rendering.
+  - *GMs/ Story Tellers / Authors:*
+    - They perform CRUD operations inside the GUI
+		- Adds portraits, relationships, and faction notes.
+- **Architecture highlights:** 
+  - `gui.py` renders CustomTkinter widgets
+  - `logic.py` houses form validation and orchestration
+  - `db.py` centralizes SQLAlchemy models plus MySQL connector helpers
+  - Observability relies on `structlog` JSON logs.
 
 ## 2. Entity-Relationship Model
-The ERD is authored in `docs/erd.uml` (PlantUML) and exported to `docs/images/erd.png`:
+The ERD (authored in `docs/erd.uml`, rendered to `docs/images/erd.png`) illustrates how campaign-scoped records share the same base table and how imagery is centralized:
 
 ![ERD Diagram](docs/images/erd.png)
 
 **Narrative:**
-- `Campaign` anchors every data domain; its one-to-many edges to `NPC`, `Location`, `Encounter`, and `Faction` keep each isolated.
-- `NPC` holds portrait blobs, enum attributes (gender, alignment), and references both `Species` and `Campaign`. It connects to `FactionMembers`, `EncounterParticipants`, and a self-referencing `Relationship` table—capturing social ties.
-- `Location` records site metadata (enum-based `type`, optional imagery) and feeds each `Encounter` via a mandatory FK. The resulting Campaign→Location→Encounter path encodes “campaign contains locations and their encounters.”
-- Join tables (`FactionMembers`, `EncounterParticipants`, `Relationship`) enforce composite PKs so every combination stays unique. Their crow’s-foot cardinalities make the many-to-many relationships explicit: a faction has many NPCs, an NPC can belong to many factions; an encounter involves many NPCs, an NPC can appear in many encounters.
+- `CampaignRecord` is the abstract anchor. `NPC`, `Location`, and `Encounter` inherit from it (joined-table inheritance), so they share the same integer PK, the `campaign_name` FK, and a discriminator column. Cascading deletes flow through this single FK because every derived row ultimately hangs off the base table.
+- `Campaign` sits at the top of the hierarchy, with the 1→N edge into `CampaignRecord` representing every record that belongs to a campaign. Specialized tables store only their unique attributes.
+- `ImageStore` is a 0→1 with `CampaignRecord`. Any inheriting entity can opt into having a binary image without bloating its own table. Portraits, location art, and battlemaps all land in this shared LONGBLOB table keyed by the campaign record id.
+  - This retains the possibility to store this data elsewhere in the future.
+- `NPC` references `Species`, exposes enum columns (alignment, gender), and participates in each associative table. Because the campaign linkage is inherited, join tables (`FactionMembers`, `EncounterParticipants`, `Relationship`) automatically scope themselves to the same campaign through their FK targets.
+- `Location` and `Encounter` inherit through the same base table; `Encounter` also references `Location`, forming the Campaign→Location→Encounter chain while keeping the FK path to Campaign consistent.
+- Join tables enforce composite PKs/unique constraints so every NPC-faction, NPC-encounter, or NPC↔NPC relationship pair remains unique.
 
 ## 3. DDL & Schema Management
-- **Source of truth:** `data/db.ddl` mirrors the SQLAlchemy metadata. `db.apply_external_schema()` loads it at startup (SQLAlchemy engine) while `apply_external_schema_with_connector()` uses `mysql-connector-python` when graders pass `-d/--load-ddl-at-startup`.
+- **Source of truth:** `data/db.ddl` mirrors the SQLAlchemy metadata.
+  - `apply_external_schema_with_connector()` uses `mysql-connector-python` to apply this ddl and is run when `-d/--load-with-ddl` argument is passed.
 - **Structure:** every table declares explicit PKs, FKs, and enumerated columns. Unique keys such as `ix_npc_name` and `ix_location_name` are defined inline, ensuring MySQL 8 compatibility without `CREATE INDEX ... IF NOT EXISTS` syntax.
 - **Referential constraints:**
   - Foreign keys link `npc.campaign_name` → `campaign.name`, `faction_members.npc_name` → `npc.name`, etc.
