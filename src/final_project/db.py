@@ -154,6 +154,13 @@ def _coerce_optional_path(value: Any) -> Path | None:
     return Path(text)
 
 
+def _attach_image_blob(owner: Any, image_blob: bytes | None) -> None:
+    """Assign an ImageStore row to the owning instance when needed."""
+    if image_blob is None or not hasattr(owner, "image"):
+        return
+    owner.image = ImageStore(image_blob=image_blob)
+
+
 @beartype
 class DBConfig(BaseModel):
     """Pydantic model of the config for a db connection."""
@@ -285,7 +292,6 @@ class Location(Base):
         Enum("DUNGEON", "WILDERNESS", "TOWN", "INTERIOR", name="location_type"),
     )
     description: Mapped[str] = mapped_column(Text)
-    image_blob: Mapped[bytes | None] = mapped_column(LongBlob, nullable=True)
     campaign_name: Mapped[Varchar256] = mapped_column(
         String(256),
         ForeignKey(
@@ -301,6 +307,14 @@ class Location(Base):
         back_populates="location",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+    image = relationship(
+        "ImageStore",
+        back_populates="location",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+        lazy="joined",
     )
 
 
@@ -329,7 +343,6 @@ class Encounter(Base):
     )
     date: Mapped[dtdate] = mapped_column(nullable=True)
     description: Mapped[str] = mapped_column(Text)
-    image_blob: Mapped[bytes | None] = mapped_column(LongBlob, nullable=True)
 
     campaign = relationship("Campaign", back_populates="encounters")
     location = relationship("Location", back_populates="encounters")
@@ -338,6 +351,14 @@ class Encounter(Base):
         back_populates="encounter",
         cascade="all, delete-orphan",
         passive_deletes=True,
+    )
+    image = relationship(
+        "ImageStore",
+        back_populates="encounter",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+        lazy="joined",
     )
 
 
@@ -391,7 +412,6 @@ class NPC(Base):
         ),
     )
     description: Mapped[str] = mapped_column(Text)
-    image_blob: Mapped[bytes | None] = mapped_column(LongBlob, nullable=True)
     species_name: Mapped[Varchar256] = mapped_column(
         String(256),
         ForeignKey(
@@ -431,6 +451,42 @@ class NPC(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    image = relationship(
+        "ImageStore",
+        back_populates="npc",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+        lazy="joined",
+    )
+
+
+@beartype
+class ImageStore(Base):
+    """Store image blobs linked to exactly one owner."""
+
+    __tablename__ = "image_store"
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    image_blob: Mapped[bytes] = mapped_column(LongBlob, nullable=False)
+    npc_id: Mapped[int | None] = mapped_column(
+        ForeignKey("npc.id", onupdate="CASCADE", ondelete="CASCADE"),
+        nullable=True,
+        unique=True,
+    )
+    location_id: Mapped[int | None] = mapped_column(
+        ForeignKey("location.id", onupdate="CASCADE", ondelete="CASCADE"),
+        nullable=True,
+        unique=True,
+    )
+    encounter_id: Mapped[int | None] = mapped_column(
+        ForeignKey("encounter.id", onupdate="CASCADE", ondelete="CASCADE"),
+        nullable=True,
+        unique=True,
+    )
+
+    npc = relationship("NPC", back_populates="image", uselist=False)
+    location = relationship("Location", back_populates="image", uselist=False)
+    encounter = relationship("Encounter", back_populates="image", uselist=False)
 
 
 @beartype
@@ -647,9 +703,9 @@ def _location_from_data(
         name=location_name,
         type=str(location_data["type"]).upper(),
         description=str(location_data["description"]),
-        image_blob=image_blob,
         campaign=campaign,
     )
+    _attach_image_blob(location, image_blob)
     session.add(location)
     return location
 
@@ -684,11 +740,11 @@ def _load_all_sample_npcs(session: SessionType) -> int:
             gender=gender_value,
             alignment_name=alignment,
             description=description,
-            image_blob=image_blob,
             species=species,
             campaign=campaign,
             abilities_json=abilities,
         )
+        _attach_image_blob(npc, image_blob)
         session.add(npc)
         created += 1
     return created
@@ -742,8 +798,8 @@ def _load_all_sample_encounters(session: SessionType) -> int:
             location=location,
             date=date_value,
             description=description,
-            image_blob=image_blob,
         )
+        _attach_image_blob(encounter, image_blob)
         session.add(encounter)
         created += 1
     return created

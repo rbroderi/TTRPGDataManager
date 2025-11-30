@@ -16,7 +16,7 @@ The ERD is authored in `docs/erd.uml` (PlantUML) and exported to `docs/images/er
 ![ERD Diagram](docs/images/erd.png)
 
 **Narrative:**
-- `Campaign` anchors every data domain; its one-to-many edges to `NPC`, `Location`, `Encounter`, and `Faction` keep each storyline isolated.
+- `Campaign` anchors every data domain; its one-to-many edges to `NPC`, `Location`, `Encounter`, and `Faction` keep each isolated.
 - `NPC` holds portrait blobs, enum attributes (gender, alignment), and references both `Species` and `Campaign`. It connects to `FactionMembers`, `EncounterParticipants`, and a self-referencing `Relationship` table—capturing social ties.
 - `Location` records site metadata (enum-based `type`, optional imagery) and feeds each `Encounter` via a mandatory FK. The resulting Campaign→Location→Encounter path encodes “campaign contains locations and their encounters.”
 - Join tables (`FactionMembers`, `EncounterParticipants`, `Relationship`) enforce composite PKs so every combination stays unique. Their crow’s-foot cardinalities make the many-to-many relationships explicit: a faction has many NPCs, an NPC can belong to many factions; an encounter involves many NPCs, an NPC can appear in many encounters.
@@ -93,14 +93,15 @@ The `scripts/capture_ui_screens.py` automation rebuilds the database, loads the 
   - ![Settings Dialog](docs/images/screenshots/settings_dialog.png)
 
 ## 7. Testing & Validation Notes
-- **Structural tests:** `uv run python -m final_project.main --list-npcs` confirms the ORM can read data immediately after migrations or sample loads.
+- **Pytest suites:** `just pytest` (or `uv run pytest`) executes the unit tests. GUI-adjacent tests under `tests/test_dialogs.py` exercise the CustomTkinter dialogs headlessly (Settings/Relationships/Encounters/Campaign). Additional suites (`tests/test_db*.py`, `tests/test_settings_manager.py`) cover persistence helpers and default-setting flows. Use `just coverage` to run the same suite with coverage enabled.
+- **Structural tests:** `uv run python -m final_project.main --list-npcs` confirms the ORM can read data.
 - **Constraint verification:** running `python -m final_project.main --rebuild` followed by deleting a campaign in the GUI validates manual cascade logic—the referenced NPCs, relationships, faction members, and encounter participants are removed without FK violations.
 - **DDL loader checks:** `python -m final_project.main -vvv -d` applies `data/db.ddl` through mysql-connector; logs confirm each statement executes sequentially and indexes already present are skipped.
 - **Static analysis & type safety:**
   - `uv run ruff check src/final_project` / `uv run ruff format src/final_project`
   - `uv run mypy src/final_project` (strict mode configured in `pyproject.toml`)
   - `uv run pyright src/final_project` when cross-validating typings
-- **Manual smoke tests:** launch the GUI, create/edit NPCs, attach images, assign factions, add encounter participants, and ensure the resulting rows appear under `--list-npcs` or through MySQL clients. Test LLM-driven name generation if `data/llm/*.llamafile` is present.
+- **Manual GUI tests:** launch the GUI, create/edit NPCs, attach images, assign factions, add encounter participants, and ensure the resulting rows appear under `--list-npcs`. Test LLM-driven name and image generation if `data/llm/*` files are present.
 
 ## Reference Material
 - `docs/erd.uml` and `docs/images/erd.png` — ERD source + rendered asset.

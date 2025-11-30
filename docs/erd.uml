@@ -8,7 +8,6 @@ entity NPC {
   gender : ENUM(\n\t'FEMALE', \n\t'MALE', \n\t'NONBINARY', \n\t'UNSPECIFIED')
   alignment_name : ENUM(\n\t'LAWFUL GOOD', \n\t'LAWFUL NEUTRAL', \n\t'LAWFUL EVIL', \n\t'NEUTRAL GOOD', \n\t'TRUE NEUTRAL', \n\t'NEUTRAL EVIL',\n\t'CHAOTIC GOOD',\n\t'CHAOTIC NEUTRAL', \n\t'CHAOTIC EVIL')
   description : TEXT
-  image_blob : LONGBLOB
   species_name : VARCHAR <<FK>>
   campaign_name : VARCHAR <<FK>>
   abilities_json : JSON
@@ -40,7 +39,6 @@ entity Location {
   name : VARCHAR <<UNIQUE>>
   type : ENUM(\n\t'DUNGEON', \n\t'WILDERNESS', \n\t'TOWN', \n\t'INTERIOR')
   description : TEXT
-  image_blob : LONGBLOB
   campaign_name : VARCHAR <<FK>>
 }
 
@@ -65,7 +63,15 @@ entity Encounter {
   location_name : VARCHAR <<FK>>
   date : DATE
   description : TEXT
+}
+
+entity ImageStore {
+  *id : INT <<PK>>
+  --
   image_blob : LONGBLOB
+  npc_id : INT <<FK,UNIQUE>>
+  location_id : INT <<FK,UNIQUE>>
+  encounter_id : INT <<FK,UNIQUE>>
 }
 
 entity EncounterParticipants {
@@ -88,6 +94,9 @@ Encounter "1" <-- "N" EncounterParticipants : encounter_id
 NPC "1" <-- "N" EncounterParticipants : npc_name
 NPC "1" <-- "N" Relationship : npc_name_1
 NPC "1" <-- "N" Relationship : npc_name_2
+NPC "1" <-- "0..1" ImageStore : npc_id
+Location "1" <-- "0..1" ImageStore : location_id
+Encounter "1" <-- "0..1" ImageStore : encounter_id
 
 note right of FactionMembers
   CONSTRAINT uq_faction_members_npc UNIQUE (npc_name)

@@ -2629,18 +2629,23 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
             if override is not None:
                 self._load_preview_image(override)
                 return
-        image_value = getattr(instance, "image_blob", None)
-        if image_value is None:
-            self._load_preview_image(None)
-            return
-        if isinstance(image_value, memoryview):
-            image_bytes = image_value.tobytes()
-        elif isinstance(image_value, (bytes, bytearray)):
-            image_bytes = bytes(image_value)
-        else:
-            self._load_preview_image(None)
-            return
+        image_bytes = self._extract_image_bytes(instance)
         self._load_preview_image(image_bytes)
+
+    @staticmethod
+    def _extract_image_bytes(instance: Any) -> bytes | None:
+        image_rel = getattr(instance, "image", None)
+        if image_rel is not None:
+            image_value = getattr(image_rel, "image_blob", None)
+        else:
+            image_value = getattr(instance, "image_blob", None)
+        if image_value is None:
+            return None
+        if isinstance(image_value, memoryview):
+            return image_value.tobytes()
+        if isinstance(image_value, (bytes, bytearray)):
+            return bytes(image_value)
+        return None
 
     def _load_faction_membership(self, npc_name: str | None) -> None:
         widget = self._get_faction_widget()

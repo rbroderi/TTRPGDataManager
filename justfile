@@ -38,5 +38,8 @@ run-with-ddl:
 coverage:
     uv run pytest --cov=final_project --cov-report=term-missing
 
+pytest:
+    uv run pytest
+
 add-ignore pattern:
     Add-Content -Path .gitignore -Value "`n{{ pattern }}"

@@ -15,6 +15,7 @@ with lazi:  # type: ignore[attr-defined]
     import structlog
 
 from final_project.db import Encounter
+from final_project.db import ImageStore
 from final_project.db import Location
 from final_project.db import NPC
 from final_project.db import assign_faction_member
@@ -227,7 +228,7 @@ class DataLogic:
             column_key = getattr(column, "key", None)
             if not column_key or column.nullable:
                 continue
-            if column_key in {"image_blob", "id", "campaign_name"}:
+            if column_key in {"id", "campaign_name"}:
                 continue
             if column_key not in field_values:
                 continue
@@ -270,10 +271,10 @@ class DataLogic:
                 model_cls,
                 field_values,
                 campaign_name,
-                image_payload,
                 spec_map,
             )
             instance = model_cls(**payload)
+            self._apply_image_payload(instance, image_payload)
             session.add(instance)
             session.commit()
         except Exception:
@@ -476,13 +477,12 @@ class DataLogic:
         ordered.extend(remaining)
         return tuple(ordered)
 
-    def _build_new_record_payload(  # noqa: PLR0913
+    def _build_new_record_payload(
         self,
         entry_type: str,
         model_cls: type,
         field_values: dict[str, Any],
         campaign_name: str,
-        image_payload: bytes | None,
         spec_map: dict[str, FieldSpec],
     ) -> dict[str, Any]:
         if not campaign_name:
@@ -499,9 +499,6 @@ class DataLogic:
                 continue
             if column_key == "campaign_name":
                 payload[column_key] = campaign_name
-                continue
-            if column_key == "image_blob":
-                payload[column_key] = image_payload
                 continue
             if column_key == "id" and entry_type == "Encounter":
                 continue
@@ -615,13 +612,23 @@ class DataLogic:
                 continue
             setattr(instance, field_name, converted)
             changed = True
-        if image_payload is not None and hasattr(instance, "image_blob"):
-            instance.image_blob = image_payload
+        if self._apply_image_payload(instance, image_payload):
             changed = True
         if not changed:
             return False, None
         new_identifier = self._extract_instance_identifier(entry_type, instance)
         return True, new_identifier
+
+    @staticmethod
+    def _apply_image_payload(instance: Any, image_payload: bytes | None) -> bool:
+        if image_payload is None or not hasattr(instance, "image"):
+            return False
+        existing = getattr(instance, "image", None)
+        if existing is None:
+            instance.image = ImageStore(image_blob=image_payload)
+        else:
+            existing.image_blob = image_payload
+        return True
 
     @staticmethod
     def _extract_instance_identifier(entry_type: str, instance: Any) -> str | None:

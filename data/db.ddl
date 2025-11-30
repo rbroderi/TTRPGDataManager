@@ -33,7 +33,6 @@ CREATE TABLE IF NOT EXISTS location (
     name VARCHAR(256) NOT NULL,
     type ENUM('DUNGEON', 'WILDERNESS', 'TOWN', 'INTERIOR') NOT NULL,
     description TEXT NOT NULL,
-    image_blob BLOB(4294967295),
     campaign_name VARCHAR(256) NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY ix_location_name (name),
@@ -50,7 +49,6 @@ CREATE TABLE IF NOT EXISTS npc (
     gender ENUM('FEMALE', 'MALE', 'NONBINARY', 'UNSPECIFIED') NOT NULL DEFAULT 'UNSPECIFIED',
     alignment_name ENUM('LAWFUL GOOD', 'LAWFUL NEUTRAL', 'LAWFUL EVIL', 'NEUTRAL GOOD', 'TRUE NEUTRAL', 'NEUTRAL EVIL', 'CHAOTIC GOOD', 'CHAOTIC NEUTRAL', 'CHAOTIC EVIL') NOT NULL,
     description TEXT NOT NULL,
-    image_blob BLOB(4294967295),
     species_name VARCHAR(256) NOT NULL,
     campaign_name VARCHAR(256) NOT NULL,
     abilities_json JSON,
@@ -71,13 +69,33 @@ CREATE TABLE IF NOT EXISTS encounter (
     location_name VARCHAR(256) NOT NULL,
     date DATE,
     description TEXT NOT NULL,
-    image_blob BLOB(4294967295),
     PRIMARY KEY (id),
     KEY ix_encounter_campaign (campaign_name),
     FOREIGN KEY (campaign_name) REFERENCES campaign (name)
         ON UPDATE CASCADE
         ON DELETE CASCADE,
     FOREIGN KEY (location_name) REFERENCES location (name)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS image_store (
+    id INTEGER NOT NULL AUTO_INCREMENT,
+    image_blob BLOB(4294967295) NOT NULL,
+    npc_id INTEGER,
+    location_id INTEGER,
+    encounter_id INTEGER,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_image_store_npc (npc_id),
+    UNIQUE KEY uq_image_store_location (location_id),
+    UNIQUE KEY uq_image_store_encounter (encounter_id),
+    FOREIGN KEY (npc_id) REFERENCES npc (id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    FOREIGN KEY (location_id) REFERENCES location (id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE,
+    FOREIGN KEY (encounter_id) REFERENCES encounter (id)
         ON UPDATE CASCADE
         ON DELETE CASCADE
 );
