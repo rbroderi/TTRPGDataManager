@@ -8,12 +8,14 @@ from sqlalchemy import JSON
 from sqlalchemy import Engine
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy import Index
 from sqlalchemy import LargeBinary
 from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import create_engine
+from sqlalchemy import event
 from sqlalchemy import text
 from sqlalchemy.dialects.mysql import SMALLINT
 from sqlalchemy.engine.url import URL
@@ -261,12 +263,14 @@ class Campaign(Base):
         back_populates="campaign",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        foreign_keys="[CampaignRecord.campaign_name]",
     )
     encounters = relationship(
         "Encounter",
         back_populates="campaign",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        foreign_keys="[CampaignRecord.campaign_name]",
     )
     factions = relationship(
         "Faction",
@@ -279,6 +283,7 @@ class Campaign(Base):
         back_populates="campaign",
         cascade="all, delete-orphan",
         passive_deletes=True,
+        foreign_keys="[CampaignRecord.campaign_name]",
     )
 
 
@@ -322,6 +327,24 @@ class Location(CampaignRecord):
     """Represents the location table."""
 
     __tablename__ = "location"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign_name",
+            "name",
+            name="uq_location_campaign_name",
+        ),
+    )
+    _campaign_name_mirror_field = "_campaign_name_copy"
+    _campaign_name_copy: Mapped[Varchar256] = mapped_column(
+        "campaign_name",
+        String(256),
+        ForeignKey(
+            "campaign.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
     id: Mapped[int] = mapped_column(
         ForeignKey(
             "campaign_record.id",
@@ -330,13 +353,17 @@ class Location(CampaignRecord):
         ),
         primary_key=True,
     )
-    name: Mapped[Varchar256] = mapped_column(String(256), index=True, unique=True)
+    name: Mapped[Varchar256] = mapped_column(String(256), index=True)
     type: Mapped[Literal["DUNGEON", "WILDERNESS", "TOWN", "INTERIOR"]] = mapped_column(
         Enum("DUNGEON", "WILDERNESS", "TOWN", "INTERIOR", name="location_type"),
     )
     description: Mapped[str] = mapped_column(Text)
 
-    campaign = relationship("Campaign", back_populates="locations")
+    campaign = relationship(
+        "Campaign",
+        back_populates="locations",
+        foreign_keys=[CampaignRecord.campaign_name],
+    )
     encounters = relationship(
         "Encounter",
         back_populates="location",
@@ -352,6 +379,32 @@ class Encounter(CampaignRecord):
     """Represents the encounter table."""
 
     __tablename__ = "encounter"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign_name",
+            "location_name",
+            "date",
+            name="uq_encounter_campaign_location_date",
+        ),
+        ForeignKeyConstraint(
+            ["campaign_name", "location_name"],
+            ["location.campaign_name", "location.name"],
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+            name="fk_encounter_location",
+        ),
+    )
+    _campaign_name_mirror_field = "_campaign_name_copy"
+    _campaign_name_copy: Mapped[Varchar256] = mapped_column(
+        "campaign_name",
+        String(256),
+        ForeignKey(
+            "campaign.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
     id: Mapped[int] = mapped_column(
         ForeignKey(
             "campaign_record.id",
@@ -362,16 +415,15 @@ class Encounter(CampaignRecord):
     )
     location_name: Mapped[Varchar256] = mapped_column(
         String(256),
-        ForeignKey(
-            "location.name",
-            onupdate="CASCADE",
-            ondelete="CASCADE",
-        ),
     )
     date: Mapped[dtdate] = mapped_column(nullable=True)
     description: Mapped[str] = mapped_column(Text)
 
-    campaign = relationship("Campaign", back_populates="encounters")
+    campaign = relationship(
+        "Campaign",
+        back_populates="encounters",
+        foreign_keys=[CampaignRecord.campaign_name],
+    )
     location = relationship(
         "Location",
         back_populates="encounters",
@@ -391,6 +443,24 @@ class NPC(CampaignRecord):
     """Represents the NPC table."""
 
     __tablename__ = "npc"
+    __table_args__ = (
+        UniqueConstraint(
+            "campaign_name",
+            "name",
+            name="uq_npc_campaign_name",
+        ),
+    )
+    _campaign_name_mirror_field = "_campaign_name_copy"
+    _campaign_name_copy: Mapped[Varchar256] = mapped_column(
+        "campaign_name",
+        String(256),
+        ForeignKey(
+            "campaign.name",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    )
     id: Mapped[int] = mapped_column(
         ForeignKey(
             "campaign_record.id",
@@ -399,7 +469,7 @@ class NPC(CampaignRecord):
         ),
         primary_key=True,
     )
-    name: Mapped[Varchar256] = mapped_column(String(256), index=True, unique=True)
+    name: Mapped[Varchar256] = mapped_column(String(256), index=True)
     age: Mapped[SmallInt] = mapped_column(SMALLINT(unsigned=True))
     gender: Mapped[Literal["FEMALE", "MALE", "NONBINARY", "UNSPECIFIED"]] = (
         mapped_column(
@@ -452,7 +522,11 @@ class NPC(CampaignRecord):
     )
     abilities_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=True)
 
-    campaign = relationship("Campaign", back_populates="npcs")
+    campaign = relationship(
+        "Campaign",
+        back_populates="npcs",
+        foreign_keys=[CampaignRecord.campaign_name],
+    )
     species = relationship("Species", back_populates="npcs")
     factions = relationship(
         "FactionMembers",
@@ -645,6 +719,22 @@ class Relationship(Base):
         back_populates="related_to",
         passive_deletes=True,
     )
+
+
+def _mirror_campaign_name_column(model: type) -> None:
+    attr_name = getattr(model, "_campaign_name_mirror_field", None)
+    if not attr_name:
+        return
+
+    def _synchronize(_mapper: Any, _connection: Any, target: Any) -> None:
+        setattr(target, attr_name, target.campaign_name)
+
+    event.listen(model, "before_insert", _synchronize)
+    event.listen(model, "before_update", _synchronize)
+
+
+for _model in (Location, NPC, Encounter):
+    _mirror_campaign_name_column(_model)
 
 
 def _entry_name(entry: Mapping[str, Any]) -> str:

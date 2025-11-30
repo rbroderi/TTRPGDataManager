@@ -27,21 +27,21 @@ entity Faction {
 
 entity FactionMembers {
   *faction_name : VARCHAR <<PK,FK>>
-  *npc_name : VARCHAR <<PK,FK,UNIQUE>>
+  *npc_id : INT <<PK,FK,UNIQUE>>
   --
   notes : TEXT
 }
 
 entity Relationship {
-  *npc_name_1 : VARCHAR <<PK,FK>>
-  *npc_name_2 : VARCHAR <<PK,FK>>
+  *npc_id_1 : INT <<PK,FK>>
+  *npc_id_2 : INT <<PK,FK>>
   --
   name : VARCHAR
 }
 
 entity EncounterParticipants {
   *encounter_id : INT <<PK,FK>>
-  *npc_name : VARCHAR <<PK,FK>>
+  *npc_id : INT <<PK,FK>>
   --
   notes : TEXT
 }
@@ -57,7 +57,8 @@ together {
   entity Location {
     *id : INT <<PK,FK>>
     --
-    name : VARCHAR <<UNIQUE>>
+    campaign_name : VARCHAR <<FK>>
+    name : VARCHAR
     type : ENUM(
 	'DUNGEON',
 	'WILDERNESS',
@@ -69,6 +70,7 @@ together {
   entity Encounter {
     *id : INT <<PK,FK>>
     --
+    campaign_name : VARCHAR <<FK>>
     location_name : VARCHAR <<FK>>
     date : DATE
     description : TEXT
@@ -84,7 +86,8 @@ together {
 entity NPC {
   *id : INT <<PK,FK>>
   --
-  name : VARCHAR <<UNIQUE>>
+  campaign_name : VARCHAR <<FK>>
+  name : VARCHAR
   age : SMALLINT UNSIGNED
   gender : ENUM(
 	'FEMALE',
@@ -115,15 +118,18 @@ CampaignRecord "1" <-- "0..1" ImageStore : campaign_record_id
 Species "1" <-- "N" NPC : species_name
 Campaign "1" <-- "N" Faction : campaign_name
 Location "1" <-- "N" Encounter : location_name
-NPC "1" <-- "N" FactionMembers : npc_name
+Campaign "1" <-- "N" Location : campaign_name
+Campaign "1" <-- "N" NPC : campaign_name
+Campaign "1" <-- "N" Encounter : campaign_name
+NPC "1" <-- "N" FactionMembers : npc_id
 Faction "1" <-- "N" FactionMembers : faction_name
 Encounter "1" <-- "N" EncounterParticipants : encounter_id
-NPC "1" <-- "N" EncounterParticipants : npc_name
-NPC "1" <-- "N" Relationship : npc_name_1
-NPC "1" <-- "N" Relationship : npc_name_2
+NPC "1" <-- "N" EncounterParticipants : npc_id
+NPC "1" <-- "N" Relationship : npc_id_1
+NPC "1" <-- "N" Relationship : npc_id_2
 
 note bottom of FactionMembers
-  CONSTRAINT uq_faction_members_npc UNIQUE (npc_name)
+  CONSTRAINT uq_faction_members_npc UNIQUE (npc_id)
 end note
 
 note left of Faction
@@ -131,11 +137,20 @@ note left of Faction
 end note
 
 note right of Location
-  UNIQUE ix_location_name (name)
+  UNIQUE uq_location_campaign_name (campaign_name, name)
+end note
+
+note bottom of Encounter
+  UNIQUE uq_encounter_campaign_location_date (campaign_name, location_name, date)
+end note
+
+note right of Encounter
+  FK fk_encounter_location (campaign_name, location_name)
+    REFERENCES location (campaign_name, name)
 end note
 
 note bottom of NPC
-  UNIQUE ix_npc_name (name)
+  UNIQUE uq_npc_campaign_name (campaign_name, name)
 end note
 
 note left of EncounterParticipants
