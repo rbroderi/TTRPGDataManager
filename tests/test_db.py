@@ -167,8 +167,8 @@ def seed_world(session: Session) -> dict[str, Any]:
     participant = db.EncounterParticipants(encounter=encounter, npc=npc, notes="Lead")
     session.add(participant)
     relationship = db.Relationship(
-        npc_name_1=npc.name,
-        npc_name_2=ally.name,
+        npc_id_1=npc.id,
+        npc_id_2=ally.id,
         name="Ally",
     )
     session.add(relationship)
@@ -823,7 +823,7 @@ def test_assign_and_clear_faction_membership(
     verify = make_session()
     membership = (
         verify.query(db.FactionMembers)
-        .filter(db.FactionMembers.npc_name == data["ally"].name)
+        .filter(db.FactionMembers.npc_id == data["ally"].id)
         .one()
     )
     assert membership.notes == "Support"
@@ -835,7 +835,7 @@ def test_assign_and_clear_faction_membership(
     verify_clear = make_session()
     assert (
         verify_clear.query(db.FactionMembers)
-        .filter(db.FactionMembers.npc_name == data["ally"].name)
+        .filter(db.FactionMembers.npc_id == data["ally"].id)
         .first()
         is None
     )
@@ -921,7 +921,7 @@ def test_upsert_encounter_participant_paths(
     verify = make_session()
     participant = (
         verify.query(db.EncounterParticipants)
-        .filter(db.EncounterParticipants.npc_name == data["ally"].name)
+        .filter(db.EncounterParticipants.npc_id == data["ally"].id)
         .one()
     )
     assert participant.notes == "Backup"
@@ -933,7 +933,7 @@ def test_upsert_encounter_participant_paths(
     verify_update = make_session()
     participant = (
         verify_update.query(db.EncounterParticipants)
-        .filter(db.EncounterParticipants.npc_name == data["ally"].name)
+        .filter(db.EncounterParticipants.npc_id == data["ally"].id)
         .one()
     )
     assert participant.notes == "Updated"
@@ -973,7 +973,7 @@ def test_delete_encounter_participant_paths(
     verify = make_session()
     assert (
         verify.query(db.EncounterParticipants)
-        .filter(db.EncounterParticipants.npc_name == data["npc"].name)
+        .filter(db.EncounterParticipants.npc_id == data["npc"].id)
         .first()
         is None
     )
@@ -1042,8 +1042,8 @@ def test_relationship_helpers(
     relation = (
         verify.query(db.Relationship)
         .filter(
-            db.Relationship.npc_name_1 == data["ally"].name,
-            db.Relationship.npc_name_2 == data["extra"].name,
+            db.Relationship.npc_id_1 == data["ally"].id,
+            db.Relationship.npc_id_2 == data["extra"].id,
         )
         .one()
     )
@@ -1057,8 +1057,8 @@ def test_relationship_helpers(
     relation = (
         verify_update.query(db.Relationship)
         .filter(
-            db.Relationship.npc_name_1 == data["npc"].name,
-            db.Relationship.npc_name_2 == data["ally"].name,
+            db.Relationship.npc_id_1 == data["npc"].id,
+            db.Relationship.npc_id_2 == data["ally"].id,
         )
         .one()
     )
@@ -1098,12 +1098,7 @@ def test_delete_relationship_paths(
 
     db.delete_relationship("Unknown", "Other")
     verify_none = make_session()
-    assert (
-        verify_none.query(db.Relationship)
-        .filter(db.Relationship.npc_name_1 == "Unknown")
-        .first()
-        is None
-    )
+    assert verify_none.query(db.Relationship).count() == 1
     verify_none.close()
 
     success_session = make_session()
@@ -1113,8 +1108,8 @@ def test_delete_relationship_paths(
     assert (
         verify.query(db.Relationship)
         .filter(
-            db.Relationship.npc_name_1 == data["npc"].name,
-            db.Relationship.npc_name_2 == data["ally"].name,
+            db.Relationship.npc_id_1 == data["npc"].id,
+            db.Relationship.npc_id_2 == data["ally"].id,
         )
         .first()
         is None
@@ -1125,8 +1120,8 @@ def test_delete_relationship_paths(
     reseed_session = make_session()
     reseed_session.add(
         db.Relationship(
-            npc_name_1=data["ally"].name,
-            npc_name_2=data["extra"].name,
+            npc_id_1=data["ally"].id,
+            npc_id_2=data["extra"].id,
             name="Friend",
         ),
     )
