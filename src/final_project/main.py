@@ -65,12 +65,12 @@ def _setup_arguments() -> argparse.Namespace:
     )
     loglevel_group = parser.add_mutually_exclusive_group()
     loglevel_group.add_argument(
-        "--log-error",
+        "--log-warning",
         "-v",
         help="Enable logging",
         action="store_const",
-        const=LogLevels.ERROR,
-        default=LogLevels.CRITICAL,
+        const=LogLevels.WARNING,
+        default=LogLevels.ERROR,
         dest="loglevel",
     )
     loglevel_group.add_argument(
@@ -79,7 +79,7 @@ def _setup_arguments() -> argparse.Namespace:
         help="Enable verbose logging",
         action="store_const",
         const=LogLevels.INFO,
-        default=LogLevels.CRITICAL,
+        default=LogLevels.ERROR,
         dest="loglevel",
     )
     loglevel_group.add_argument(
@@ -88,7 +88,7 @@ def _setup_arguments() -> argparse.Namespace:
         help="Enable very verbose logging (all)",
         action="store_const",
         const=LogLevels.DEBUG,
-        default=LogLevels.CRITICAL,
+        default=LogLevels.ERROR,
         dest="loglevel",
     )
 
