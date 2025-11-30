@@ -18,6 +18,7 @@ from collections.abc import Iterator
 from contextlib import nullcontext
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
 from types import TracebackType
 from typing import Any
 from typing import Self
@@ -1353,6 +1354,19 @@ def test_export_database_ddl_outputs_schema(
     ddl_text = buffer.getvalue()
     assert "CREATE DATABASE IF NOT EXISTS" in ddl_text
     assert "CREATE TABLE" in ddl_text
+
+
+def test_export_database_ddl_handles_empty_schema(
+    memory_engine: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert memory_engine is not None
+    buffer = io.StringIO()
+    monkeypatch.setattr(db, "_read_config", lambda: {"DB": {"database": "demo"}})
+    empty_metadata = SimpleNamespace(sorted_tables=())
+    monkeypatch.setattr(db.Base, "metadata", empty_metadata)
+    db.export_database_ddl(buffer)
+    assert buffer.getvalue() == "-- No tables defined.\n"
 
 
 def test_cli_prints_help(monkeypatch: pytest.MonkeyPatch) -> None:
