@@ -37,37 +37,58 @@ The ERD (authored in `docs/erd.uml`, rendered to `docs/images/erd.png`) illustra
 - Join tables enforce composite PKs/unique constraints so every NPC-faction, NPC-encounter, or NPC↔NPC relationship pair remains unique.
 
 ## 3. DDL & Schema Management
-- **Source of truth:** `data/db.ddl` mirrors the SQLAlchemy metadata.
+- **Source of truth:** 
+  - `data/db.ddl` mirrors the SQLAlchemy metadata.
   - `apply_external_schema_with_connector()` uses `mysql-connector-python` to apply this ddl and is run when `-d/--load-with-ddl` argument is passed.
-- **Structure:** every table declares explicit PKs, FKs, and enumerated columns. Unique keys such as `ix_npc_name` and `ix_location_name` are defined inline, ensuring MySQL 8 compatibility without `CREATE INDEX ... IF NOT EXISTS` syntax.
+- **Structure:**
+  - Every table declares explicit PKs, FKs,
+  - Enumerated columns, constraints and indexes are used.
+  - `npc`, `location` are limited to be unique per name per campaign.
+  - `encounter` is limited to be unique per location,date per campaign.
 - **Referential constraints:**
-  - Foreign keys link `npc.campaign_name` → `campaign.name`, `faction_members.npc_name` → `npc.name`, etc.
-  - Cascades are now explicit in the DDL/ORM: campaign-linked tables (`location`, `npc`, `encounter`, `faction`, join tables) cascade on update/delete, join tables cascade in both directions, and `species` stays `ON DELETE RESTRICT` to guard taxonomy edits. The database enforces the same rules described in the GUI delete flows.
-- **Checks and enumerations:** enumerated types (gender, alignment, location type, campaign status) provide server-side validation. Additional business rules (non-empty names, valid image paths) are handled in the GUI/logic layer before hitting the database.
-- **Location of credentials:** `.env` supplies `DB_USERNAME` and `DB_PASSWORD`; `config.toml` keeps host, port, database, and driver details. `DBConfig` (Pydantic) validates those inputs before constructing SQLAlchemy URLs.
+  - Foreign keys link `npc.campaign_name` → `campaign.name`, `faction_members.npc_id` → `npc.id`, etc.
+  - Cascades are explicit in the DDL/ORM: campaign-linked tables (`location`, `npc`, `encounter`, `faction`, join tables) cascade on update/delete, join tables cascade in both directions, and `species` stays `ON DELETE RESTRICT` to guard edits.
+- **Checks and enumerations:** 
+  - Enumerated types (gender, alignment, location type, campaign status) provide server-side validation.
+  - Additional business rules such as valid image paths are handled in the GUI/logic layer before hitting the database.
+- **Location of credentials:** 
+  - `.env` supplies `DB_USERNAME` and `DB_PASSWORD`
+  - `config.toml` keeps host, port, database, and driver details. 
+  - `DBConfig` (Pydantic) validates those inputs before constructing SQLAlchemy URLs.
 
 ## 4. CRUD Guide
 Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. Below is a quick reference tying screens to tables:
 
-- **Campaign management (Menu bar → Campaign selector):** touches `campaign`, and when deleting it cascades to `npc`, `location`, `encounter`, `faction`, `faction_members`, `relationship`, and `encounter_participants` via helper functions.
+- **Campaign management (Menu bar → Campaign selector):** touches `campaign`, and when deleting it cascades to `npc`, `location`, `encounter`, `faction`, `faction_members`, `relationship`, and `encounter_participants`.
 - **NPC editor (Sidebar → NPC):** creates/updates rows in `npc`, optionally adds `species` and `campaign` via lookups, stores portrait blobs, and affects `faction_members` or `encounter_participants` when secondary dialogs are used.
-- **Location editor (Sidebar → Location):** writes to `location`, references `campaign`, and seeds encounter picklists.
+- **Location editor (Sidebar → Location):** writes to `location`, references `campaign`, and seeds encounter dropdowns.
 - **Encounter editor + Participants dialog:** inserts into `encounter` (campaign/location FKs) and `encounter_participants` for NPC assignments with notes.
 - **Faction workspace:** CRUD on `faction` and `faction_members`. The GUI enforces single-membership semantics by clearing prior rows before inserting a new assignment.
 - **Relationship dialog:** manipulates the `relationship` join table to capture mentor/rival connections between two NPCs from the same campaign.
-- **Sample seeding prompt:** when the core tables are empty the GUI offers to import all bundled YAML fixtures in one click; `--list-npcs` remains available for quick CLI inspection.
+- **Sample seeding prompt:** 
+  - When the core tables are empty the GUI offers to import all bundled YAML fixtures in one click
+  - `--list-npcs` remains available for quick CLI inspection.
 
 ## 5. Run Instructions
 1. **Prerequisites:** Python 3.13+, `uv`, and a reachable MySQL 8 server. Optional: `.llamafile` models (drop into `data/llm/`) if you want AI-generated names.
 2. **Install dependencies:**
-   ```powershell
-   uv sync --extra dev
+   ```shell
+   pip install uv
+   git clone https://github.com/rbroderi/TTRPGDataManager.git
+  ```
+  or
+  ```shell
+   unzip supplied zip to TTRPGDataManager/
+  ``` 
+  ```shell
+   cd TTRPGDataManager
+   uv sync
    ```
 3. **Configure secrets:**
    ```ini
    # .env
-   DB_USERNAME=final_project_user
-   DB_PASSWORD=change_me
+   DB_USERNAME=USERNAME
+   DB_PASSWORD=PASSWORD
 
    # config.toml
    [DB]
