@@ -1308,7 +1308,7 @@ def export_database_ddl(stream: TextIO | None = None) -> None:
     """Write CREATE TABLE/INDEX statements for the schema to a stream."""
     target = stream or sys.stdout
     engine = connect()
-    statements: list[str] = []
+    table_statements: list[str] = []
     try:
         dialect = engine.dialect
         preparer = dialect.identifier_preparer
@@ -1318,26 +1318,26 @@ def export_database_ddl(stream: TextIO | None = None) -> None:
         collation = db_settings.get("collation", "utf8mb4_unicode_ci")
         quoted_db = preparer.quote(database_name)
 
-        statements.append(
-            f"CREATE DATABASE IF NOT EXISTS {quoted_db}\n"
-            f"    CHARACTER SET {charset}\n"
-            f"    COLLATE {collation}",
-        )
-        statements.append(f"USE {quoted_db}")
-
         for table in Base.metadata.sorted_tables:
             table_sql = str(CreateTable(table).compile(dialect=dialect))
-            statements.append(table_sql)
+            table_statements.append(table_sql)
             index_statements = [
                 str(CreateIndex(index).compile(dialect=dialect))
                 for index in table.indexes
             ]
-            statements.extend(index_statements)
+            table_statements.extend(index_statements)
     finally:
         engine.dispose()
-    if not statements:
+    if not table_statements:
         target.write("-- No tables defined.\n")
         return
+    statements = [
+        f"CREATE DATABASE IF NOT EXISTS {quoted_db}\n"
+        f"    CHARACTER SET {charset}\n"
+        f"    COLLATE {collation}",
+        f"USE {quoted_db}",
+        *table_statements,
+    ]
     formatted = [f"{statement.rstrip()};" for statement in statements]
     output = "\n\n".join(formatted) + "\n"
     target.write(output)
