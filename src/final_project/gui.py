@@ -26,6 +26,7 @@ from final_project.llmrunner import LLM_DOWNLOAD_SIZE_GB
 from final_project.llmrunner import did_text_llm_server_fail
 from final_project.llmrunner import download_llm_asset
 from final_project.llmrunner import generate_portrait_from_image_llm
+from final_project.llmrunner import get_llm_asset_requirements
 from final_project.llmrunner import get_missing_llm_assets
 from final_project.llmrunner import get_random_name_from_text_llm
 from final_project.llmrunner import is_text_llm_server_ready
@@ -414,6 +415,8 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         self._llm_watch_job: str | None = None
         self._llm_server_started = False
         self._llm_download_in_progress = False
+        self._text_model_available = True
+        self._image_model_available = True
 
         self.splash_frame = ctk.CTkFrame(self)
         self.splash_frame.pack(expand=True, fill="both")
@@ -583,19 +586,25 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         self._set_image_overlay_enabled(True)
 
     def _set_image_overlay_enabled(self, enabled: bool) -> None:
-        if self._image_overlay_icon is not None:
-            self._image_overlay_icon.set_enabled(enabled)
+        if self._image_overlay_icon is None:
+            return
+        effective = (
+            enabled
+            and self._image_model_available
+            and not self._llm_download_in_progress
+        )
+        self._image_overlay_icon.set_enabled(effective)
 
     def _attach_npc_name_overlay(self, widget: CTkEntry) -> None:
         icon = RandomIcon(
             widget.master,
             command=self._handle_npc_name_overlay_click,
         )
-        icon.set_enabled(self._llm_ready)
         icon.place(in_=widget, relx=1.0, rely=0.5, x=-20, anchor="center")
         icon.lift()
         widget.bind("<Configure>", lambda _: icon.lift())
         self._field_overlay_icons.setdefault("NPC", []).append(icon)
+        self._set_random_name_icon_enabled(self._llm_ready)
 
     def _handle_faction_focus_event(self, event: Event | None = None) -> None:
         del event
@@ -2178,6 +2187,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         if self._llm_download_in_progress:
             return
         missing = get_missing_llm_assets()
+        self._update_llm_asset_availability(missing)
         if not missing:
             self._start_llm_server()
             return
@@ -2211,6 +2221,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         if self._llm_download_in_progress:
             return
         self._llm_download_in_progress = True
+        self._sync_llm_controls()
         dialog = LLMProgressDialog(self)
         dialog.update_status("Preparing download...", None)
 
@@ -2243,6 +2254,36 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
             daemon=True,
         ).start()
 
+    def _update_llm_asset_availability(
+        self,
+        missing_assets: Sequence[LLMAssetDownloadSpec] | None = None,
+    ) -> None:
+        specs = get_llm_asset_requirements()
+        assets = (
+            missing_assets if missing_assets is not None else get_missing_llm_assets()
+        )
+        missing_paths = {spec.path for spec in assets}
+        image_available = True
+        text_available = True
+        image_found = False
+        text_found = False
+        for spec in specs:
+            available = spec.path not in missing_paths
+            suffix = spec.path.suffix.lower()
+            if suffix == ".safetensors" and not image_found:
+                image_found = True
+                image_available = available
+            elif suffix == ".llamafile" and not text_found:
+                text_found = True
+                text_available = available
+        if not image_found:
+            image_available = True
+        if not text_found:
+            text_available = True
+        self._image_model_available = image_available
+        self._text_model_available = text_available
+        self._sync_llm_controls()
+
     def _update_llm_download_dialog(
         self,
         dialog: LLMProgressDialog,
@@ -2258,6 +2299,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         exc: Exception,
     ) -> None:
         self._llm_download_in_progress = False
+        self._update_llm_asset_availability()
         if dialog.winfo_exists():
             dialog.close()
         messagebox.showerror(
@@ -2267,6 +2309,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
 
     def _handle_llm_download_success(self, dialog: LLMProgressDialog) -> None:
         self._llm_download_in_progress = False
+        self._update_llm_asset_availability()
         if dialog.winfo_exists():
             dialog.close()
         messagebox.showinfo(
@@ -2284,7 +2327,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
     def _initialize_llm_generator_state(self) -> None:
         status = self._get_llm_server_status()
         self._llm_ready = status is _LLMServerStatus.READY
-        self._set_random_name_icon_enabled(self._llm_ready)
+        self._sync_llm_controls()
         if status is _LLMServerStatus.WAITING:
             self._schedule_llm_readiness_check()
 
@@ -2301,17 +2344,26 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         status = self._get_llm_server_status()
         if status is _LLMServerStatus.READY:
             self._llm_ready = True
-            self._set_random_name_icon_enabled(True)
+            self._sync_llm_controls()
             return
         if status is _LLMServerStatus.FAILED:
             self._llm_ready = False
-            self._set_random_name_icon_enabled(True)
+            self._sync_llm_controls()
             return
         self._schedule_llm_readiness_check()
 
     def _set_random_name_icon_enabled(self, enabled: bool) -> None:
+        effective = (
+            enabled
+            and self._text_model_available
+            and not self._llm_download_in_progress
+        )
         for icon in self._field_overlay_icons.get("NPC", []):
-            icon.set_enabled(enabled)
+            icon.set_enabled(effective)
+
+    def _sync_llm_controls(self) -> None:
+        self._set_random_name_icon_enabled(self._llm_ready)
+        self._set_image_overlay_enabled(not self._image_generation_in_progress)
 
     def replace_image(self) -> None:
         """Prompt the user to select a new portrait image for the preview panel."""
