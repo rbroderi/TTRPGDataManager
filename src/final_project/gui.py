@@ -417,6 +417,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         self._llm_download_in_progress = False
         self._text_model_available = True
         self._image_model_available = True
+        self._llm_asset_probe_running = False
 
         self.splash_frame = ctk.CTkFrame(self)
         self.splash_frame.pack(expand=True, fill="both")
@@ -2184,9 +2185,36 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         name_widget.focus_set()
 
     def _prepare_llm_assets(self) -> None:
-        if self._llm_download_in_progress:
+        if self._llm_download_in_progress or self._llm_asset_probe_running:
             return
-        missing = get_missing_llm_assets()
+        self._llm_asset_probe_running = True
+
+        def _probe() -> None:
+            try:
+                missing_assets = get_missing_llm_assets()
+            except Exception as exc:  # pragma: no cover - defensive UI path
+                logger.exception("failed to inspect llm assets")
+                self.after(0, lambda err=exc: self._handle_llm_probe_failure(err))
+                return
+            self.after(
+                0,
+                lambda specs=missing_assets: self._handle_llm_probe_result(specs),
+            )
+
+        threading.Thread(target=_probe, name="llm-asset-probe", daemon=True).start()
+
+    def _handle_llm_probe_failure(self, exc: Exception) -> None:
+        self._llm_asset_probe_running = False
+        messagebox.showerror(
+            "LLM Initialization",
+            (f"Unable to inspect the local LLM assets.\n\nDetails: {exc}"),
+        )
+
+    def _handle_llm_probe_result(
+        self,
+        missing: Sequence[LLMAssetDownloadSpec],
+    ) -> None:
+        self._llm_asset_probe_running = False
         self._update_llm_asset_availability(missing)
         if not missing:
             self._start_llm_server()
