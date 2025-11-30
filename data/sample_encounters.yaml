@@ -1,6 +1,6 @@
 - description: "Skyreaver corsairs attempt to sabotage Dragonfall's ballast engines during a public festival."
   date: 2025-11-28
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/encounters/inner_city.jpg"
   campaign:
     name: "Dragonfall"
     start_date: 2025-11-19

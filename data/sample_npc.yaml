@@ -16,7 +16,7 @@
   abilities:
     favored_spell: "song of restoration"
     signature_weapon: "silver rapier"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/npcs/Old Zoya.jpg"
 - name: "Elandril Moonwhisper"
   gender: MALE
   age: 145
@@ -35,7 +35,7 @@
   abilities:
     favored_spell: "song of restoration"
     signature_weapon: "silver rapier"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/npcs/deep_dreg_elf.jpg"
 - name: "Brynn Stoneward"
   gender: FEMALE
   age: 38
@@ -53,7 +53,7 @@
   abilities:
     fighting_style: "shield wall"
     oath: "protect the pact"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/npcs/Frida Longhorn.jpg"
 - name: "Kess Tandem"
   gender: NONBINARY
   age: 27
@@ -71,7 +71,7 @@
   abilities:
     specialty: "shadow jaunt"
     backup_plan: "illusion dust"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/npcs/River.jpg"
 - name: "Maela Emberfall"
   gender: FEMALE
   age: 31
@@ -89,7 +89,7 @@
   abilities:
     circle: "wildfire"
     bonded_companion: "ember fox"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/npcs/Flamekeeper Hanna.jpg"
 - name: "Torven Blackbriar"
   gender: MALE
   age: 52
@@ -107,7 +107,7 @@
   abilities:
     specialty: "blackmail ledgers"
     contingency: "hidden safehouse"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/npcs/Nathaniel Flint.jpg"
 - name: "Lira Duskpetal"
   gender: FEMALE
   age: 24
@@ -125,7 +125,7 @@
   abilities:
     instrument: "crystal harp"
     glamour: "illusory chorus"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/npcs/Ophelia Reed.jpg"
 - name: "Garruk Steamfist"
   gender: MALE
   age: 33
@@ -143,7 +143,7 @@
   abilities:
     tool: "integrated smithy"
     companion: "clockwork sparrow"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/npcs/silver_order_paladian.jpg"
 - name: "Nyssa Frostgale"
   gender: FEMALE
   age: 42
@@ -161,7 +161,7 @@
   abilities:
     rite: "echo tablet"
     weapon: "runed maul"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/npcs/Ser Cassandra Wyatt.jpg"
 - name: "Calder Thornbrook"
   gender: MALE
   age: 36
@@ -179,7 +179,7 @@
   abilities:
     specialty: "threefold tonic"
     assistant: "chatty raven"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/npcs/Lemminton Whithalf.jpg"
 - name: "Veska Ironroot"
   gender: FEMALE
   age: 58
@@ -197,4 +197,4 @@
   abilities:
     leverage: "legion contracts"
     keepsake: "ancestral torque"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/npcs/deep_dreg_woman.jpg"

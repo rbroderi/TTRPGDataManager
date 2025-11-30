@@ -5,7 +5,7 @@
     name: "Dragonfall"
     start_date: 2025-11-19
     status: "ACTIVE"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/locations/drakkenheim_cityscape.jpg"
 - name: "Hollowshade Assembly"
   type: "INTERIOR"
   description: "An abandoned dwarven senate chamber whose glass floor hangs over a sea of magma."
@@ -13,7 +13,7 @@
     name: "Iron Pact"
     start_date: 2024-03-08
     status: "ACTIVE"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/locations/ashbay.jpg"
 - name: "Glimmersand Vault"
   type: "DUNGEON"
   description: "Crystalline tunnels that amplify whispers into booming commands guarded by prismatic golems."
@@ -21,7 +21,7 @@
     name: "Dragonfall"
     start_date: 2025-11-19
     status: "ACTIVE"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/locations/queens_park_grotto.jpg"
 - name: "Frostbridge Watch"
   type: "WILDERNESS"
   description: "A wind-scoured cliff fort overseeing the only thawed pass between Iron Pact's border keeps."
@@ -29,7 +29,7 @@
     name: "Iron Pact"
     start_date: 2024-03-08
     status: "ACTIVE"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/locations/queens_part_1.jpg"
 - name: "Veinsong Nursery"
   type: "INTERIOR"
   description: "Luminous caverns where dryads weave living cables to power Dragonfall's ward engines."
@@ -37,7 +37,7 @@
     name: "Dragonfall"
     start_date: 2025-11-19
     status: "ACTIVE"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/locations/queens_park_2.jpg"
 - name: "Ironroot Depot"
   type: "TOWN"
   description: "A subterranean freight junction whose rails lead to every Iron Pact siege foundry."
@@ -45,4 +45,4 @@
     name: "Iron Pact"
     start_date: 2024-03-08
     status: "ACTIVE"
-  image_path: "data/img/placeholder.png"
+  image_path: "data/img/samples/locations/queens_park_3.jpg"
