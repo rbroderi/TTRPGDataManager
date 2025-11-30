@@ -66,7 +66,7 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
 - **Relationship dialog:** manipulates the `relationship` join table to capture mentor/rival connections between two NPCs from the same campaign.
 - **Sample seeding prompt:** 
   - When the core tables are empty the GUI offers to import all bundled YAML fixtures in one click
-  - `--list-npcs` remains available for quick CLI inspection.
+  - `--list-npcs` remains available for quick CLI inspection and prints a tabular view (NPC, campaign, faction, relationships).
 
 ## 5. Run Instructions
 1. **Prerequisites:** Python 3.13+, `uv`, and a reachable MySQL 8 server. Optional: `.llamafile` models (drop into `data/llm/`) if you want AI-generated names.
@@ -143,6 +143,6 @@ environment is already active) and combine the following flags as needed:
   `-vv/--log-info` (info), `-vvv/--log-debug` (debug). Default is `ERROR`.
 - **`--load-with-ddl`, `-d`** – Apply `data/db.ddl` via mysql-connector before any other work
 - **`--rebuild`** – Drop and recreate all tables using the ORM metadata, then exit.
-- **`--list-npcs`** – Print every NPC currently in the database (requires connectivity).
+- **`--list-npcs`** – Print every NPC currently in the database as a GitHub-style table showing the campaign, faction (with notes), and relationship links (requires connectivity).
 
 If no maintenance flags are supplied, the CLI launches the CustomTkinter GUI.
