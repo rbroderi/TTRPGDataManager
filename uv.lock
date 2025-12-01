@@ -211,7 +211,6 @@ dependencies = [
     { name = "sqlalchemy" },
     { name = "structlog" },
     { name = "tabulate" },
-    { name = "tkfontawesome" },
     { name = "tkhtmlview" },
 ]
 
@@ -265,7 +264,6 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.0.44" },
     { name = "structlog", specifier = ">=25.5.0" },
     { name = "tabulate", specifier = ">=0.9.0" },
-    { name = "tkfontawesome", specifier = ">=0.3.2" },
     { name = "tkhtmlview", specifier = ">=0.1.1.post1" },
     { name = "types-pyautogui", marker = "extra == 'dev'", specifier = ">=0.9.3.20241230" },
     { name = "types-pygments", marker = "extra == 'dev'", specifier = ">=2.19.0.20251121" },
@@ -994,19 +992,6 @@ wheels = [
 ]
 
 [[package]]
-name = "tkfontawesome"
-version = "0.3.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "lxml" },
-    { name = "tksvg" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/05/9d/13464ad97c6440234da802db4f681386341d8f78f4823c459dcb15c8bfb0/tkfontawesome-0.3.2.tar.gz", hash = "sha256:8286d8be06d537e18bc670a0211b13af222ac564d6e0211608dfff97653eefde", size = 480398 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/a4/60/cb35ababbb3fd09eb0e7b9008e9a787cc77c553a2811280cd5d0068f6601/tkfontawesome-0.3.2-py3-none-any.whl", hash = "sha256:12b56d86206c5fc719012f5770f40d408da7acd59f6ea08bc07ce5cd921fab2a", size = 480810 },
-]
-
-[[package]]
 name = "tkhtmlview"
 version = "0.1.1.post1"
 source = { registry = "https://pypi.org/simple" }
@@ -1017,15 +1002,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e9/16/1c70dd9fde66dbd256a4583c7aa5db4ccf3be8539ab4e13fd37c42dc560d/tkhtmlview-0.1.1.post1.tar.gz", hash = "sha256:ecc0882bc50f4b2ff3899e543b0991de470b8472194f8596e90d1fc0c6986734", size = 11770 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/81/9f/0238a7e1d3d9f2d4601c0c55b0f4d40926a297ff8f1e3a20f28b9e8cdc93/tkhtmlview-0.1.1.post1-py3-none-any.whl", hash = "sha256:387c3b127d31dd30e2f23c719622f211280220ca13d451a7f254af4f69f75113", size = 10474 },
-]
-
-[[package]]
-name = "tksvg"
-version = "0.7.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c5/73/39960696fa563162edcf21bef52453cc7cfb965a0bb1e413730237de0aa3/tksvg-0.7.4.tar.gz", hash = "sha256:e451c4301814306547afca80680e6db0cc6720b7d6cc3dca56beb17c2b29c0f5", size = 50395 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c1/31/bb2da3f9ea480b273d3319430e24bb74e8b202fb8a90fa0a3689b9e5c51f/tksvg-0.7.4-py3-none-win_amd64.whl", hash = "sha256:1e96830e3e92d12390aee3460dab2aab169bd3b1cb59ba478329c1e6bc3edd2a", size = 173345 },
 ]
 
 [[package]]
