@@ -20,7 +20,7 @@ jobs:
             python: "3.13"
             homebrew_python: false
           - os: macos-latest
-            python: "3.13"
+            python: "3.14"
             homebrew_python: true
 
     steps:
@@ -45,7 +45,7 @@ jobs:
           PY_VERSION: ${{ matrix.python }}
         run: |
           brew update
-          brew install cmake ninja tcl-tk python@${PY_VERSION} pkg-config
+          brew install cmake ninja tcl-tk python@${PY_VERSION} python-tk@${PY_VERSION} pkg-config
           PY_PREFIX="$(brew --prefix python@${PY_VERSION})"
           echo "${PY_PREFIX}/bin" >> $GITHUB_PATH
           ln -sf "${PY_PREFIX}/bin/python3" "${PY_PREFIX}/bin/python"
@@ -55,6 +55,7 @@ jobs:
           echo "TK_LIBRARY=${TCL_TK_PREFIX}/lib" >> $GITHUB_ENV
           echo "LDFLAGS=-L${TCL_TK_PREFIX}/lib" >> $GITHUB_ENV
           echo "CPPFLAGS=-I${TCL_TK_PREFIX}/include" >> $GITHUB_ENV
+          echo "DYLD_LIBRARY_PATH=${TCL_TK_PREFIX}/lib" >> $GITHUB_ENV
 
       - name: Install uv
         run: |
