@@ -1772,7 +1772,6 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
         """Return newline separated attribution text for bundled assets."""
         parts = [
             "Attributions:",
-            "- Font Awesome Free icons: https://fontawesome.com/",
             "- CustomTkinter UI toolkit: https://github.com/TomSchimansky/CustomTkinter",
         ]
         return "\n".join(parts)

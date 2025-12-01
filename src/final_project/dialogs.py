@@ -9,6 +9,7 @@ import customtkinter as ctk  # type: ignore[import-untyped]
 from lazi.core import lazi
 
 from final_project import settings_manager
+from final_project.paths import PROJECT_ROOT
 from final_project.widgets import HtmlPreviewWindow
 
 with lazi:  # type: ignore[attr-defined]
@@ -19,6 +20,7 @@ with lazi:  # type: ignore[attr-defined]
     from collections.abc import Mapping
     from collections.abc import Sequence
     from contextlib import suppress
+    from functools import cache
     from tkinter import messagebox
     from typing import Any
     from typing import Protocol
@@ -26,10 +28,37 @@ with lazi:  # type: ignore[attr-defined]
     from typing import runtime_checkable
 
     import structlog
-    import tkfontawesome as tkfa  # type: ignore[import-untyped]
-    from PIL import ImageTk
+    from PIL import Image
 
 logger = structlog.getLogger("final_project")
+TRASH_ICON_PATH = PROJECT_ROOT / "data" / "img" / "trashcan.png"
+
+try:
+    _ICON_RESAMPLE = Image.Resampling.LANCZOS  # type: ignore[attr-defined]
+except AttributeError:  # pragma: no cover
+    _fallback_resample = getattr(Image, "BICUBIC", getattr(Image, "NEAREST", 0))
+    _ICON_RESAMPLE = getattr(Image, "LANCZOS", _fallback_resample)
+
+
+@cache
+def _load_trash_bitmap(path: str, height: int) -> Image.Image:
+    try:
+        with Image.open(path) as raw_image:
+            image = raw_image.convert("RGBA")
+    except OSError:
+        logger.warning("failed to load trash icon asset", path=path)
+        size = max(height, 12)
+        return Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    if height > 0 and image.height != height:
+        scale = height / image.height
+        width = max(1, round(image.width * scale))
+        image = image.resize((width, height), _ICON_RESAMPLE)
+    return image
+
+
+def _build_trash_icon(height: int) -> ctk.CTkImage:
+    bitmap = _load_trash_bitmap(str(TRASH_ICON_PATH), height)
+    return ctk.CTkImage(light_image=bitmap, dark_image=bitmap, size=bitmap.size)
 
 
 @dataclass(frozen=True, slots=True)
@@ -564,15 +593,7 @@ class RelationshipDialog(ctk.CTkToplevel):  # type: ignore[misc]
         self.source_name = source_name
         self.campaign = campaign
         self._target_option_map: dict[str, int] = {}
-        trash_photo = tkfa.icon_to_image(
-            "trash",
-            fill="white",
-            scale_to_height=16,
-        )
-        self._delete_icon = ctk.CTkImage(
-            light_image=ImageTk.getimage(cast(Any, trash_photo)),
-            size=(16, 16),
-        )
+        self._delete_icon = _build_trash_icon(16)
 
         self.title("Relationships")
         self._build_layout()
@@ -752,15 +773,7 @@ class EncounterMembersDialog(ctk.CTkToplevel):  # type: ignore[misc]
         self._current_members: set[int] = set()
         self._npc_option_map: dict[str, int] = {}
 
-        trash_photo = tkfa.icon_to_image(
-            "trash",
-            fill="white",
-            scale_to_height=16,
-        )
-        self._delete_icon = ctk.CTkImage(
-            light_image=ImageTk.getimage(cast(Any, trash_photo)),
-            size=(16, 16),
-        )
+        self._delete_icon = _build_trash_icon(16)
 
         self.title("Encounter Members")
         self.resizable(width=False, height=False)

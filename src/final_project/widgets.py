@@ -18,6 +18,7 @@ from final_project.db import create_campaign
 from final_project.db import delete_campaign
 from final_project.db import get_campaigns
 from final_project.db import get_types
+from final_project.paths import PROJECT_ROOT
 
 with lazi:  # type: ignore[attr-defined]
     import logging
@@ -35,12 +36,7 @@ with lazi:  # type: ignore[attr-defined]
     from typing import cast
 
     import structlog
-    import tkfontawesome as tkfa  # type: ignore[import-untyped]
     from PIL import Image
-    from PIL import ImageChops
-    from PIL import ImageFilter
-    from PIL import ImageOps
-    from PIL import ImageTk
     from tkhtmlview import HTMLScrolledText
 
 
@@ -51,6 +47,31 @@ pil_logger.setLevel(logging.INFO)
 type CallableNoArgs = Callable[[], None]
 ColorPair = tuple[str, str]
 COLOR_PAIR_SIZE = 2
+RANDOM_ICON_PATH = PROJECT_ROOT / "data" / "img" / "random_icon.png"
+
+
+try:
+    _RESAMPLE_FILTER = Image.Resampling.LANCZOS  # type: ignore[attr-defined]
+except AttributeError:  # pragma: no cover
+    _fallback_resample = getattr(Image, "BICUBIC", getattr(Image, "NEAREST", 0))
+    _RESAMPLE_FILTER = getattr(Image, "LANCZOS", _fallback_resample)
+
+
+@cache
+def _load_icon_bitmap(path: str, height: int) -> Image.Image:
+    """Return a resized RGBA image for the provided asset path."""
+    try:
+        with Image.open(path) as raw_image:
+            image = raw_image.convert("RGBA")
+    except OSError:
+        logger.warning("failed to load icon asset", path=path)
+        size = max(height, 12)
+        return Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    if height > 0 and image.height != height:
+        scale = height / image.height
+        width = max(1, round(image.width * scale))
+        image = image.resize((width, height), _RESAMPLE_FILTER)
+    return image
 
 
 def _dict_str_any() -> dict[str, Any]:
@@ -1178,54 +1199,20 @@ class RandomIcon(ctk.CTkLabel):  # type: ignore[misc]
     @staticmethod
     @cache
     def _build_random_icon(height: int = 36, *, disabled: bool = False) -> ctk.CTkImage:
-        """Return a CTkImage that layers a die inside the recycle glyph."""
-        recycle_img = tkfa.icon_to_image(  # pyright: ignore[reportUnknownMemberType]
-            "rotate",
-            fill="black",
-            scale_to_height=height,
-        )
-        dice_img = tkfa.icon_to_image(  # pyright: ignore[reportUnknownMemberType]
-            "dice-three",
-            fill="black",
-            scale_to_height=max(height // 2, 6),
-        )
-        recycle_photo = cast(Any, recycle_img)
-        dice_photo = cast(Any, dice_img)
-        base = ImageTk.getimage(recycle_photo).copy().convert("RGBA")
-        alpha = base.getchannel("A")
-        eroded = alpha.filter(ImageFilter.MinFilter(size=3))
-        thickness_delta = ImageChops.subtract(alpha, eroded)
-        mask = thickness_delta.filter(ImageFilter.GaussianBlur(radius=1))
-        mask = ImageOps.autocontrast(mask)
-        adaptive_alpha = Image.composite(eroded, alpha, mask)
-        edges = adaptive_alpha.filter(ImageFilter.FIND_EDGES)
-        combined_alpha = ImageChops.lighter(adaptive_alpha, edges)
-        combined_alpha = combined_alpha.filter(ImageFilter.MaxFilter(size=3))
-        combined_alpha = combined_alpha.filter(ImageFilter.MinFilter(size=3))
-
-        hard_edge_cutoff = 254
-
-        def _hard_edge(alpha_value: int) -> int:
-            return 255 if alpha_value > hard_edge_cutoff else 0
-
-        combined_alpha = combined_alpha.point(_hard_edge)  # pyright: ignore[reportUnknownMemberType]
-        base.putalpha(combined_alpha)
-        overlay = ImageTk.getimage(dice_photo).copy().convert("RGBA")
-        x = (base.width - overlay.width) // 2
-        y = (base.height - overlay.height) // 2
-        base.alpha_composite(overlay, dest=(x, y))
+        """Return a CTkImage built from the bundled random icon asset."""
+        bitmap = _load_icon_bitmap(str(RANDOM_ICON_PATH), height).copy()
         if disabled:
-            alpha_channel = base.getchannel("A")
+            alpha_channel = bitmap.getchannel("A")
 
             def _fade(value: int) -> int:
                 return int(value * 0.35)
 
-            faded_alpha = alpha_channel.point(_fade)  # pyright: ignore[reportUnknownMemberType]
-            grey_layer = Image.new("RGBA", base.size, (200, 200, 200, 0))
+            faded_alpha = alpha_channel.point(_fade)
+            grey_layer = Image.new("RGBA", bitmap.size, (200, 200, 200, 0))
             grey_layer.putalpha(faded_alpha)
-            base = grey_layer
+            bitmap = grey_layer
         return ctk.CTkImage(
-            light_image=base,
-            dark_image=base,
-            size=(base.width, base.height),
+            light_image=bitmap,
+            dark_image=bitmap,
+            size=bitmap.size,
         )

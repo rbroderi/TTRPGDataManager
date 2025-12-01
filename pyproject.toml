@@ -25,8 +25,6 @@ dependencies = [
     "pywinstyles>=1.8; sys_platform == \"win32\"",
     "requests>=2.32.5",
     "rich>=14.2.0",
-    "scikit-build>=0.18; sys_platform != \"win32\"",
-    "hatchling>=1.26.0; sys_platform != \"win32\"",
     "sqlalchemy>=2.0.44",
     "structlog>=25.5.0",
     "tkfontawesome>=0.3.2",
@@ -56,10 +54,6 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.uv.extra-build-dependencies]
-pyautogui = ["setuptools"]
-"final-project" = ["editables"]
 
 [tool.mypy]
 files = ["src/final_project"]
