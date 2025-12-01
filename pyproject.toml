@@ -181,6 +181,9 @@ project-dependency-updates = { level = "hint" }
 project-dependencies-version-bounds = "off"
 project-requires-python-bounds = "off"
 
+[tool.uv.extra-build-dependencies]
+tksvg = ["scikit-build"]
+
 [tool.coverage.report]
 exclude_also = [
     # 2. Comments to turn coverage on and off:
