@@ -214,3 +214,4 @@ typings/
 ~*
 string.txt
 desktop.ini
+*.log
