@@ -1280,6 +1280,71 @@ def test_apply_external_schema_success(  # noqa: C901 - helper classes inline
     assert connection.cursor_calls == 1
 
 
+def test_apply_external_schema_drop_database_first(  # noqa: C901 - helper classes inline
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ddl = tmp_path / "schema.ddl"
+    ddl.write_text("CREATE TABLE demo();", encoding="utf-8")
+    monkeypatch.setattr(db, "_read_config", lambda: {"DB": {"database": "demo"}})
+    monkeypatch.setattr(db, "_get_env_var", lambda name: f"{name.lower()}_value")
+
+    class RecordingCursor:
+        def __init__(self) -> None:
+            self.executed_sql: list[str] = []
+
+        def __enter__(self) -> Self:
+            return self
+
+        def __exit__(
+            self,
+            _exc_type: type[BaseException] | None,
+            _exc: BaseException | None,
+            _tb: TracebackType | None,
+        ) -> None:
+            return None
+
+        def execute(self, sql: str) -> None:
+            self.executed_sql.append(sql)
+
+        def fetchsets(self) -> list[tuple[str, list[str]]]:
+            return []
+
+    class RecordingConnection:
+        def __init__(self) -> None:
+            self.cursor_obj = RecordingCursor()
+            self.closed = False
+
+        def cursor(self) -> RecordingCursor:
+            return self.cursor_obj
+
+        def commit(self) -> None:
+            return None
+
+        def rollback(self) -> None:
+            return None
+
+        def close(self) -> None:
+            self.closed = True
+
+    connection = RecordingConnection()
+
+    def connect(**_kwargs: Any) -> RecordingConnection:
+        return connection
+
+    monkeypatch.setattr(
+        db,
+        "mysql_connector",
+        type("Connector", (), {"connect": connect}),
+    )
+    db.apply_external_schema_with_connector(path=ddl, drop_database_first=True)
+    assert connection.closed is True
+    assert connection.cursor_obj.executed_sql
+    recorded_sql = connection.cursor_obj.executed_sql[0]
+    assert recorded_sql.startswith("DROP DATABASE IF EXISTS `demo`")
+    assert recorded_sql.strip().endswith("CREATE TABLE demo();")
+
+
 def test_apply_external_schema_cursor_failure(  # noqa: C901 - helper classes inline
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
