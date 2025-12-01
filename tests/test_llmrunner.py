@@ -1065,7 +1065,6 @@ def test_resolve_sdfile_executable_duplicate_created(
     monkeypatch: pytest.MonkeyPatch,
     fake_llm_config: SimpleNamespace,
 ) -> None:
-    monkeypatch.setattr(llmrunner.os, "name", "nt")
     sd_binary = fake_llm_config.sd_binary
     assert sd_binary.exists()
     copied: dict[str, Path] = {}
@@ -1076,7 +1075,7 @@ def test_resolve_sdfile_executable_duplicate_created(
         Path(dst).write_bytes(Path(src).read_bytes())
 
     monkeypatch.setattr(llmrunner.shutil, "copy2", fake_copy)
-    exe_path = llmrunner._resolve_sdfile_executable()
+    exe_path = llmrunner._resolve_sdfile_executable(force_windows=True)
     assert exe_path.suffix == ".exe"
     assert copied["dst"].exists()
 
@@ -1090,24 +1089,20 @@ def test_resolve_sdfile_executable_missing_file(
 
 
 def test_resolve_sdfile_executable_returns_original_on_non_windows(
-    monkeypatch: pytest.MonkeyPatch,
     fake_llm_config: SimpleNamespace,
 ) -> None:
-    monkeypatch.setattr(llmrunner.os, "name", "posix")
-    path = llmrunner._resolve_sdfile_executable()
+    path = llmrunner._resolve_sdfile_executable(force_windows=False)
     assert path == fake_llm_config.sd_binary
 
 
 def test_resolve_sdfile_executable_returns_existing_copy(
-    monkeypatch: pytest.MonkeyPatch,
     fake_llm_config: SimpleNamespace,
 ) -> None:
-    monkeypatch.setattr(llmrunner.os, "name", "nt")
     candidate = fake_llm_config.sd_binary.with_name(
         f"{fake_llm_config.sd_binary.name}.exe",
     )
     candidate.write_text("exe")
-    path = llmrunner._resolve_sdfile_executable()
+    path = llmrunner._resolve_sdfile_executable(force_windows=True)
     assert path == candidate
 
 
@@ -1115,14 +1110,12 @@ def test_resolve_sdfile_executable_warns_on_copy_failure(
     monkeypatch: pytest.MonkeyPatch,
     fake_llm_config: SimpleNamespace,
 ) -> None:
-    monkeypatch.setattr(llmrunner.os, "name", "nt")
-
     def fail_copy(_src: Path, _dst: Path) -> None:
         msg = "copy failed"
         raise OSError(msg)
 
     monkeypatch.setattr(llmrunner.shutil, "copy2", fail_copy)
-    path = llmrunner._resolve_sdfile_executable()
+    path = llmrunner._resolve_sdfile_executable(force_windows=True)
     assert path == fake_llm_config.sd_binary
 
 

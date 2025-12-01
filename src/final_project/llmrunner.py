@@ -662,12 +662,13 @@ def _parse_progress_percent(line: str) -> float | None:
         return None
 
 
-def _resolve_sdfile_executable() -> Path:
-    """Return a path to the sdfile binary, cloning to .exe on Windows when needed."""
+def _resolve_sdfile_executable(*, force_windows: bool | None = None) -> Path:
+    """Return the sdfile binary path, cloning to .exe on Windows when needed."""
     sd_binary = _text_llm_config.sd_binary
     if not sd_binary.exists():
         raise FileNotFoundError(sd_binary)
-    if os.name != "nt" or sd_binary.suffix.lower() == ".exe":
+    is_windows = os.name == "nt" if force_windows is None else force_windows
+    if (not is_windows) or sd_binary.suffix.lower() == ".exe":
         return sd_binary
     candidate = sd_binary.with_name(f"{sd_binary.name}.exe")
     if candidate.exists():
