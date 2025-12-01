@@ -43,6 +43,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install uv
 
+      - name: Create virtual environment
+        run: uv venv
+
+      - name: Preinstall scikit-build (Linux/macOS)
+        if: runner.os != 'Windows'
+        run: uv pip install scikit-build
+
       - name: Sync dependencies
         run: uv sync
 
