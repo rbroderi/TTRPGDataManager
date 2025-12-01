@@ -42,7 +42,6 @@ with lazi:  # type: ignore[attr-defined]
     from pydantic import ValidationInfo
     from pydantic import field_validator
 
-# nobeartype = beartype(conf=BeartypeConf(strategy=BeartypeStrategy.O0))
 logger = structlog.getLogger("final_project")
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 IMAGE_SETTINGS_GROUP = "LLM"
