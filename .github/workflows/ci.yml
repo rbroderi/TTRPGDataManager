@@ -43,9 +43,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install uv
 
-      - name: Install build helpers (non-Windows)
-        if: runner.os != 'Windows'
+      - name: Install hatchling (all platforms)
+        run: uv pip install --system hatchling
+
+      - name: Install scikit-build (Linux)
+        if: runner.os == 'Linux'
         run: uv pip install --system scikit-build
+
+      - name: Install scikit-build (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          python -m venv /tmp/build-helpers
+          /tmp/build-helpers/bin/pip install scikit-build
 
       - name: Sync dependencies
         run: uv sync --no-build-isolation
