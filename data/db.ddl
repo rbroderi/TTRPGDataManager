@@ -75,7 +75,8 @@ CREATE TABLE IF NOT EXISTS npc (
         ON DELETE CASCADE,
     FOREIGN KEY (campaign_name) REFERENCES campaign (name)
         ON UPDATE CASCADE
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+    CONSTRAINT chk_npc_age CHECK (age < 10000)
 );
 
 CREATE TABLE IF NOT EXISTS encounter (
@@ -207,6 +208,26 @@ BEGIN
     DECLARE parent_campaign VARCHAR(256);
     SELECT campaign_name INTO parent_campaign FROM campaign_record WHERE id = NEW.id;
     SET NEW.campaign_name = parent_campaign;
+END $$
+
+DROP TRIGGER IF EXISTS trg_relationship_distinct_ids_bi $$
+CREATE TRIGGER trg_relationship_distinct_ids_bi
+BEFORE INSERT ON relationship
+FOR EACH ROW
+BEGIN
+    IF NEW.npc_id_1 = NEW.npc_id_2 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'npc_id_1 and npc_id_2 must differ';
+    END IF;
+END $$
+
+DROP TRIGGER IF EXISTS trg_relationship_distinct_ids_bu $$
+CREATE TRIGGER trg_relationship_distinct_ids_bu
+BEFORE UPDATE ON relationship
+FOR EACH ROW
+BEGIN
+    IF NEW.npc_id_1 = NEW.npc_id_2 THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'npc_id_1 and npc_id_2 must differ';
+    END IF;
 END $$
 
 DELIMITER ;
