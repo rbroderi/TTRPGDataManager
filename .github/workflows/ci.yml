@@ -45,7 +45,7 @@ jobs:
 
       - name: Install build helpers (non-Windows)
         if: runner.os != 'Windows'
-        run: uv pip install scikit-build
+        run: uv pip install --system scikit-build
 
       - name: Sync dependencies
         run: uv sync --no-build-isolation
