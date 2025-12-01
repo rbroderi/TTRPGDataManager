@@ -1,6 +1,5 @@
 """Contains methods for working with the database."""
 
-from beartype import beartype
 from lazi.core import lazi
 
 # does not work well with lazi
@@ -52,7 +51,6 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
 
     import structlog
     import yaml
-    from beartype import beartype
     from beartype.vale import Is
     from dotenv import load_dotenv
     from pydantic import BaseModel
@@ -62,7 +60,7 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     from final_project import LogLevels
     from final_project.settings_manager import path_from_settings
 
-    try:  # optional dependency used only proof of loading ddl
+    try:  # dependency used loading ddl
         import mysql.connector as mysql_connector
     except ImportError:
         mysql_connector = None  # type: ignore[assignment]
@@ -89,12 +87,11 @@ CAMPAIGN_STATUSES: tuple[str, ...] = (
 
 
 # beartype annotations
-Varchar256 = Annotated[str, Is[lambda s: isinstance(s, str) and len(s) <= 256]]  # pyright: ignore[reportUnknownLambdaType] # noqa: PLR2004
-SmallInt = Annotated[int, Is[lambda x: isinstance(x, int) and 0 <= x <= 65535]]  # pyright: ignore[reportUnknownLambdaType] # noqa: PLR2004
+type Varchar256 = Annotated[str, Is[lambda s: isinstance(s, str) and len(s) <= 256]]  # pyright: ignore[reportUnknownLambdaType] # noqa: PLR2004
+type SmallInt = Annotated[int, Is[lambda x: isinstance(x, int) and 0 <= x <= 65535]]  # pyright: ignore[reportUnknownLambdaType] # noqa: PLR2004
 LongBlob = LargeBinary(length=(2**32) - 1)  # Max length for LONGBLOB
 
 
-@beartype
 def _get_env_var(name: str) -> Any:
     ret = os.getenv(name)
     if ret is None:
@@ -167,7 +164,6 @@ def _attach_image_blob(owner: Any, image_blob: bytes | None) -> None:
     owner.image = ImageStore(image_blob=image_blob)
 
 
-@beartype
 class DBConfig(BaseModel):
     """Pydantic model of the config for a db connection."""
 
@@ -247,7 +243,6 @@ class Base(DeclarativeBase):
 # --- Core Entities ---
 
 
-@beartype
 class Campaign(Base):
     """Represents the campaign Table."""
 
@@ -289,7 +284,6 @@ class Campaign(Base):
     )
 
 
-@beartype
 class CampaignRecord(Base):
     """Shared base for campaign-scoped records that may have images."""
 
@@ -324,7 +318,6 @@ class CampaignRecord(Base):
     )
 
 
-@beartype
 class Location(CampaignRecord):
     """Represents the location table."""
 
@@ -376,7 +369,6 @@ class Location(CampaignRecord):
     __mapper_args__ = MappingProxyType({"polymorphic_identity": "location"})
 
 
-@beartype
 class Encounter(CampaignRecord):
     """Represents the encounter table."""
 
@@ -440,7 +432,6 @@ class Encounter(CampaignRecord):
     __mapper_args__ = MappingProxyType({"polymorphic_identity": "encounter"})
 
 
-@beartype
 class NPC(CampaignRecord):
     """Represents the NPC table."""
 
@@ -559,7 +550,6 @@ class NPC(CampaignRecord):
     __mapper_args__ = MappingProxyType({"polymorphic_identity": "npc"})
 
 
-@beartype
 class ImageStore(Base):
     """Store image blobs linked to exactly one owner."""
 
@@ -581,7 +571,6 @@ class ImageStore(Base):
     )
 
 
-@beartype
 class Species(Base):
     """Represents the Species table."""
 
@@ -592,7 +581,6 @@ class Species(Base):
     npcs = relationship("NPC", back_populates="species")
 
 
-@beartype
 class Faction(Base):
     """Represents the faction table."""
 
@@ -622,7 +610,6 @@ class Faction(Base):
 # --- Join Tables ---
 
 
-@beartype
 class FactionMembers(Base):
     """Represents join table that holds which faction has which members."""
 
@@ -651,7 +638,6 @@ class FactionMembers(Base):
     npc = relationship("NPC", back_populates="factions", passive_deletes=True)
 
 
-@beartype
 class EncounterParticipants(Base):
     """Represents join table that holds which encounter has which members."""
 
@@ -687,7 +673,6 @@ class EncounterParticipants(Base):
     )
 
 
-@beartype
 class Relationship(Base):
     """Represents relationships between NPCs."""
 
@@ -968,7 +953,6 @@ def _format_relationships(npc: NPC) -> str:
     return "; ".join(relationships) if relationships else "None"
 
 
-@beartype
 def list_all_npcs(session: SessionType) -> None:
     """Return all NPCs currently stored in the database."""
     try:
