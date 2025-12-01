@@ -33,6 +33,7 @@ rebuild:
     uv run python src/final_project/main.py --rebuild
 
 run-with-ddl:
+    git lfs fetch --all
     uv run python src/final_project/main.py --load-with-ddl
 
 coverage:
@@ -43,3 +44,7 @@ pytest:
 
 add-ignore pattern:
     Add-Content -Path .gitignore -Value "{{ pattern }}"
+
+# gather all binary files from git LFS
+get-bin:
+    git lfs fetch --all
