@@ -1,6 +1,6 @@
 [project]
 name = "final-project"
-version = "2025.11.29.1"
+version = "2025.11.30.1"
 description = "TTRPG Data Manager"
 readme = "README.md"
 authors = [
@@ -25,6 +25,7 @@ dependencies = [
     "pywinstyles>=1.8; sys_platform == \"win32\"",
     "requests>=2.32.5",
     "rich>=14.2.0",
+    "scikit-build>=0.18; sys_platform != \"win32\"",
     "sqlalchemy>=2.0.44",
     "structlog>=25.5.0",
     "tkfontawesome>=0.3.2",
@@ -180,9 +181,6 @@ project-unknown-keys = "warning"
 project-dependency-updates = { level = "hint" }
 project-dependencies-version-bounds = "off"
 project-requires-python-bounds = "off"
-
-[tool.uv.extra-build-dependencies]
-tksvg = ["scikit-build"]
 
 [tool.coverage.report]
 exclude_also = [

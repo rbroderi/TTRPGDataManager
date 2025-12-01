@@ -58,6 +58,7 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     from tabulate import tabulate
 
     from final_project import LogLevels
+    from final_project.paths import PROJECT_ROOT
     from final_project.settings_manager import path_from_settings
 
     try:  # dependency used loading ddl
@@ -66,8 +67,6 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
         mysql_connector = None  # type: ignore[assignment]
 
 logger = structlog.getLogger("final_project")
-SCRIPTROOT = Path(__file__).parent.resolve()
-PROJECT_ROOT = (SCRIPTROOT / ".." / ".." / "project").resolve() / ".."
 
 load_dotenv(PROJECT_ROOT / ".env")
 CONFIG_PATH = path_from_settings("config")
