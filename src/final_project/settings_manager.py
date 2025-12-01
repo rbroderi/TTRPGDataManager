@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from lazi.core import lazi
 
+from final_project.paths import PROJECT_ROOT
+
 with lazi:  # type: ignore[attr-defined]
     import copy
     import json
@@ -26,8 +28,6 @@ class _SettingsState:
         self.user_settings_path: Path | None = None
 
 
-SCRIPTROOT = Path(__file__).parent.resolve()
-PROJECT_ROOT = (SCRIPTROOT / ".." / ".." / "project").resolve() / ".."
 DEFAULT_SETTINGS_PATH = PROJECT_ROOT / "data" / "settings.toml"
 
 _STATE = _SettingsState()

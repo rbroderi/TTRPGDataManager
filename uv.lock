@@ -188,7 +188,7 @@ wheels = [
 
 [[package]]
 name = "final-project"
-version = "2025.11.29.1"
+version = "2025.11.30.1"
 source = { editable = "." }
 dependencies = [
     { name = "beartype" },

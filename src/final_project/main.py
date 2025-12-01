@@ -10,13 +10,13 @@ from final_project.db import apply_external_schema_with_connector
 from final_project.db import list_all_npcs
 from final_project.db import setup_database
 from final_project.gui import init as launch_gui
+from final_project.paths import PROJECT_ROOT
 
 # lazi imports only actually imported when used,
 # helps to speed up loading and the use of optional imports.
 with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     import logging
     from collections.abc import Generator
-    from pathlib import Path
     from typing import Any
 
     import gorilla
@@ -30,10 +30,6 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
 
 ################## GLOBAL SETTINGS ###################################
 
-SCRIPTROOT = Path(__file__).parent.resolve()
-# 'project' directory is a work around so that src directory can be symlinked
-# to onedrive for backup.
-PROJECT_ROOT = (SCRIPTROOT / ".." / ".." / "project").resolve() / ".."
 settings = gorilla.Settings(allow_hit=True)
 OK = 0
 ERROR = 1

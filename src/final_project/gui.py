@@ -34,6 +34,7 @@ from final_project.llmrunner import get_random_name_from_text_llm
 from final_project.llmrunner import is_text_llm_server_ready
 from final_project.llmrunner import reload_image_generation_defaults
 from final_project.llmrunner import start_text_llm_server_async
+from final_project.paths import PROJECT_ROOT
 from final_project.widgets import AppMenuBar
 from final_project.widgets import RadioField
 from final_project.widgets import RandomIcon
@@ -79,8 +80,6 @@ pil_logger.setLevel(logging.INFO)
 
 logger = structlog.getLogger("final_project")
 
-SCRIPTROOT = Path(__file__).parent.resolve()
-PROJECT_ROOT = (SCRIPTROOT / ".." / ".." / "project").resolve() / ".."
 PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "img" / "placeholder.png"
 SOFT_HYPHEN = "\u00ad"
 WORD_PATTERN = re.compile(r"[A-Za-z]+(?:'[A-Za-z]+)?")
