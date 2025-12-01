@@ -92,7 +92,7 @@ def _setup_arguments() -> argparse.Namespace:
     db_group.add_argument(
         "--rebuild",
         action="store_true",
-        help="Drop all tables and rebuild the schema before exiting.",
+        help="Drop the database and rebuild it from db.ddl before exiting.",
     )
     db_group.add_argument(
         "--list-npcs",
@@ -130,7 +130,7 @@ def _handle_db_actions(args: argparse.Namespace) -> bool:
         return False
 
     session_factory = setup_database(
-        rebuild=args.rebuild,
+        rebuild=False,
         loglevel=args.loglevel,
     )
     if args.list_npcs:
@@ -150,9 +150,18 @@ def main() -> int:
     args = _setup_arguments()
     patch()
     logger.info("inital setup completed.")
+    ddl_loaded = False
+    if args.rebuild:
+        logger.info("dropping database and rebuilding schema from DDL")
+        apply_external_schema_with_connector(drop_database_first=True)
+        ddl_loaded = True
     if args.load_with_ddl:
-        logger.info("loading ddl via mysql-connector")
-        apply_external_schema_with_connector()
+        if ddl_loaded:
+            logger.info("ddl already loaded during rebuild; skipping duplicate load")
+        else:
+            logger.info("loading ddl via mysql-connector")
+            apply_external_schema_with_connector()
+            ddl_loaded = True
     if args.readme:
         _display_readme()
         return OK

@@ -1513,11 +1513,26 @@ def setup_database(
     return sessionmaker(bind=engine, expire_on_commit=False)
 
 
+def _quote_mysql_identifier(identifier: str) -> str:
+    """Wrap an identifier in MySQL backticks with escaping."""
+    escaped = identifier.replace("`", "``")
+    return f"`{escaped}`"
+
+
+def _drop_database_statement() -> str:
+    """Return a DROP DATABASE statement for the configured schema."""
+    database_name = str(_read_config().get("DB", {}).get("database", "final_project"))
+    quoted = _quote_mysql_identifier(database_name)
+    return f"DROP DATABASE IF EXISTS {quoted};"
+
+
 def apply_external_schema_with_connector(
     *,
     path: Path | None = None,
+    drop_database_first: bool = False,
 ) -> None:
-    """Use mysql-connector-python to execute db.ddl in one pass."""
+    """
+    Use mysql-connector-python to execute db.ddl in one pass."""
     ddl_path = path or (PROJECT_ROOT / "data" / "db.ddl")
     if not ddl_path.exists():
         logger.warning("Cannot load DDL; file missing", path=str(ddl_path))
@@ -1526,6 +1541,11 @@ def apply_external_schema_with_connector(
     if not ddl_sql:
         logger.info("DDL file is empty; skipping load", path=str(ddl_path))
         return
+    statements: list[str] = []
+    if drop_database_first:
+        statements.append(_drop_database_statement())
+    statements.append(ddl_sql)
+    ddl_sql = "\n\n".join(statements)
     if mysql_connector is None:
         logger.warning(
             "mysql-connector-python is not installed; skipping DDL load",

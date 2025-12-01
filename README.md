@@ -83,6 +83,14 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
   cd TTRPGDataManager
   uv sync
   ```
+  Possible platform specific dependencies
+  ```shell
+    LINUX
+    sudo apt-get install -y cmake ninja-build tk-dev tcl-dev
+
+    MACOS
+    brew install cmake ninja tcl-tk python@$3.13 python-tk@3.13 pkg-config
+  ```
 
 3. **Create .env file**
   ```shell
@@ -142,7 +150,7 @@ environment is already active) and combine the following flags as needed:
 - **Logging verbosity** (mutually exclusive): `-v/--log-warning` (errors),
   `-vv/--log-info` (info), `-vvv/--log-debug` (debug). Default is `ERROR`.
 - **`--load-with-ddl`, `-d`** – Apply `data/db.ddl` via mysql-connector before any other work
-- **`--rebuild`** – Drop and recreate all tables using the ORM metadata, then exit.
+- **`--rebuild`** – Drop the database and recreate all tables using the db.ddl, then exit.
 - **`--list-npcs`** – Print every NPC currently in the database as a GitHub-style table showing the campaign, faction (with notes), and relationship links (requires connectivity).
 
 If no maintenance flags are supplied, the CLI launches the CustomTkinter GUI.
