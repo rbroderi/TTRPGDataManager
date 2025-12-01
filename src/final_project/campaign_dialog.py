@@ -1,4 +1,8 @@
-"""Standalone dialog for creating new campaigns."""
+"""
+Standalone dialog for creating new campaigns.
+
+Moved to standalone file to avoid circular imports with dialogs.py.
+"""
 
 from __future__ import annotations
 
