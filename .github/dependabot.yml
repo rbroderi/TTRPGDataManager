@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Python dependencies managed by uv (via pyproject.toml)
+  - package-ecosystem: "pip"        # Dependabot treats uv manifests as pip-compatible
+    directory: "/"                  # Root of your repo (adjust if manifests are in subfolders)
+    schedule:
+      interval: "weekly"            # Check for updates weekly
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    open-pull-requests-limit: 10
+    rebase-strategy: "auto"
+
+  # Optional: keep GitHub Actions up to date too
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
