@@ -42,4 +42,4 @@ pytest:
     uv run pytest
 
 add-ignore pattern:
-    Add-Content -Path .gitignore -Value "`n{{ pattern }}"
+    Add-Content -Path .gitignore -Value "{{ pattern }}"
