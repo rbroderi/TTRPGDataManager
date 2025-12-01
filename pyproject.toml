@@ -1,6 +1,6 @@
 [project]
 name = "final-project"
-version = "2025.11.30.1"
+version = "2025.11.30.2"
 description = "TTRPG Data Manager"
 readme = "README.md"
 authors = [
