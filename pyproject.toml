@@ -37,6 +37,7 @@ optimize = [
 ]
 dev = [
     "mypy>=1.18.2",
+    "nuitka>=2.8.9",
     "pyautogui>=0.9.54",
     "pyright>=1.1.407",
     "pytest>=9.0.1",

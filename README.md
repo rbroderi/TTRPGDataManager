@@ -69,7 +69,7 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
   - `--list-npcs` remains available for quick CLI inspection and prints a tabular view (NPC, campaign, faction, relationships).
 
 ## 5. Run Instructions
-1. **Prerequisites:** Python 3.13+, `uv`, and a reachable MySQL 8 server. Optional: `.llamafile` models (drop into `data/llm/`) if you want AI-generated names.
+1. **Prerequisites:** Python 3.13+, `uv`, and a reachable MySQL 8 server. Optional: `.llamafile` models (drop into `assets/`) if you want AI-generated names.
 2. **Install dependencies:**
   ```shell
   pip install uv
@@ -118,7 +118,7 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
   - `uv run ruff check src/final_project` / `uv run ruff format src/final_project`
   - `uv run mypy src/final_project` (strict mode configured in `pyproject.toml`)
   - `uv run pyright src/final_project` when cross-validating typings
-- **Manual GUI tests:** launch the GUI, create/edit NPCs, attach images, assign factions, add encounter participants, and ensure the resulting rows appear under `--list-npcs`. Test LLM-driven name and image generation if `data/llm/*` files are present.
+- **Manual GUI tests:** launch the GUI, create/edit NPCs, attach images, assign factions, add encounter participants, and ensure the resulting rows appear under `--list-npcs`. Test LLM-driven name and image generation if `assets/*` model files are present.
 
 ## Reference Material
 - `docs/erd.uml` and `docs/images/erd.png` — ERD source + rendered asset.

@@ -118,6 +118,10 @@ class _TextLLMConfig(BaseModel):
         path = Path(str(value))
         if path.is_absolute():
             return path
+        if path.parts:
+            first_segment = path.parts[0].lower()
+            if first_segment in {"assets", "data"}:
+                return (PROJECT_ROOT / path).resolve()
         base_dir = info.data.get("text_dir")
         if isinstance(base_dir, Path):
             base_path = base_dir

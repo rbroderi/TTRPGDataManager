@@ -2275,7 +2275,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
                 "Download LLM Models",
                 (
                     "LLM-powered features will remain unavailable until the models "
-                    "are installed. You can add the files to data/llm manually at "
+                    "are installed. You can add the files to assets/ manually at "
                     "any time."
                 ),
             )

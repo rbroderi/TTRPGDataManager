@@ -1531,8 +1531,7 @@ def apply_external_schema_with_connector(
     path: Path | None = None,
     drop_database_first: bool = False,
 ) -> None:
-    """
-    Use mysql-connector-python to execute db.ddl in one pass."""
+    """Use mysql-connector-python to execute db.ddl in one pass."""
     ddl_path = path or (PROJECT_ROOT / "data" / "db.ddl")
     if not ddl_path.exists():
         logger.warning("Cannot load DDL; file missing", path=str(ddl_path))
