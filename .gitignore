@@ -216,3 +216,5 @@ string.txt
 desktop.ini
 *.log
 cache/
+*.sqlite3
+bin/

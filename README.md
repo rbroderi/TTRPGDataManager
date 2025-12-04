@@ -1,6 +1,6 @@
 # TTRPG Data Manager
 
-A Desktop based program for Game Masters, Store Tellers or Authors need to manage TTRPG games or store information. The application uses a CustomTkinter interface, SQLAlchemy modeled MySQL backend, and optional local LLM files to help construct images and names.
+A Desktop based program for Game Masters, Store Tellers or Authors need to manage TTRPG games or store information. The application uses a CustomTkinter interface, SQLAlchemy models backed by SQLite, and optional local LLM files to help construct images and names.
 
 ## 1. Project Overview
 - **Purpose:** give Game Masters and Authors a single control panel for CRUD workflows around campaigns, NPCs, locations, encounters, factions, and relationships.
@@ -19,7 +19,7 @@ A Desktop based program for Game Masters, Store Tellers or Authors need to manag
 - **Architecture highlights:** 
   - `gui.py` renders CustomTkinter widgets
   - `logic.py` houses form validation and orchestration
-  - `db.py` centralizes SQLAlchemy models plus MySQL connector helpers
+  - `db.py` centralizes SQLAlchemy models and engine/session helpers
   - Observability relies on `structlog` JSON logs.
 
 ## 2. Entity-Relationship Model
@@ -35,25 +35,13 @@ The ERD (authored in `docs/erd.uml`, rendered to `docs/images/erd.png`) illustra
 - `Location` and `Encounter` inherit through the same base table; `Encounter` also references `Location`, forming the Campaign→Location→Encounter chain while keeping the FK path to Campaign consistent.
 - Join tables enforce composite PKs/unique constraints so every NPC-faction, NPC-encounter, or NPC↔NPC relationship pair remains unique.
 
-## 3. DDL & Schema Management
-- **Source of truth:** 
-  - `data/db.ddl` mirrors the SQLAlchemy metadata.
-  - `apply_external_schema_with_connector()` uses `mysql-connector-python` to apply this ddl and is run when `-d/--load-with-ddl` argument is passed.
-- **Structure:**
-  - Every table declares explicit PKs, FKs,
-  - Enumerated columns, constraints and indexes are used.
-  - `npc`, `location` are limited to be unique per name per campaign.
-  - `encounter` is limited to be unique per location,date per campaign.
-- **Referential constraints:**
-  - Foreign keys link `npc.campaign_name` → `campaign.name`, `faction_members.npc_id` → `npc.id`, etc.
-  - Cascades are explicit in the DDL/ORM: campaign-linked tables (`location`, `npc`, `encounter`, `faction`, join tables) cascade on update/delete, join tables cascade in both directions, and `species` stays `ON DELETE RESTRICT` to guard edits.
-- **Checks and enumerations:** 
-  - Enumerated types (gender, alignment, location type, campaign status) provide server-side validation.
-  - Additional business rules such as valid image paths are handled in the GUI/logic layer before hitting the database.
-- **Location of credentials:** 
-  - `.env` supplies `DB_USERNAME` and `DB_PASSWORD`
-  - `config.toml` keeps host, port, database, and driver details. 
-  - `DBConfig` (Pydantic) validates those inputs before constructing SQLAlchemy URLs.
+## 3. Schema Management
+- **Source of truth:** SQLAlchemy models inside `db.py` define the schema. `data/db.ddl` remains in the repo as a historical reference but the application no longer executes it.
+- **Deployment:** `setup_database()` creates SQLite tables in `data/final_project.sqlite3` (configurable via `data/config.toml`). Foreign-key enforcement is enabled on every SQLite connection and `--rebuild` simply calls `setup_database(rebuild=True)` to drop and recreate tables.
+- **Structure:** Tables declare explicit PKs/FKs, enumerations, and indexes just as before: `npc`/`location` stay unique per campaign/name, `encounter` is unique per location/date/campaign, and join tables retain composite keys.
+- **Referential constraints:** Cascades are enforced through the ORM metadata. Campaign-scoped entities cascade on update/delete, join tables cascade to their parents, and `species` remains `ON DELETE RESTRICT`.
+- **Checks and enumerations:** Enum columns model the gender/alignment/location/campaign status choices. SQLite CHECK constraints (e.g., `age BETWEEN 0 AND 65535`) cover integer ranges, while higher-level validation still happens in the GUI/logic layer.
+- **Configuration location:** `data/config.toml` holds the SQLAlchemy URL pieces (driver + database path). No `.env` or external credential management is required for the bundled SQLite database.
 
 ## 4. CRUD Guide
 Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. Below is a quick reference tying screens to tables:
@@ -69,7 +57,7 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
   - `--list-npcs` remains available for quick CLI inspection and prints a tabular view (NPC, campaign, faction, relationships).
 
 ## 5. Run Instructions
-1. **Prerequisites:** Python 3.13+, `uv`, and a reachable MySQL 8 server. Optional: `.llamafile` models (drop into `assets/`) if you want AI-generated names.
+1. **Prerequisites:** Python 3.13+, `uv`, and (optionally) `.llamafile` models in `assets/` if you want AI-generated names. SQLite is bundled with Python, so no external database server is required.
 2. **Install dependencies:**
   ```shell
   pip install uv
@@ -92,18 +80,14 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
     brew install cmake ninja tcl-tk python@$3.13 python-tk@3.13 pkg-config
   ```
 
-3. **Create .env file**
-  ```shell
-  uv run scripts\create_env.py
+3. **Launch the GUI:**
+  ```powershell
+  uv run python -m final_project
   ```
-4. **Launch the GUI:**
-   ```powershell
-   uv run python -m final_project --load-with-ddl
-   ```
-5. **Download Local LLM Files (optional but required for name and image generation)**
+4. **Download Local LLM Files (optional but required for name and image generation)**
   - ![Missing LLM Files](docs/images/screenshots/missing_llm_files.png)
 
-6. **Load Sample Content (optional but recommended):** when the GUI detects an empty database it shows a "Sample Data" prompt—choose **Yes** to ingest every bundled NPC, location, and encounter.
+5. **Load Sample Content (optional but recommended):** when the GUI detects an empty database it shows a "Sample Data" prompt—choose **Yes** to ingest every bundled NPC, location, and encounter.
   - ![Missing Data](docs/images/screenshots/sample_data_prompt.png)
 
 ## 7. Testing & Validation Notes
@@ -113,7 +97,6 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
   - Additional suites (`tests/test_db*.py`, `tests/test_settings_manager.py`) cover persistence helpers and default-setting flows. Use `just coverage` to run the same suite with coverage enabled.
 - **Structural tests:** `uv run python -m final_project.main --list-npcs` confirms the ORM can read data.
 - **Constraint verification:** running `python -m final_project.main --rebuild` followed by deleting a campaign in the GUI validates manual cascade logic—the referenced NPCs, relationships, faction members, and encounter participants are removed without FK violations.
-- **DDL loader checks:** `python -m final_project.main -vvv -d` applies `data/db.ddl` through mysql-connector; logs confirm each statement executes sequentially and indexes already present are skipped.
 - **Static analysis & type safety:**
   - `uv run ruff check src/final_project` / `uv run ruff format src/final_project`
   - `uv run mypy src/final_project` (strict mode configured in `pyproject.toml`)
@@ -149,8 +132,7 @@ environment is already active) and combine the following flags as needed:
 - **`-m, --readme`** – Render this README in the terminal and exit.
 - **Logging verbosity** (mutually exclusive): `-v/--log-warning` (errors),
   `-vv/--log-info` (info), `-vvv/--log-debug` (debug). Default is `ERROR`.
-- **`--load-with-ddl`, `-d`** – Apply `data/db.ddl` via mysql-connector before any other work
-- **`--rebuild`** – Drop the database and recreate all tables using the db.ddl, then exit.
+- **`--rebuild`** – Drop every table in the configured SQLite database and recreate them before exiting.
 - **`--list-npcs`** – Print every NPC currently in the database as a GitHub-style table showing the campaign, faction (with notes), and relationship links (requires connectivity).
 
 If no maintenance flags are supplied, the CLI launches the CustomTkinter GUI.

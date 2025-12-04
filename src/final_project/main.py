@@ -6,7 +6,6 @@ from contextlib import contextmanager
 from lazi.core import lazi
 
 from final_project import patch
-from final_project.db import apply_external_schema_with_connector
 from final_project.db import list_all_npcs
 from final_project.db import setup_database
 from final_project.gui import init as launch_gui
@@ -92,18 +91,12 @@ def _setup_arguments() -> argparse.Namespace:
     db_group.add_argument(
         "--rebuild",
         action="store_true",
-        help="Drop the database and rebuild it from db.ddl before exiting.",
+        help="Drop all tables in the SQLite database and recreate them before exiting.",
     )
     db_group.add_argument(
         "--list-npcs",
         action="store_true",
         help="Print all NPCs currently stored in the database.",
-    )
-    db_group.add_argument(
-        "--load-with-ddl",
-        "-d",
-        action="store_true",
-        help="Load db.ddl via mysql-connector before other actions (grading only).",
     )
 
     ret = parser.parse_args()
@@ -130,7 +123,7 @@ def _handle_db_actions(args: argparse.Namespace) -> bool:
         return False
 
     session_factory = setup_database(
-        rebuild=False,
+        rebuild=args.rebuild,
         loglevel=args.loglevel,
     )
     if args.list_npcs:
@@ -150,18 +143,6 @@ def main() -> int:
     args = _setup_arguments()
     patch()
     logger.info("inital setup completed.")
-    ddl_loaded = False
-    if args.rebuild:
-        logger.info("dropping database and rebuilding schema from DDL")
-        apply_external_schema_with_connector(drop_database_first=True)
-        ddl_loaded = True
-    if args.load_with_ddl:
-        if ddl_loaded:
-            logger.info("ddl already loaded during rebuild; skipping duplicate load")
-        else:
-            logger.info("loading ddl via mysql-connector")
-            apply_external_schema_with_connector()
-            ddl_loaded = True
     if args.readme:
         _display_readme()
         return OK

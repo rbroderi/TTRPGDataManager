@@ -47,26 +47,13 @@ build-exe:
     @if (-not (Test-Path "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe")) { Write-Host "MSVC build tools not detected; running win-install-build-deps..."; just win-install-build-deps }
     @New-Item -ItemType Directory -Force cache | Out-Null
     @New-Item -ItemType Directory -Force bin | Out-Null
-    @$chafaDir = uv run python -c "import chafa, pathlib; print(pathlib.Path(chafa.__file__).parent)"; \
-        $chafaDir = $chafaDir.Trim(); \
-        $pygmentsDir = uv run python -c "import pygments, pathlib; print(pathlib.Path(pygments.__file__).parent)"; \
-        $pygmentsDir = $pygmentsDir.Trim()
     @uv run python -m nuitka \
         --standalone \
         --enable-plugin=tk-inter \
-        --include-data-dir="$chafaDir"=chafa \
-        --include-data-dir="$pygmentsDir"=pygments \
-        --include-package-data=chafa \
         --include-package=pygments \
-        --include-package-data=pygments \
+        --include-package=chafa \
         --include-data-dir=data/img=data/img \
-        --include-data-files=data/config.toml=data/config.toml \
-        --include-data-files=data/settings.toml=data/settings.toml \
-        --include-data-files=data/sun_valleyish.json=data/sun_valleyish.json \
-        --include-data-files=data/db.ddl=data/db.ddl \
-        --include-data-files=data/sample_encounters.yaml=data/sample_encounters.yaml \
-        --include-data-files=data/sample_locations.yaml=data/sample_locations.yaml \
-        --include-data-files=data/sample_npc.yaml=data/sample_npc.yaml \
+        --include-data-dir=data=data \
         --msvc=latest \
         --output-dir=cache \
         --output-filename=final_project.exe \

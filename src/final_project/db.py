@@ -4,19 +4,19 @@ from lazi.core import lazi
 
 # does not work well with lazi
 from sqlalchemy import JSON
+from sqlalchemy import CheckConstraint
 from sqlalchemy import Engine
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
 from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy import Index
 from sqlalchemy import LargeBinary
+from sqlalchemy import SmallInteger
 from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import create_engine
 from sqlalchemy import event
-from sqlalchemy import text
-from sqlalchemy.dialects.mysql import SMALLINT
 from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase
@@ -30,9 +30,7 @@ from sqlalchemy.schema import CreateIndex
 from sqlalchemy.schema import CreateTable
 
 with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
-    import contextlib
     import json
-    import os
     import sys
     import tomllib
     from collections.abc import Mapping
@@ -52,7 +50,6 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     import structlog
     import yaml
     from beartype.vale import Is
-    from dotenv import load_dotenv
     from pydantic import BaseModel
     from pydantic import Field
     from tabulate import tabulate
@@ -61,14 +58,9 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     from final_project.paths import PROJECT_ROOT
     from final_project.settings_manager import path_from_settings
 
-    try:  # dependency used loading ddl
-        import mysql.connector as mysql_connector
-    except ImportError:
-        mysql_connector = None  # type: ignore[assignment]
 
 logger = structlog.getLogger("final_project")
 
-load_dotenv(PROJECT_ROOT / ".env")
 CONFIG_PATH = path_from_settings("config")
 SAMPLE_NPC_PATH = path_from_settings("sample_npc")
 SAMPLE_LOCATION_PATH = path_from_settings(
@@ -89,14 +81,6 @@ CAMPAIGN_STATUSES: tuple[str, ...] = (
 type Varchar256 = Annotated[str, Is[lambda s: isinstance(s, str) and len(s) <= 256]]  # pyright: ignore[reportUnknownLambdaType] # noqa: PLR2004
 type SmallInt = Annotated[int, Is[lambda x: isinstance(x, int) and 0 <= x <= 65535]]  # pyright: ignore[reportUnknownLambdaType] # noqa: PLR2004
 LongBlob = LargeBinary(length=(2**32) - 1)  # Max length for LONGBLOB
-
-
-def _get_env_var(name: str) -> Any:
-    ret = os.getenv(name)
-    if ret is None:
-        msg = f"Unable to find: {name} in environmental variables."
-        raise RuntimeError(msg)
-    return ret
 
 
 @cache
@@ -167,11 +151,11 @@ class DBConfig(BaseModel):
     """Pydantic model of the config for a db connection."""
 
     drivername: str
-    username: str | None
-    password: str | None
-    host: str | None
-    port: int | None
-    database: str | None
+    database: str
+    username: str | None = None
+    password: str | None = None
+    host: str | None = None
+    port: int | None = None
     query: Mapping[str, Sequence[str] | str] = Field(default_factory=dict)
 
 
@@ -188,18 +172,33 @@ def _connector_factory() -> _Connector:
         nonlocal engine
         if engine is not None:
             return engine
-        db_config = DBConfig(
-            username=_get_env_var("DB_USERNAME"),
-            password=_get_env_var("DB_PASSWORD"),
-            **_read_config()["DB"],
-        )
-        db_url = URL.create(**db_config.model_dump())
+        config_data = dict(_read_config().get("DB", {}))
+        if "drivername" not in config_data or "database" not in config_data:
+            msg = "Database configuration incomplete; expected drivername and database"
+            raise RuntimeError(msg)
+        drivername = str(config_data.get("drivername"))
+        database_value = str(config_data.get("database"))
+        if drivername.startswith("sqlite"):
+            if database_value != ":memory:":
+                db_path = Path(database_value)
+                if not db_path.is_absolute():
+                    db_path = PROJECT_ROOT / db_path
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                config_data["database"] = str(db_path)
+        db_config = DBConfig(**config_data)
+        db_url = URL.create(**db_config.model_dump(exclude_none=True))
 
         echo = loglevel == LogLevels.DEBUG
+        connect_args: dict[str, Any] = {}
+        if db_url.get_backend_name() == "sqlite":
+            connect_args["check_same_thread"] = False
         engine = create_engine(
             db_url,
             echo=echo,
+            connect_args=connect_args,
         )  # echo=True for logging SQL statements
+        if db_url.get_backend_name() == "sqlite":
+            event.listen(engine, "connect", _enable_sqlite_foreign_keys)
         try:
             with engine.connect():
                 logger.info("Successfully connected to the database!")
@@ -208,6 +207,14 @@ def _connector_factory() -> _Connector:
         return engine
 
     return _connect
+
+
+def _enable_sqlite_foreign_keys(dbapi_connection: Any, _connection_record: Any) -> None:
+    cursor = dbapi_connection.cursor()
+    try:
+        cursor.execute("PRAGMA foreign_keys=ON")
+    finally:
+        cursor.close()
 
 
 connect = _connector_factory()
@@ -441,6 +448,7 @@ class NPC(CampaignRecord):
             "name",
             name="uq_npc_campaign_name",
         ),
+        CheckConstraint("age BETWEEN 0 AND 65535", name="ck_npc_age_range"),
     )
     _campaign_name_mirror_field = "_campaign_name_copy"
     _campaign_name_copy: Mapped[Varchar256] = mapped_column(
@@ -462,7 +470,7 @@ class NPC(CampaignRecord):
         primary_key=True,
     )
     name: Mapped[Varchar256] = mapped_column(String(256), index=True)
-    age: Mapped[SmallInt] = mapped_column(SMALLINT(unsigned=True))
+    age: Mapped[SmallInt] = mapped_column(SmallInteger)
     gender: Mapped[Literal["FEMALE", "MALE", "NONBINARY", "UNSPECIFIED"]] = (
         mapped_column(
             Enum(
@@ -1497,88 +1505,9 @@ def setup_database(
     logger.debug("Create tables if missing.")
     if rebuild:
         logger.info("Dropping all tables and rebuilding schema.")
-        if engine.dialect.name.startswith("mysql"):
-            with engine.connect() as connection:
-                fk_checks_disabled = False
-                try:
-                    connection.execute(text("SET FOREIGN_KEY_CHECKS=0"))
-                    fk_checks_disabled = True
-                    Base.metadata.drop_all(connection)
-                finally:
-                    if fk_checks_disabled:
-                        connection.execute(text("SET FOREIGN_KEY_CHECKS=1"))
-        else:
-            Base.metadata.drop_all(engine)
+        Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)
-
-
-def _quote_mysql_identifier(identifier: str) -> str:
-    """Wrap an identifier in MySQL backticks with escaping."""
-    escaped = identifier.replace("`", "``")
-    return f"`{escaped}`"
-
-
-def _drop_database_statement() -> str:
-    """Return a DROP DATABASE statement for the configured schema."""
-    database_name = str(_read_config().get("DB", {}).get("database", "final_project"))
-    quoted = _quote_mysql_identifier(database_name)
-    return f"DROP DATABASE IF EXISTS {quoted};"
-
-
-def apply_external_schema_with_connector(
-    *,
-    path: Path | None = None,
-    drop_database_first: bool = False,
-) -> None:
-    """Use mysql-connector-python to execute db.ddl in one pass."""
-    ddl_path = path or (PROJECT_ROOT / "data" / "db.ddl")
-    if not ddl_path.exists():
-        logger.warning("Cannot load DDL; file missing", path=str(ddl_path))
-        return
-    ddl_sql = ddl_path.read_text(encoding="utf-8").strip()
-    if not ddl_sql:
-        logger.info("DDL file is empty; skipping load", path=str(ddl_path))
-        return
-    statements: list[str] = []
-    if drop_database_first:
-        statements.append(_drop_database_statement())
-    statements.append(ddl_sql)
-    ddl_sql = "\n\n".join(statements)
-    if mysql_connector is None:
-        logger.warning(
-            "mysql-connector-python is not installed; skipping DDL load",
-            path=str(ddl_path),
-        )
-        return
-    config = _read_config().get("DB", {})
-    try:
-        connection = mysql_connector.connect(
-            user=_get_env_var("DB_USERNAME"),
-            password=_get_env_var("DB_PASSWORD"),
-            host=config.get("host"),
-            port=config.get("port"),
-            database=config.get("database"),
-        )
-    except Exception:
-        logger.exception("Failed to load DDL via mysql-connector", path=str(ddl_path))
-        return
-
-    with contextlib.closing(connection) as managed_connection:
-        try:
-            with managed_connection.cursor() as cursor:
-                cursor.execute(ddl_sql)
-                for _, result_set in cursor.fetchsets():
-                    logger.debug("sql statement", results=result_set)
-            managed_connection.commit()
-            logger.info("Applied DDL via mysql-connector", path=str(ddl_path))
-        except Exception:
-            with contextlib.suppress(Exception):
-                managed_connection.rollback()
-            logger.exception(
-                "Failed to load DDL via mysql-connector",
-                path=str(ddl_path),
-            )
 
 
 def export_database_ddl(stream: TextIO | None = None) -> None:
@@ -1588,13 +1517,6 @@ def export_database_ddl(stream: TextIO | None = None) -> None:
     table_statements: list[str] = []
     try:
         dialect = engine.dialect
-        preparer = dialect.identifier_preparer
-        db_settings = _read_config().get("DB", {})
-        database_name = db_settings.get("database", "final_project")
-        charset = db_settings.get("charset", "utf8mb4")
-        collation = db_settings.get("collation", "utf8mb4_unicode_ci")
-        quoted_db = preparer.quote(database_name)
-
         for table in Base.metadata.sorted_tables:
             table_sql = str(CreateTable(table).compile(dialect=dialect))
             table_statements.append(table_sql)
@@ -1608,15 +1530,8 @@ def export_database_ddl(stream: TextIO | None = None) -> None:
     if not table_statements:
         target.write("-- No tables defined.\n")
         return
-    statements = [
-        f"CREATE DATABASE IF NOT EXISTS {quoted_db}\n"
-        f"    CHARACTER SET {charset}\n"
-        f"    COLLATE {collation}",
-        f"USE {quoted_db}",
-        *table_statements,
-    ]
-    formatted = [f"{statement.rstrip()};" for statement in statements]
-    output = "\n\n".join(formatted) + "\n"
+    formatted = [f"{statement.rstrip()};" for statement in table_statements]
+    output = "-- Generated schema --\n" + "\n\n".join(formatted) + "\n"
     target.write(output)
 
 

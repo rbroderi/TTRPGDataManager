@@ -26,8 +26,8 @@ from final_project.db import connect  # noqa: E402
 
 
 @pytest.fixture(scope="session")
-def mysql_engine() -> Engine:
-    """Connect to the configured MySQL database and ensure schema exists."""
+def sqlite_engine() -> Engine:
+    """Connect to the configured SQLite database and ensure schema exists."""
     try:
         engine = connect(LogLevels.ERROR)
     except (
@@ -41,9 +41,9 @@ def mysql_engine() -> Engine:
 
 
 @pytest.fixture
-def db_session(mysql_engine: Engine) -> Iterator[Session]:
+def db_session(sqlite_engine: Engine) -> Iterator[Session]:
     """Provide a transactional SQLAlchemy session for each test."""
-    connection = mysql_engine.connect()
+    connection = sqlite_engine.connect()
     transaction = connection.begin()
     session_factory = sessionmaker(bind=connection, expire_on_commit=False)
     session = session_factory()

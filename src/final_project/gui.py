@@ -38,6 +38,7 @@ from final_project.paths import PROJECT_ROOT
 from final_project.widgets import AppMenuBar
 from final_project.widgets import RadioField
 from final_project.widgets import RandomIcon
+from final_project.pyphen_compat import stabilize_pyphen_language_paths
 
 with lazi:  # type: ignore[attr-defined]
     import json
@@ -73,6 +74,9 @@ with lazi:  # type: ignore[attr-defined]
     # embedded HTML renderer keeps working across Pillow releases.
     if not hasattr(Image, "ANTIALIAS") and hasattr(Image, "Resampling"):
         Image.ANTIALIAS = Image.Resampling.LANCZOS  # type: ignore[attr-defined]
+
+    # Nuitka's resource loader hands Pyphen unhashable resource entries.
+    stabilize_pyphen_language_paths()
 
 # disable debug in pillow
 pil_logger = logging.getLogger("PIL")

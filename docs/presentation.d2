@@ -102,7 +102,7 @@ layers: {
 
 			- **UI Layer:** CustomTkinter (`gui.py`, `widgets.py`) + async helpers for LLM dialogs.
 			- **Logic Layer:** `logic.py` / `llmrunner.py` orchestrate validation, data binding, and background tasks.
-			- **Data Layer:** `db.py` centralizes SQLAlchemy models, DDL loaders (SQLAlchemy + mysql-connector).
+			- **Data Layer:** `db.py` centralizes SQLAlchemy models plus the SQLite engine/session helpers.
 			- **Tooling:** `uv` for deps, `structlog` for JSON logs, `ruff/mypy/pyright` for static linting/type checking.
 		|
 	}
