@@ -1,3 +1,3 @@
 [DB]
-drivername = "sqlite+pysqlite"
-database = "data/final_project.sqlite3"
+drivername = "ysaqml"
+database = "data/db"

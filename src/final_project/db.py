@@ -30,6 +30,7 @@ from sqlalchemy.schema import CreateIndex
 from sqlalchemy.schema import CreateTable
 
 with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
+    import atexit
     import json
     import sys
     import tomllib
@@ -53,6 +54,7 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     from pydantic import BaseModel
     from pydantic import Field
     from tabulate import tabulate
+    from ysaqml import create_yaml_engine
 
     from final_project import LogLevels
     from final_project.paths import PROJECT_ROOT
@@ -75,6 +77,9 @@ CAMPAIGN_STATUSES: tuple[str, ...] = (
     "COMPLETED",
     "CANCELED",
 )
+
+_YAML_STORAGE_PATH: Path | None = None
+_YAML_PURGE_REQUESTED = False
 
 
 # beartype annotations
@@ -140,6 +145,22 @@ def _coerce_optional_path(value: Any) -> Path | None:
     return Path(text)
 
 
+def _resolve_database_path(value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else PROJECT_ROOT / path
+
+
+def _purge_yaml_storage(path: Path | None = None) -> None:
+    storage = path or _YAML_STORAGE_PATH
+    if storage is None or not storage.exists():
+        return
+    for yaml_file in storage.glob("*.yaml"):
+        try:
+            yaml_file.unlink()
+        except OSError:
+            logger.warning("failed to delete yaml file", path=str(yaml_file))
+
+
 def _attach_image_blob(owner: Any, image_blob: bytes | None) -> None:
     """Assign an ImageStore row to the owning instance when needed."""
     if image_blob is None or not hasattr(owner, "image"):
@@ -172,33 +193,50 @@ def _connector_factory() -> _Connector:
         nonlocal engine
         if engine is not None:
             return engine
+        global _YAML_STORAGE_PATH
+        global _YAML_PURGE_REQUESTED
+
         config_data = dict(_read_config().get("DB", {}))
         if "drivername" not in config_data or "database" not in config_data:
             msg = "Database configuration incomplete; expected drivername and database"
             raise RuntimeError(msg)
         drivername = str(config_data.get("drivername"))
         database_value = str(config_data.get("database"))
-        if drivername.startswith("sqlite"):
-            if database_value != ":memory:":
-                db_path = Path(database_value)
-                if not db_path.is_absolute():
-                    db_path = PROJECT_ROOT / db_path
+        normalized_driver = drivername.lower()
+        echo = loglevel == LogLevels.DEBUG
+
+        if normalized_driver.startswith("ysaqml"):
+            storage_path = _resolve_database_path(database_value)
+            storage_path.mkdir(parents=True, exist_ok=True)
+            if _YAML_PURGE_REQUESTED:
+                _purge_yaml_storage(storage_path)
+                _YAML_PURGE_REQUESTED = False
+            engine = create_yaml_engine(
+                Base.metadata,
+                storage_path,
+                echo=echo,
+            )
+            event.listen(engine, "connect", _enable_sqlite_foreign_keys)
+            atexit.register(engine.dispose)
+            _YAML_STORAGE_PATH = storage_path
+        else:
+            if normalized_driver.startswith("sqlite") and database_value != ":memory:":
+                db_path = _resolve_database_path(database_value)
                 db_path.parent.mkdir(parents=True, exist_ok=True)
                 config_data["database"] = str(db_path)
-        db_config = DBConfig(**config_data)
-        db_url = URL.create(**db_config.model_dump(exclude_none=True))
+            db_config = DBConfig(**config_data)
+            db_url = URL.create(**db_config.model_dump(exclude_none=True))
 
-        echo = loglevel == LogLevels.DEBUG
-        connect_args: dict[str, Any] = {}
-        if db_url.get_backend_name() == "sqlite":
-            connect_args["check_same_thread"] = False
-        engine = create_engine(
-            db_url,
-            echo=echo,
-            connect_args=connect_args,
-        )  # echo=True for logging SQL statements
-        if db_url.get_backend_name() == "sqlite":
-            event.listen(engine, "connect", _enable_sqlite_foreign_keys)
+            connect_args: dict[str, Any] = {}
+            if db_url.get_backend_name() == "sqlite":
+                connect_args["check_same_thread"] = False
+            engine = create_engine(
+                db_url,
+                echo=echo,
+                connect_args=connect_args,
+            )  # echo=True for logging SQL statements
+            if db_url.get_backend_name() == "sqlite":
+                event.listen(engine, "connect", _enable_sqlite_foreign_keys)
         try:
             with engine.connect():
                 logger.info("Successfully connected to the database!")
@@ -1501,10 +1539,13 @@ def setup_database(
     loglevel: LogLevels = LogLevels.INFO,
 ) -> sessionmaker[SessionType]:
     """Ensure schema exists (optionally rebuilding) and return a session factory."""
+    global _YAML_PURGE_REQUESTED
+    _YAML_PURGE_REQUESTED = rebuild
     engine = connect(loglevel)
     logger.debug("Create tables if missing.")
     if rebuild:
         logger.info("Dropping all tables and rebuilding schema.")
+        _purge_yaml_storage()
         Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)

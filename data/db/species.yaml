@@ -1,0 +1,73 @@
+_naay_version: "1.0"
+rows:
+  - 
+    name: "High Elf"
+    traits_json: |
+      {
+        "vision": "darkvision",
+        "lifespan": "immortal",
+        "demeanor": "patient"
+      }
+  - 
+    name: "Mountain Dwarf"
+    traits_json: |
+      {
+        "resilience": "stonebound",
+        "beard_adornments": "silver runes"
+      }
+  - 
+    name: "Tiefling"
+    traits_json: |
+      {
+        "tail": "forked",
+        "horns": "spiraled"
+      }
+  - 
+    name: "Fire Genasi"
+    traits_json: |
+      {
+        "aura": "warm breeze",
+        "hair": "living flame"
+      }
+  - 
+    name: "Human"
+    traits_json: |
+      {
+        "vice": "rare wines",
+        "tell": "tapping cane"
+      }
+  - 
+    name: "Eladrin"
+    traits_json: |
+      {
+        "season": "autumn",
+        "eyes": "amber swirl"
+      }
+  - 
+    name: "Warforged"
+    traits_json: |
+      {
+        "plating": "brass",
+        "core": "smokeless furnace"
+      }
+  - 
+    name: "Goliath"
+    traits_json: |
+      {
+        "tattoos": "ice etchings",
+        "stature": "towering"
+      }
+  - 
+    name: "Lightfoot Halfling"
+    traits_json: |
+      {
+        "curiosity": "boundless",
+        "stride": "swift"
+      }
+  - 
+    name: "Orc"
+    traits_json: |
+      {
+        "tusks": "obsidian caps",
+        "bearing": "imposing"
+      }

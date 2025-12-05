@@ -27,6 +27,7 @@ dependencies = [
     "structlog>=25.5.0",
     "tkhtmlview>=0.1.1.post1",
     "tabulate>=0.9.0",
+    "ysaqml",
 ]
 
 [project.optional-dependencies]
@@ -176,6 +177,9 @@ project-dependency-updates = { level = "hint" }
 project-dependencies-version-bounds = "off"
 project-requires-python-bounds = "off"
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 
 [tool.coverage.report]
 exclude_also = [
@@ -184,3 +188,6 @@ exclude_also = [
     # 3. A pragma comment that excludes an entire file:
     '\A(?s:.*# pragma: exclude file.*)\Z',
 ]
+
+[tool.uv.sources]
+ysaqml = { git = "https://github.com/rbroderi/ysaqml" }

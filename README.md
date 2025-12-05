@@ -1,6 +1,6 @@
 # TTRPG Data Manager
 
-A Desktop based program for Game Masters, Store Tellers or Authors need to manage TTRPG games or store information. The application uses a CustomTkinter interface, SQLAlchemy models backed by SQLite, and optional local LLM files to help construct images and names.
+A Desktop based program for Game Masters, Store Tellers or Authors need to manage TTRPG games or store information. The application uses a CustomTkinter interface, SQLAlchemy models backed by [ysaqml](https://github.com/rbroderi/ysaqml) (YAML persisted to disk, SQLite in-memory at runtime), and optional local LLM files to help construct images and names.
 
 ## 1. Project Overview
 - **Purpose:** give Game Masters and Authors a single control panel for CRUD workflows around campaigns, NPCs, locations, encounters, factions, and relationships.
@@ -37,11 +37,11 @@ The ERD (authored in `docs/erd.uml`, rendered to `docs/images/erd.png`) illustra
 
 ## 3. Schema Management
 - **Source of truth:** SQLAlchemy models inside `db.py` define the schema. `data/db.ddl` remains in the repo as a historical reference but the application no longer executes it.
-- **Deployment:** `setup_database()` creates SQLite tables in `data/final_project.sqlite3` (configurable via `data/config.toml`). Foreign-key enforcement is enabled on every SQLite connection and `--rebuild` simply calls `setup_database(rebuild=True)` to drop and recreate tables.
+- **Deployment:** `setup_database()` now builds a `ysaqml` engine which keeps an in-memory SQLite database in sync with YAML files stored under `data/db/` (path configurable via `data/config.toml`). Foreign keys are enabled on every connection and `--rebuild` drops the live tables so the YAML snapshots are rewritten before exit.
 - **Structure:** Tables declare explicit PKs/FKs, enumerations, and indexes just as before: `npc`/`location` stay unique per campaign/name, `encounter` is unique per location/date/campaign, and join tables retain composite keys.
 - **Referential constraints:** Cascades are enforced through the ORM metadata. Campaign-scoped entities cascade on update/delete, join tables cascade to their parents, and `species` remains `ON DELETE RESTRICT`.
-- **Checks and enumerations:** Enum columns model the gender/alignment/location/campaign status choices. SQLite CHECK constraints (e.g., `age BETWEEN 0 AND 65535`) cover integer ranges, while higher-level validation still happens in the GUI/logic layer.
-- **Configuration location:** `data/config.toml` holds the SQLAlchemy URL pieces (driver + database path). No `.env` or external credential management is required for the bundled SQLite database.
+- **Checks and enumerations:** Enum columns model the gender/alignment/location/campaign status choices. The underlying SQLite engine (running entirely in-memory) still enforces CHECK constraints (e.g., `age BETWEEN 0 AND 65535`), while higher-level validation happens in the GUI/logic layer.
+- **Configuration location:** `data/config.toml` holds the SQLAlchemy URL pieces (the `ysaqml` driver plus the YAML directory). No `.env` or external credential management is required for the bundled YAML-backed database.
 
 ## 4. CRUD Guide
 Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. Below is a quick reference tying screens to tables:
@@ -57,7 +57,7 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
   - `--list-npcs` remains available for quick CLI inspection and prints a tabular view (NPC, campaign, faction, relationships).
 
 ## 5. Run Instructions
-1. **Prerequisites:** Python 3.13+, `uv`, and (optionally) `.llamafile` models in `assets/` if you want AI-generated names. SQLite is bundled with Python, so no external database server is required.
+1. **Prerequisites:** Python 3.13+, `uv`, and (optionally) `.llamafile` models in `assets/` if you want AI-generated names. The YAML files under `data/db/` hold all persistence, so no external database server is required.
 2. **Install dependencies:**
   ```shell
   pip install uv
@@ -132,7 +132,7 @@ environment is already active) and combine the following flags as needed:
 - **`-m, --readme`** – Render this README in the terminal and exit.
 - **Logging verbosity** (mutually exclusive): `-v/--log-warning` (errors),
   `-vv/--log-info` (info), `-vvv/--log-debug` (debug). Default is `ERROR`.
-- **`--rebuild`** – Drop every table in the configured SQLite database and recreate them before exiting.
+- **`--rebuild`** – Drop every table in the in-memory database and, on shutdown, rewrite the YAML files under `data/db/` so the on-disk state matches the empty schema.
 - **`--list-npcs`** – Print every NPC currently in the database as a GitHub-style table showing the campaign, faction (with notes), and relationship links (requires connectivity).
 
 If no maintenance flags are supplied, the CLI launches the CustomTkinter GUI.

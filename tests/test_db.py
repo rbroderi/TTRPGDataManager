@@ -1,4 +1,4 @@
-"""Tests for final_project.db using an in-memory SQLite database."""
+"""Tests for final_project.db (runtime backend is ysaqml)."""
 
 # pyright: reportPrivateUsage=false
 # pyright: reportUnknownMemberType=false
@@ -218,13 +218,13 @@ def test_read_config_round_trip(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config_file = tmp_path / "config.toml"
-    config_file.write_text("[DB]\ndrivername = 'sqlite'\n", encoding="utf-8")
+    config_file.write_text("[DB]\ndrivername = 'ysaqml'\n", encoding="utf-8")
     monkeypatch.setattr(db, "CONFIG_PATH", config_file)
     result = db._read_config()
-    assert result == {"DB": {"drivername": "sqlite"}}
+    assert result == {"DB": {"drivername": "ysaqml"}}
     # cached value reused even if file changes
     config_file.write_text("[DB]\ndrivername='other'\n", encoding="utf-8")
-    assert db._read_config() == {"DB": {"drivername": "sqlite"}}
+    assert db._read_config() == {"DB": {"drivername": "ysaqml"}}
 
 
 def test_load_sample_data_variants(
@@ -304,8 +304,8 @@ def test_connector_factory_caches_engine(monkeypatch: pytest.MonkeyPatch) -> Non
         "_read_config",
         lambda: {
             "DB": {
-                "drivername": "sqlite+pysqlite",
-                "database": ":memory:",
+                "drivername": "ysaqml",
+                "database": "data/db",
                 "host": None,
                 "port": None,
             },
@@ -320,18 +320,63 @@ def test_connector_factory_caches_engine(monkeypatch: pytest.MonkeyPatch) -> Non
             self.connect_calls += 1
             return nullcontext()
 
+        def dispose(self) -> None:  # pragma: no cover - test double convenience
+            return None
+
     dummy_engine = DummyEngine()
 
     def fake_create_engine(*_: Any, **__: Any) -> DummyEngine:
         return dummy_engine
 
-    monkeypatch.setattr(db, "create_engine", fake_create_engine)
+    monkeypatch.setattr(db, "create_yaml_engine", fake_create_engine)
     monkeypatch.setattr(db.event, "listen", lambda *_args, **_kwargs: None)
     factory = db._connector_factory()
     engine_a = factory(LogLevels.DEBUG)
     engine_b = factory(LogLevels.INFO)
     assert engine_a is engine_b
     assert dummy_engine.connect_calls == 1
+
+
+def test_connector_factory_purges_yaml_before_engine_creation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    storage = tmp_path / "db"
+    storage.mkdir()
+    yaml_file = storage / "campaign.yaml"
+    yaml_file.write_text("bad", encoding="utf-8")
+
+    monkeypatch.setattr(
+        db,
+        "_read_config",
+        lambda: {
+            "DB": {
+                "drivername": "ysaqml",
+                "database": str(storage),
+            },
+        },
+    )
+
+    class EngineWithDispose:
+        def connect(self) -> nullcontext[None]:
+            return nullcontext()
+
+        def dispose(self) -> None:  # pragma: no cover - interface shim
+            return None
+
+    creation_checks: list[bool] = []
+
+    def fake_create_yaml_engine(*_args: Any, **_kwargs: Any) -> EngineWithDispose:
+        creation_checks.append(yaml_file.exists())
+        return EngineWithDispose()
+
+    monkeypatch.setattr(db, "create_yaml_engine", fake_create_yaml_engine)
+    monkeypatch.setattr(db.event, "listen", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(db, "_YAML_STORAGE_PATH", None)
+    monkeypatch.setattr(db, "_YAML_PURGE_REQUESTED", True)
+    factory = db._connector_factory()
+    factory()
+    assert creation_checks == [False]
 
 
 def test_get_session_factory_reuses_sessionmaker(
@@ -515,8 +560,8 @@ def test_connector_factory_handles_connection_failure(
         "_read_config",
         lambda: {
             "DB": {
-                "drivername": "sqlite+pysqlite",
-                "database": ":memory:",
+                "drivername": "ysaqml",
+                "database": "data/db",
                 "host": "localhost",
                 "port": 0,
             },
@@ -532,12 +577,15 @@ def test_connector_factory_handles_connection_failure(
             msg = "boom"
             raise RuntimeError(msg)
 
+        def dispose(self) -> None:  # pragma: no cover - test double convenience
+            return None
+
     failing_engine = FailingEngine()
 
     def fake_create_engine(*_args: Any, **_kwargs: Any) -> FailingEngine:
         return failing_engine
 
-    monkeypatch.setattr(db, "create_engine", fake_create_engine)
+    monkeypatch.setattr(db, "create_yaml_engine", fake_create_engine)
     monkeypatch.setattr(db.event, "listen", lambda *_args, **_kwargs: None)
     factory = db._connector_factory()
     engine = factory(LogLevels.DEBUG)
@@ -1130,6 +1178,7 @@ def test_get_types_returns_expected() -> None:
 def test_setup_database_rebuild(
     memory_engine: Engine,
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     drop_calls: list[Engine] = []
     create_calls: list[Engine] = []
@@ -1140,11 +1189,18 @@ def test_setup_database_rebuild(
     def fake_create(engine: Engine) -> None:
         create_calls.append(engine)
 
+    storage_dir = tmp_path / "db"
+    storage_dir.mkdir()
+    yaml_file = storage_dir / "campaign.yaml"
+    yaml_file.write_text("junk", encoding="utf-8")
+
     monkeypatch.setattr(db.Base.metadata, "drop_all", fake_drop)
     monkeypatch.setattr(db.Base.metadata, "create_all", fake_create)
+    monkeypatch.setattr(db, "_YAML_STORAGE_PATH", storage_dir)
     factory = db.setup_database(rebuild=True, loglevel=LogLevels.DEBUG)
     assert drop_calls == [memory_engine]
     assert create_calls == [memory_engine]
+    assert not yaml_file.exists()
     session = factory()
     session.close()
 

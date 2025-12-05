@@ -1,0 +1,10 @@
+_naay_version: "1.0"
+rows:
+  - 
+    name: "Dragonfall"
+    start_date: "2025-11-19"
+    status: "ACTIVE"
+  - 
+    name: "Iron Pact"
+    start_date: "2024-03-08"
+    status: "ACTIVE"

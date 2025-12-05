@@ -1,0 +1,90 @@
+_naay_version: "1.0"
+rows:
+  - 
+    campaign_name: "Dragonfall"
+    id: "1"
+    record_type: "location"
+  - 
+    campaign_name: "Iron Pact"
+    id: "2"
+    record_type: "location"
+  - 
+    campaign_name: "Dragonfall"
+    id: "3"
+    record_type: "location"
+  - 
+    campaign_name: "Iron Pact"
+    id: "4"
+    record_type: "location"
+  - 
+    campaign_name: "Dragonfall"
+    id: "5"
+    record_type: "location"
+  - 
+    campaign_name: "Iron Pact"
+    id: "6"
+    record_type: "location"
+  - 
+    campaign_name: "Dragonfall"
+    id: "7"
+    record_type: "npc"
+  - 
+    campaign_name: "Iron Pact"
+    id: "8"
+    record_type: "npc"
+  - 
+    campaign_name: "Dragonfall"
+    id: "9"
+    record_type: "npc"
+  - 
+    campaign_name: "Dragonfall"
+    id: "10"
+    record_type: "npc"
+  - 
+    campaign_name: "Iron Pact"
+    id: "11"
+    record_type: "npc"
+  - 
+    campaign_name: "Dragonfall"
+    id: "12"
+    record_type: "npc"
+  - 
+    campaign_name: "Iron Pact"
+    id: "13"
+    record_type: "npc"
+  - 
+    campaign_name: "Iron Pact"
+    id: "14"
+    record_type: "npc"
+  - 
+    campaign_name: "Dragonfall"
+    id: "15"
+    record_type: "npc"
+  - 
+    campaign_name: "Iron Pact"
+    id: "16"
+    record_type: "npc"
+  - 
+    campaign_name: "Dragonfall"
+    id: "17"
+    record_type: "encounter"
+  - 
+    campaign_name: "Iron Pact"
+    id: "18"
+    record_type: "encounter"
+  - 
+    campaign_name: "Dragonfall"
+    id: "19"
+    record_type: "encounter"
+  - 
+    campaign_name: "Iron Pact"
+    id: "20"
+    record_type: "encounter"
+  - 
+    campaign_name: "Dragonfall"
+    id: "21"
+    record_type: "encounter"
+  - 
+    campaign_name: "Iron Pact"
+    id: "22"
+    record_type: "encounter"

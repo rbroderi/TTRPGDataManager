@@ -91,7 +91,7 @@ def _setup_arguments() -> argparse.Namespace:
     db_group.add_argument(
         "--rebuild",
         action="store_true",
-        help="Drop all tables in the SQLite database and recreate them before exiting.",
+        help="Drop all tables in the YAML-backed database and recreate them before exiting.",
     )
     db_group.add_argument(
         "--list-npcs",
