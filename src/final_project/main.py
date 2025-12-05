@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from lazi.core import lazi
 
 from final_project import patch
+from final_project.db import dispose_engine
 from final_project.db import list_all_npcs
 from final_project.db import setup_database
 from final_project.gui import init as launch_gui
@@ -143,14 +144,17 @@ def main() -> int:
     args = _setup_arguments()
     patch()
     logger.info("inital setup completed.")
-    if args.readme:
-        _display_readme()
+    try:
+        if args.readme:
+            _display_readme()
+            return OK
+        if _handle_db_actions(args):
+            logger.info("exiting after database maintenance")
+            return OK
+        _launch_gui()
         return OK
-    if _handle_db_actions(args):
-        logger.info("exiting after database maintenance")
-        return OK
-    _launch_gui()
-    return OK
+    finally:
+        dispose_engine()
 
 
 if __name__ == "__main__":

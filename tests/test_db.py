@@ -298,7 +298,10 @@ def test_coerce_optional_path(value: object, expected: Path | None) -> None:
     assert db._coerce_optional_path(value) == expected
 
 
-def test_connector_factory_caches_engine(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_connector_factory_caches_engine(
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+) -> None:
     monkeypatch.setattr(
         db,
         "_read_config",
@@ -311,6 +314,8 @@ def test_connector_factory_caches_engine(monkeypatch: pytest.MonkeyPatch) -> Non
             },
         },
     )
+    db.engine_manager.dispose()
+    request.addfinalizer(db.engine_manager.dispose)
 
     class DummyEngine:
         def __init__(self) -> None:
@@ -340,7 +345,10 @@ def test_connector_factory_caches_engine(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_connector_factory_purges_yaml_before_engine_creation(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    request: pytest.FixtureRequest,
 ) -> None:
+    db.engine_manager.dispose()
+    request.addfinalizer(db.engine_manager.dispose)
     storage = tmp_path / "db"
     storage.mkdir()
     yaml_file = storage / "campaign.yaml"
@@ -372,8 +380,8 @@ def test_connector_factory_purges_yaml_before_engine_creation(
 
     monkeypatch.setattr(db, "create_yaml_engine", fake_create_yaml_engine)
     monkeypatch.setattr(db.event, "listen", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(db, "_YAML_STORAGE_PATH", None)
-    monkeypatch.setattr(db, "_YAML_PURGE_REQUESTED", True)
+    monkeypatch.setattr(db.engine_manager, "yaml_storage_path", None)
+    monkeypatch.setattr(db.engine_manager, "purge_requested", True)
     factory = db._connector_factory()
     factory()
     assert creation_checks == [False]
@@ -554,7 +562,10 @@ def test_load_all_sample_encounters(
 
 def test_connector_factory_handles_connection_failure(
     monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
 ) -> None:
+    db.engine_manager.dispose()
+    request.addfinalizer(db.engine_manager.dispose)
     monkeypatch.setattr(
         db,
         "_read_config",
@@ -1196,7 +1207,7 @@ def test_setup_database_rebuild(
 
     monkeypatch.setattr(db.Base.metadata, "drop_all", fake_drop)
     monkeypatch.setattr(db.Base.metadata, "create_all", fake_create)
-    monkeypatch.setattr(db, "_YAML_STORAGE_PATH", storage_dir)
+    monkeypatch.setattr(db.engine_manager, "yaml_storage_path", storage_dir)
     factory = db.setup_database(rebuild=True, loglevel=LogLevels.DEBUG)
     assert drop_calls == [memory_engine]
     assert create_calls == [memory_engine]

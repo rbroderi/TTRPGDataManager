@@ -5,6 +5,7 @@ from lazi.core import lazi
 # does not work well with lazi
 from sqlalchemy import JSON
 from sqlalchemy import CheckConstraint
+from sqlalchemy import Date
 from sqlalchemy import Engine
 from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
@@ -28,8 +29,10 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.schema import CreateIndex
 from sqlalchemy.schema import CreateTable
+from sqlalchemy.types import TypeDecorator
 
 with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
+    import ast
     import atexit
     import json
     import sys
@@ -54,12 +57,13 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     from pydantic import BaseModel
     from pydantic import Field
     from tabulate import tabulate
-    from ysaqml import create_yaml_engine
 
     from final_project import LogLevels
     from final_project.paths import PROJECT_ROOT
     from final_project.settings_manager import path_from_settings
 
+# ysaqml needs an eager import; lazi wrappers block naay.dumps resolution.
+from ysaqml import create_yaml_engine
 
 logger = structlog.getLogger("final_project")
 
@@ -78,9 +82,186 @@ CAMPAIGN_STATUSES: tuple[str, ...] = (
     "CANCELED",
 )
 
-_YAML_STORAGE_PATH: Path | None = None
-_YAML_PURGE_REQUESTED = False
 
+class ISODate(TypeDecorator[dtdate]):
+    """TypeDecorator that accepts ISO date strings or ``date`` objects."""
+
+    impl = Date
+    cache_ok = True
+    _python_type = dtdate
+
+    def process_bind_param(
+        self,
+        value: dtdate | str | None,
+        _dialect: Any,
+    ) -> dtdate | None:
+        if value is None or isinstance(value, dtdate):
+            return value
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized:
+                return None
+            try:
+                return dtdate.fromisoformat(normalized)
+            except ValueError as exc:  # pragma: no cover - configuration data issue
+                msg = f"Invalid ISO date string: {value!r}"
+                raise ValueError(msg) from exc
+        msg = f"Unsupported date value type: {type(value)!r}"
+        raise TypeError(msg)
+
+    @property
+    def python_type(self) -> type[dtdate]:
+        return self._python_type
+
+
+class CanonicalJSON(TypeDecorator[dict[str, Any]]):
+    """TypeDecorator that normalizes JSON text into mappings."""
+
+    impl = JSON
+    cache_ok = True
+    _python_type: type[Any] = dict
+
+    def process_bind_param(
+        self,
+        value: Mapping[str, Any] | str | None,
+        _dialect: Any,
+    ) -> dict[str, Any] | None:
+        if value is None:
+            return None
+        if isinstance(value, Mapping):
+            return self._normalize_mapping(value)
+        if isinstance(value, str):
+            parsed = self._deserialize_mapping(value)
+            return None if parsed is None else self._normalize_mapping(parsed)
+        msg = f"Unsupported JSON value type: {type(value)!r}"
+        raise TypeError(msg)
+
+    def process_result_value(
+        self,
+        value: Mapping[str, Any] | str | None,
+        _dialect: Any,
+    ) -> dict[str, Any] | None:
+        if value is None:
+            return None
+        if isinstance(value, Mapping):
+            return self._normalize_mapping(value)
+        if isinstance(value, str):
+            parsed = self._deserialize_mapping(value)
+            return None if parsed is None else self._normalize_mapping(parsed)
+        return value
+
+    @staticmethod
+    def _normalize_mapping(payload: Mapping[str, Any]) -> dict[str, Any]:
+        return {str(key): val for key, val in payload.items()}
+
+    @staticmethod
+    def _deserialize_mapping(text: str) -> Mapping[str, Any] | None:
+        normalized = text.strip()
+        if not normalized:
+            return None
+        try:
+            parsed: Any = json.loads(normalized)
+        except json.JSONDecodeError:
+            try:
+                parsed = ast.literal_eval(normalized)
+            except (ValueError, SyntaxError) as exc:
+                msg = f"Invalid JSON text: {text!r}"
+                raise ValueError(msg) from exc
+        if parsed is None:
+            return None
+        if not isinstance(parsed, Mapping):
+            msg = f"JSON field requires an object; received {type(parsed)!r}"
+            raise TypeError(msg)
+        return parsed
+
+    @property
+    def python_type(self) -> type[Any]:
+        return self._python_type
+
+
+class EngineManager:
+    """Manage the lifecycle of the shared SQLAlchemy engine."""
+
+    def __init__(self) -> None:
+        self._engine: Engine | None = None
+        self.yaml_storage_path: Path | None = None
+        self.purge_requested = False
+        self._dispose_registered = False
+
+    def connect(self, loglevel: LogLevels = LogLevels.WARNING) -> Engine:
+        """Connect to the db, caching the engine inside the manager."""
+        if self._engine is not None:
+            return self._engine
+
+        config_data = dict(_read_config().get("DB", {}))
+        if "drivername" not in config_data or "database" not in config_data:
+            msg = "Database configuration incomplete; expected drivername and database"
+            raise RuntimeError(msg)
+        drivername = str(config_data.get("drivername"))
+        database_value = str(config_data.get("database"))
+        normalized_driver = drivername.lower()
+        echo = loglevel == LogLevels.DEBUG
+
+        if normalized_driver.startswith("ysaqml"):
+            storage_path = _resolve_database_path(database_value)
+            storage_path.mkdir(parents=True, exist_ok=True)
+            if self.purge_requested:
+                _purge_yaml_storage(storage_path)
+                self.purge_requested = False
+            engine = create_yaml_engine(
+                Base.metadata,
+                storage_path,
+                echo=echo,
+            )
+            event.listen(engine, "connect", _enable_sqlite_foreign_keys)
+            self.yaml_storage_path = storage_path
+            if not self._dispose_registered:
+                atexit.register(self.dispose)
+                self._dispose_registered = True
+        else:
+            if normalized_driver.startswith("sqlite") and database_value != ":memory:":
+                db_path = _resolve_database_path(database_value)
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                config_data["database"] = str(db_path)
+            db_config = DBConfig(**config_data)
+            db_url = URL.create(**db_config.model_dump(exclude_none=True))
+
+            connect_args: dict[str, Any] = {}
+            if db_url.get_backend_name() == "sqlite":
+                connect_args["check_same_thread"] = False
+            engine = create_engine(
+                db_url,
+                echo=echo,
+                connect_args=connect_args,
+            )  # echo=True for logging SQL statements
+            if db_url.get_backend_name() == "sqlite":
+                event.listen(engine, "connect", _enable_sqlite_foreign_keys)
+            self.yaml_storage_path = None
+        try:
+            with engine.connect():
+                logger.info("Successfully connected to the database!")
+        except Exception as e:  # noqa: BLE001
+            logger.critical("Error connecting to the database", error=e)
+        self._engine = engine
+        return engine
+
+    def dispose(self) -> None:
+        """Dispose of the cached engine and clear dependent caches."""
+        if self._engine is None:
+            return
+        try:
+            self._engine.dispose()
+        finally:
+            self._engine = None
+            self.yaml_storage_path = None
+            self.purge_requested = False
+            self._dispose_registered = False
+            cache_clear = getattr(_get_session_factory, "cache_clear", None)
+            if callable(cache_clear):
+                cache_clear()
+
+
+engine_manager = EngineManager()
 
 # beartype annotations
 type Varchar256 = Annotated[str, Is[lambda s: isinstance(s, str) and len(s) <= 256]]  # pyright: ignore[reportUnknownLambdaType] # noqa: PLR2004
@@ -150,8 +331,8 @@ def _resolve_database_path(value: str) -> Path:
     return path if path.is_absolute() else PROJECT_ROOT / path
 
 
-def _purge_yaml_storage(path: Path | None = None) -> None:
-    storage = path or _YAML_STORAGE_PATH
+def _purge_yaml_storage(path: Path | None) -> None:
+    storage = path
     if storage is None or not storage.exists():
         return
     for yaml_file in storage.glob("*.yaml"):
@@ -186,65 +367,11 @@ class _Connector(Protocol):
 
 
 def _connector_factory() -> _Connector:
-    engine: Engine | None = None
+    return engine_manager.connect
 
-    def _connect(loglevel: LogLevels = LogLevels.WARNING) -> Engine:
-        """Connect to the db, caching the engine inside a closure."""
-        nonlocal engine
-        if engine is not None:
-            return engine
-        global _YAML_STORAGE_PATH
-        global _YAML_PURGE_REQUESTED
 
-        config_data = dict(_read_config().get("DB", {}))
-        if "drivername" not in config_data or "database" not in config_data:
-            msg = "Database configuration incomplete; expected drivername and database"
-            raise RuntimeError(msg)
-        drivername = str(config_data.get("drivername"))
-        database_value = str(config_data.get("database"))
-        normalized_driver = drivername.lower()
-        echo = loglevel == LogLevels.DEBUG
-
-        if normalized_driver.startswith("ysaqml"):
-            storage_path = _resolve_database_path(database_value)
-            storage_path.mkdir(parents=True, exist_ok=True)
-            if _YAML_PURGE_REQUESTED:
-                _purge_yaml_storage(storage_path)
-                _YAML_PURGE_REQUESTED = False
-            engine = create_yaml_engine(
-                Base.metadata,
-                storage_path,
-                echo=echo,
-            )
-            event.listen(engine, "connect", _enable_sqlite_foreign_keys)
-            atexit.register(engine.dispose)
-            _YAML_STORAGE_PATH = storage_path
-        else:
-            if normalized_driver.startswith("sqlite") and database_value != ":memory:":
-                db_path = _resolve_database_path(database_value)
-                db_path.parent.mkdir(parents=True, exist_ok=True)
-                config_data["database"] = str(db_path)
-            db_config = DBConfig(**config_data)
-            db_url = URL.create(**db_config.model_dump(exclude_none=True))
-
-            connect_args: dict[str, Any] = {}
-            if db_url.get_backend_name() == "sqlite":
-                connect_args["check_same_thread"] = False
-            engine = create_engine(
-                db_url,
-                echo=echo,
-                connect_args=connect_args,
-            )  # echo=True for logging SQL statements
-            if db_url.get_backend_name() == "sqlite":
-                event.listen(engine, "connect", _enable_sqlite_foreign_keys)
-        try:
-            with engine.connect():
-                logger.info("Successfully connected to the database!")
-        except Exception as e:  # noqa: BLE001
-            logger.critical("Error connecting to the database", error=e)
-        return engine
-
-    return _connect
+def dispose_engine() -> None:
+    engine_manager.dispose()
 
 
 def _enable_sqlite_foreign_keys(dbapi_connection: Any, _connection_record: Any) -> None:
@@ -292,7 +419,7 @@ class Campaign(Base):
 
     __tablename__ = "campaign"
     name: Mapped[Varchar256] = mapped_column(String(256), primary_key=True)
-    start_date: Mapped[dtdate] = mapped_column()
+    start_date: Mapped[dtdate] = mapped_column(ISODate())
     status: Mapped[Literal["ACTIVE", "ONHOLD", "COMPLETED", "CANCELED"]] = (
         mapped_column(
             Enum(*CAMPAIGN_STATUSES, name="campaign_status"),
@@ -454,7 +581,7 @@ class Encounter(CampaignRecord):
     location_name: Mapped[Varchar256] = mapped_column(
         String(256),
     )
-    date: Mapped[dtdate] = mapped_column(nullable=True)
+    date: Mapped[dtdate] = mapped_column(ISODate(), nullable=True)
     description: Mapped[str] = mapped_column(Text)
 
     campaign = relationship(
@@ -558,7 +685,10 @@ class NPC(CampaignRecord):
             ondelete="RESTRICT",
         ),
     )
-    abilities_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=True)
+    abilities_json: Mapped[dict[str, Any]] = mapped_column(
+        CanonicalJSON(),
+        nullable=True,
+    )
 
     campaign = relationship(
         "Campaign",
@@ -1539,13 +1669,12 @@ def setup_database(
     loglevel: LogLevels = LogLevels.INFO,
 ) -> sessionmaker[SessionType]:
     """Ensure schema exists (optionally rebuilding) and return a session factory."""
-    global _YAML_PURGE_REQUESTED
-    _YAML_PURGE_REQUESTED = rebuild
+    engine_manager.purge_requested = rebuild
     engine = connect(loglevel)
     logger.debug("Create tables if missing.")
     if rebuild:
         logger.info("Dropping all tables and rebuilding schema.")
-        _purge_yaml_storage()
+        _purge_yaml_storage(engine_manager.yaml_storage_path)
         Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     return sessionmaker(bind=engine, expire_on_commit=False)

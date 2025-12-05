@@ -1165,8 +1165,8 @@ wheels = [
 
 [[package]]
 name = "ysaqml"
-version = "2025.12.4.post0"
-source = { git = "https://github.com/rbroderi/ysaqml#02f1ead88dbc03ce168e9274bbf3cd9ff0488f38" }
+version = "2025.12.4.post1"
+source = { git = "https://github.com/rbroderi/ysaqml#7fe122fdd8ff4fa3d5c51e63c4306a10fafb65eb" }
 dependencies = [
     { name = "naay" },
     { name = "sqlalchemy" },

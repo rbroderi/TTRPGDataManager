@@ -218,3 +218,4 @@ desktop.ini
 cache/
 *.sqlite3
 bin/
+data/db/*
