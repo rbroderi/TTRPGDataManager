@@ -20,9 +20,9 @@ SRC_ROOT = PROJECT_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from final_project import LogLevels  # noqa: E402
-from final_project.db import Base  # noqa: E402
-from final_project.db import connect  # noqa: E402
+from ttrpgdataman import LogLevels  # noqa: E402
+from ttrpgdataman.db import Base  # noqa: E402
+from ttrpgdataman.db import connect  # noqa: E402
 
 
 @pytest.fixture(scope="session")

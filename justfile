@@ -8,7 +8,7 @@ _default:
     @just --list --unsorted
 
 mypy:
-    uv run mypy src/final_project | {{ platgrep }}
+    uv run mypy src/ttrpgdataman | {{ platgrep }}
     @# grep is workaround for typings directory being included in errors.
 
 create_stub package:
@@ -27,17 +27,17 @@ loc:
     uvx pygount --format=summary --names-to-skip=*.eps
 
 run *args:
-    uv run python -m final_project.main {{ args }}
+    uv run python -m ttrpgdataman.main {{ args }}
 
 rebuild:
-    uv run python src/final_project/main.py --rebuild
+    uv run python src/ttrpgdataman/main.py --rebuild
 
 run-with-ddl:
     git lfs fetch --all
-    uv run python src/final_project/main.py --load-with-ddl
+    uv run python src/ttrpgdataman/main.py --load-with-ddl
 
 coverage:
-    uv run pytest --cov=final_project --cov-report=term-missing
+    uv run pytest --cov=ttrpgdataman --cov-report=term-missing
 
 pytest:
     uv run pytest
@@ -56,12 +56,12 @@ build-exe:
         --include-data-dir=data=data \
         --msvc=latest \
         --output-dir=cache \
-        --output-filename=final_project.exe \
+        --output-filename=ttrpgdataman.exe \
         --remove-output \
-        src/final_project/main.py
+        src/ttrpgdataman/main.py
     @$distDir = Get-ChildItem -Path cache -Directory -Filter '*.dist' | Select-Object -ExpandProperty FullName -First 1; \
         if (-not $distDir) { throw 'Nuitka dist directory not found.' }; \
-        $targetDir = Join-Path 'bin' 'final_project'; \
+        $targetDir = Join-Path 'bin' 'ttrpgdataman'; \
         if (Test-Path $targetDir) { Remove-Item -Recurse -Force $targetDir }; \
         Copy-Item -Recurse -Force $distDir $targetDir
 

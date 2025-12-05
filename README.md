@@ -82,7 +82,7 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
 
 3. **Launch the GUI:**
   ```powershell
-  uv run python -m final_project
+  uv run python -m ttrpgdataman
   ```
 4. **Download Local LLM Files (optional but required for name and image generation)**
   - ![Missing LLM Files](docs/images/screenshots/missing_llm_files.png)
@@ -95,12 +95,12 @@ Each workflow is reachable through the CustomTkinter sidebar tabs or CLI flags. 
   - `just pytest` (or `uv run pytest`) executes the unit tests
   - GUI-adjacent tests under `tests/test_dialogs.py` exercise the CustomTkinter dialogs headlessly (Settings/Relationships/Encounters/Campaign)
   - Additional suites (`tests/test_db*.py`, `tests/test_settings_manager.py`) cover persistence helpers and default-setting flows. Use `just coverage` to run the same suite with coverage enabled.
-- **Structural tests:** `uv run python -m final_project.main --list-npcs` confirms the ORM can read data.
-- **Constraint verification:** running `python -m final_project.main --rebuild` followed by deleting a campaign in the GUI validates manual cascade logic—the referenced NPCs, relationships, faction members, and encounter participants are removed without FK violations.
+- **Structural tests:** `uv run python -m ttrpgdataman.main --list-npcs` confirms the ORM can read data.
+- **Constraint verification:** running `python -m ttrpgdataman.main --rebuild` followed by deleting a campaign in the GUI validates manual cascade logic—the referenced NPCs, relationships, faction members, and encounter participants are removed without FK violations.
 - **Static analysis & type safety:**
-  - `uv run ruff check src/final_project` / `uv run ruff format src/final_project`
-  - `uv run mypy src/final_project` (strict mode configured in `pyproject.toml`)
-  - `uv run pyright src/final_project` when cross-validating typings
+  - `uv run ruff check src/ttrpgdataman` / `uv run ruff format src/ttrpgdataman`
+  - `uv run mypy src/ttrpgdataman` (strict mode configured in `pyproject.toml`)
+  - `uv run pyright src/ttrpgdataman` when cross-validating typings
 - **Manual GUI tests:** launch the GUI, create/edit NPCs, attach images, assign factions, add encounter participants, and ensure the resulting rows appear under `--list-npcs`. Test LLM-driven name and image generation if `assets/*` model files are present.
 
 ## Reference Material
@@ -126,7 +126,7 @@ The `scripts/capture_ui_screens.py` automation rebuilds the database, loads the 
 
 ## CLI Reference
 
-Run `uv run python -m final_project [options]` (or `python -m final_project` if the
+Run `uv run python -m ttrpgdataman [options]` (or `python -m ttrpgdataman` if the
 environment is already active) and combine the following flags as needed:
 
 - **`-m, --readme`** – Render this README in the terminal and exit.

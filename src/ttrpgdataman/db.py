@@ -58,9 +58,9 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     from pydantic import Field
     from tabulate import tabulate
 
-    from final_project import LogLevels
-    from final_project.paths import PROJECT_ROOT
-    from final_project.settings_manager import path_from_settings
+    from ttrpgdataman import LogLevels
+    from ttrpgdataman.paths import PROJECT_ROOT
+    from ttrpgdataman.settings_manager import path_from_settings
 
 # ysaqml needs an eager import; lazi wrappers block naay.dumps resolution.
 from ysaqml import create_yaml_engine
@@ -95,15 +95,6 @@ class ISODate(TypeDecorator[dtdate]):
         value: dtdate | str | None,
         dialect: Any,  # noqa: ARG002
     ) -> dtdate | None:
-        """
-        Normalize incoming values before storage.
-
-        :param value: Date object, ISO-formatted string, or blank/``None`` sentinel.
-        :param dialect: SQLAlchemy dialect object (only supplied by SQLAlchemy).
-        :returns: ``datetime.date`` when a value is provided, otherwise ``None``.
-        :raises ValueError: If the supplied text cannot be parsed as an ISO date.
-        :raises TypeError: If the value type cannot be converted.
-        """
         if value is None or isinstance(value, dtdate):
             return value
         if isinstance(value, str):
@@ -120,11 +111,6 @@ class ISODate(TypeDecorator[dtdate]):
 
     @property
     def python_type(self) -> type[dtdate]:
-        """
-        Return the native Python type for the decorator.
-
-        :returns: The ``datetime.date`` type used for campaign dates.
-        """
         return self._python_type
 
 
@@ -138,17 +124,8 @@ class CanonicalJSON(TypeDecorator[dict[str, Any]]):
     def process_bind_param(
         self,
         value: Mapping[str, Any] | str | None,
-        dialect: Any,  # noqa: ARG002
+        _dialect: Any,
     ) -> dict[str, Any] | None:
-        """
-        Normalize incoming JSON values before storage.
-
-        :param value: Mapping object, JSON string, or None.
-        :param dialect: SQLAlchemy dialect object (only supplied by SQLAlchemy).
-        :returns: Normalized dictionary when a value is provided, otherwise None.
-        :raises TypeError: If the value type cannot be converted to JSON.
-        :raises ValueError: If the supplied text cannot be parsed as JSON.
-        """
         if value is None:
             return None
         if isinstance(value, Mapping):
@@ -162,15 +139,8 @@ class CanonicalJSON(TypeDecorator[dict[str, Any]]):
     def process_result_value(
         self,
         value: Mapping[str, Any] | str | None,
-        dialect: Any,  # noqa: ARG002
+        _dialect: Any,
     ) -> dict[str, Any] | None:
-        """
-        Normalize JSON values when loading from the database.
-
-        :param value: Mapping object, JSON string, or None from the database.
-        :param dialect: SQLAlchemy dialect object (only supplied by SQLAlchemy).
-        :returns: Normalized dictionary when a value is provided, otherwise None.
-        """
         if value is None:
             return None
         if isinstance(value, Mapping):
@@ -206,11 +176,6 @@ class CanonicalJSON(TypeDecorator[dict[str, Any]]):
 
     @property
     def python_type(self) -> type[Any]:
-        """
-        Return the native Python type for the decorator.
-
-        :returns: The dictionary type used for JSON storage.
-        """
         return self._python_type
 
 
@@ -218,7 +183,6 @@ class EngineManager:
     """Manage the lifecycle of the shared SQLAlchemy engine."""
 
     def __init__(self) -> None:
-        """Initialize the engine manager with default state."""
         self._engine: Engine | None = None
         self.yaml_storage_path: Path | None = None
         self.purge_requested = False
@@ -407,7 +371,6 @@ def _connector_factory() -> _Connector:
 
 
 def dispose_engine() -> None:
-    """Dispose of the shared database engine and clear related caches."""
     engine_manager.dispose()
 
 

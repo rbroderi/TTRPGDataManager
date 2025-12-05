@@ -1,4 +1,4 @@
-"""Targeted tests for final_project.llmrunner helpers."""
+"""Targeted tests for ttrpgdataman.llmrunner helpers."""
 
 # pyright: reportPrivateUsage=false
 
@@ -18,7 +18,7 @@ from typing import Literal
 import pytest
 import requests
 
-from final_project import llmrunner
+from ttrpgdataman import llmrunner
 
 
 @pytest.fixture(autouse=True)

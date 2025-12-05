@@ -8,8 +8,8 @@ from typing import runtime_checkable
 
 from lazi.core import lazi
 
-from final_project import settings_manager
-from final_project.paths import PROJECT_ROOT
+from ttrpgdataman import settings_manager
+from ttrpgdataman.paths import PROJECT_ROOT
 
 with lazi:  # type: ignore[attr-defined]
     import atexit
@@ -43,7 +43,7 @@ with lazi:  # type: ignore[attr-defined]
     from pydantic import ValidationInfo
     from pydantic import field_validator
 
-logger = structlog.getLogger("final_project")
+logger = structlog.getLogger("ttrpgdataman")
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 IMAGE_SETTINGS_GROUP = "LLM"
 

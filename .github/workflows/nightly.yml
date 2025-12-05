@@ -88,7 +88,7 @@ jobs:
             --include-data-dir=docs=docs \
             --output-dir=cache \
             --output-filename=${{ matrix.output_name }} \
-            src/final_project/main.py
+            src/ttrpgdataman/main.py
           dist_dir=$(find cache -maxdepth 1 -type d -name '*.dist' | head -n 1)
           if [ -z "$dist_dir" ]; then echo 'Nuitka dist directory not found'; exit 1; fi
           rm -rf bin/${{ matrix.folder_name }}
@@ -127,7 +127,7 @@ jobs:
             --msvc=latest `
             --output-dir=cache `
             --output-filename=${{ matrix.output_name }} `
-            src/final_project/main.py
+            src/ttrpgdataman/main.py
           $distDir = Get-ChildItem -Path cache -Directory -Filter '*.dist' | Select-Object -ExpandProperty FullName -First 1
           if (-not $distDir) { throw 'Nuitka dist directory not found.' }
           $binDir = Join-Path 'bin' '${{ matrix.folder_name }}'

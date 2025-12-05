@@ -1,8 +1,8 @@
-CREATE DATABASE IF NOT EXISTS final_project
+CREATE DATABASE IF NOT EXISTS ttrpgdataman
     CHARACTER SET utf8mb4
     COLLATE utf8mb4_unicode_ci;
 
-USE final_project;
+USE ttrpgdataman;
 
 CREATE TABLE IF NOT EXISTS campaign (
     name VARCHAR(256) NOT NULL,

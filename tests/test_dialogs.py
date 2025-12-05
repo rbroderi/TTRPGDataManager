@@ -1,4 +1,4 @@
-"""GUI-adjacent tests for final_project.dialogs."""
+"""GUI-adjacent tests for ttrpgdataman.dialogs."""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from typing import cast
 import customtkinter as ctk
 import pytest
 
-from final_project import dialogs
-from final_project.campaign_dialog import CampaignDialog
+from ttrpgdataman import dialogs
+from ttrpgdataman.campaign_dialog import CampaignDialog
 
 
 @pytest.fixture(name="tk_app")

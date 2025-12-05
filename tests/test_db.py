@@ -1,4 +1,4 @@
-"""Tests for final_project.db (runtime backend is ysaqml)."""
+"""Tests for ttrpgdataman.db (runtime backend is ysaqml)."""
 
 # pyright: reportPrivateUsage=false
 # pyright: reportUnknownMemberType=false
@@ -27,8 +27,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from final_project import LogLevels
-from final_project import db
+from ttrpgdataman import LogLevels
+from ttrpgdataman import db
 
 
 def _clear_cache(func: Callable[..., object]) -> None:

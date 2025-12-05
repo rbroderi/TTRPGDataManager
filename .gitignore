@@ -219,3 +219,4 @@ cache/
 *.sqlite3
 bin/
 data/db/*
+.synsort_cache.json

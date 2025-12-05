@@ -8,15 +8,15 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from final_project.db import NPC
-from final_project.db import Campaign
-from final_project.db import Encounter
-from final_project.db import EncounterParticipants
-from final_project.db import Faction
-from final_project.db import FactionMembers
-from final_project.db import Location
-from final_project.db import Relationship
-from final_project.db import Species
+from ttrpgdataman.db import NPC
+from ttrpgdataman.db import Campaign
+from ttrpgdataman.db import Encounter
+from ttrpgdataman.db import EncounterParticipants
+from ttrpgdataman.db import Faction
+from ttrpgdataman.db import FactionMembers
+from ttrpgdataman.db import Location
+from ttrpgdataman.db import Relationship
+from ttrpgdataman.db import Species
 
 
 def _unique(label: str, suffix: str) -> str:

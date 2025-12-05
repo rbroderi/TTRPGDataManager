@@ -176,88 +176,6 @@ wheels = [
 ]
 
 [[package]]
-name = "final-project"
-version = "2025.11.30.2"
-source = { editable = "." }
-dependencies = [
-    { name = "beartype" },
-    { name = "chafa-py" },
-    { name = "customtkinter" },
-    { name = "gorilla" },
-    { name = "lazi" },
-    { name = "mistletoe" },
-    { name = "pillow" },
-    { name = "pyautogui" },
-    { name = "pydantic" },
-    { name = "pygments" },
-    { name = "pyphen" },
-    { name = "pywinstyles", marker = "sys_platform == 'win32'" },
-    { name = "pyyaml" },
-    { name = "requests" },
-    { name = "rich" },
-    { name = "sqlalchemy" },
-    { name = "structlog" },
-    { name = "tabulate" },
-    { name = "tkhtmlview" },
-    { name = "ysaqml" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "nuitka" },
-    { name = "pyautogui" },
-    { name = "pyright" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "python-pptx" },
-    { name = "ruff" },
-    { name = "rust-just" },
-    { name = "types-pyautogui" },
-    { name = "types-pygments" },
-    { name = "types-pyyaml" },
-    { name = "types-requests" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "beartype", specifier = ">=0.22.5" },
-    { name = "chafa-py", specifier = ">=1.2.0" },
-    { name = "customtkinter", specifier = ">=5.2.2" },
-    { name = "gorilla", specifier = ">=0.4.0" },
-    { name = "lazi", specifier = ">=1.9.161" },
-    { name = "mistletoe", specifier = ">=1.5.0" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.18.2" },
-    { name = "nuitka", marker = "extra == 'dev'", specifier = ">=2.8.9" },
-    { name = "pillow", specifier = ">=12.0.0" },
-    { name = "pyautogui", specifier = ">=0.9.54" },
-    { name = "pyautogui", marker = "extra == 'dev'", specifier = ">=0.9.54" },
-    { name = "pydantic", specifier = ">=2.12.4" },
-    { name = "pygments", specifier = ">=2.19.2" },
-    { name = "pyphen", specifier = ">=0.17.2" },
-    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.407" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.1" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0.0" },
-    { name = "python-pptx", marker = "extra == 'dev'", specifier = ">=1.0.2" },
-    { name = "pywinstyles", marker = "sys_platform == 'win32'", specifier = ">=1.8" },
-    { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "requests", specifier = ">=2.32.5" },
-    { name = "rich", specifier = ">=14.2.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14.5" },
-    { name = "rust-just", marker = "extra == 'dev'", specifier = ">=1.43.0" },
-    { name = "sqlalchemy", specifier = ">=2.0.44" },
-    { name = "structlog", specifier = ">=25.5.0" },
-    { name = "tabulate", specifier = ">=0.9.0" },
-    { name = "tkhtmlview", specifier = ">=0.1.1.post1" },
-    { name = "types-pyautogui", marker = "extra == 'dev'", specifier = ">=0.9.3.20241230" },
-    { name = "types-pygments", marker = "extra == 'dev'", specifier = ">=2.19.0.20251121" },
-    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.12.20250915" },
-    { name = "types-requests", marker = "extra == 'dev'", specifier = ">=2.32.4.20250913" },
-    { name = "ysaqml", git = "https://github.com/rbroderi/ysaqml" },
-]
-provides-extras = ["dev"]
-
-[[package]]
 name = "gorilla"
 version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1057,6 +975,88 @@ sdist = { url = "https://files.pythonhosted.org/packages/e9/16/1c70dd9fde66dbd25
 wheels = [
     { url = "https://files.pythonhosted.org/packages/81/9f/0238a7e1d3d9f2d4601c0c55b0f4d40926a297ff8f1e3a20f28b9e8cdc93/tkhtmlview-0.1.1.post1-py3-none-any.whl", hash = "sha256:387c3b127d31dd30e2f23c719622f211280220ca13d451a7f254af4f69f75113", size = 10474 },
 ]
+
+[[package]]
+name = "ttrpgdataman"
+version = "2025.11.30.3"
+source = { editable = "." }
+dependencies = [
+    { name = "beartype" },
+    { name = "chafa-py" },
+    { name = "customtkinter" },
+    { name = "gorilla" },
+    { name = "lazi" },
+    { name = "mistletoe" },
+    { name = "pillow" },
+    { name = "pyautogui" },
+    { name = "pydantic" },
+    { name = "pygments" },
+    { name = "pyphen" },
+    { name = "pywinstyles", marker = "sys_platform == 'win32'" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "rich" },
+    { name = "sqlalchemy" },
+    { name = "structlog" },
+    { name = "tabulate" },
+    { name = "tkhtmlview" },
+    { name = "ysaqml" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "nuitka" },
+    { name = "pyautogui" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "python-pptx" },
+    { name = "ruff" },
+    { name = "rust-just" },
+    { name = "types-pyautogui" },
+    { name = "types-pygments" },
+    { name = "types-pyyaml" },
+    { name = "types-requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "beartype", specifier = ">=0.22.5" },
+    { name = "chafa-py", specifier = ">=1.2.0" },
+    { name = "customtkinter", specifier = ">=5.2.2" },
+    { name = "gorilla", specifier = ">=0.4.0" },
+    { name = "lazi", specifier = ">=1.9.161" },
+    { name = "mistletoe", specifier = ">=1.5.0" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.18.2" },
+    { name = "nuitka", marker = "extra == 'dev'", specifier = ">=2.8.9" },
+    { name = "pillow", specifier = ">=12.0.0" },
+    { name = "pyautogui", specifier = ">=0.9.54" },
+    { name = "pyautogui", marker = "extra == 'dev'", specifier = ">=0.9.54" },
+    { name = "pydantic", specifier = ">=2.12.4" },
+    { name = "pygments", specifier = ">=2.19.2" },
+    { name = "pyphen", specifier = ">=0.17.2" },
+    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.407" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.1" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0.0" },
+    { name = "python-pptx", marker = "extra == 'dev'", specifier = ">=1.0.2" },
+    { name = "pywinstyles", marker = "sys_platform == 'win32'", specifier = ">=1.8" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "requests", specifier = ">=2.32.5" },
+    { name = "rich", specifier = ">=14.2.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.14.5" },
+    { name = "rust-just", marker = "extra == 'dev'", specifier = ">=1.43.0" },
+    { name = "sqlalchemy", specifier = ">=2.0.44" },
+    { name = "structlog", specifier = ">=25.5.0" },
+    { name = "tabulate", specifier = ">=0.9.0" },
+    { name = "tkhtmlview", specifier = ">=0.1.1.post1" },
+    { name = "types-pyautogui", marker = "extra == 'dev'", specifier = ">=0.9.3.20241230" },
+    { name = "types-pygments", marker = "extra == 'dev'", specifier = ">=2.19.0.20251121" },
+    { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.12.20250915" },
+    { name = "types-requests", marker = "extra == 'dev'", specifier = ">=2.32.4.20250913" },
+    { name = "ysaqml", git = "https://github.com/rbroderi/ysaqml" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "types-docutils"

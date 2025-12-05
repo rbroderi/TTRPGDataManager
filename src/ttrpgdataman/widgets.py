@@ -13,12 +13,12 @@ from typing import Any
 import customtkinter as ctk  # type: ignore[import-untyped]
 from lazi.core import lazi
 
-from final_project.campaign_dialog import CampaignDialog
-from final_project.db import create_campaign
-from final_project.db import delete_campaign
-from final_project.db import get_campaigns
-from final_project.db import get_types
-from final_project.paths import PROJECT_ROOT
+from ttrpgdataman.campaign_dialog import CampaignDialog
+from ttrpgdataman.db import create_campaign
+from ttrpgdataman.db import delete_campaign
+from ttrpgdataman.db import get_campaigns
+from ttrpgdataman.db import get_types
+from ttrpgdataman.paths import PROJECT_ROOT
 
 with lazi:  # type: ignore[attr-defined]
     import logging
@@ -40,7 +40,7 @@ with lazi:  # type: ignore[attr-defined]
     from tkhtmlview import HTMLScrolledText
 
 
-logger = structlog.getLogger("final_project")
+logger = structlog.getLogger("ttrpgdataman")
 # disable debug in pillow
 pil_logger = logging.getLogger("PIL")
 pil_logger.setLevel(logging.INFO)

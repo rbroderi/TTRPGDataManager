@@ -14,8 +14,8 @@ from typing import cast
 import customtkinter as ctk  # type: ignore[import-untyped]
 from lazi.core import lazi
 
-from final_project import dialogs as dialogs_module
-from final_project.db import CAMPAIGN_STATUSES
+from ttrpgdataman import dialogs as dialogs_module
+from ttrpgdataman.db import CAMPAIGN_STATUSES
 
 with lazi:  # type: ignore[attr-defined]
     from datetime import UTC

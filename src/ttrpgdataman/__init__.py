@@ -1,4 +1,4 @@
-"""final database project."""
+"""TTRPG Data Manager."""
 
 # ruff: noqa: I001
 from .consts import LogLevels as LogLevels
@@ -10,7 +10,7 @@ import logging
 import structlog
 import sys
 
-logger = structlog.getLogger("final_project")
+logger = structlog.getLogger("ttrpgdataman")
 
 
 class SemanticSorter:

@@ -5,12 +5,12 @@ from contextlib import contextmanager
 
 from lazi.core import lazi
 
-from final_project import patch
-from final_project.db import dispose_engine
-from final_project.db import list_all_npcs
-from final_project.db import setup_database
-from final_project.gui import init as launch_gui
-from final_project.paths import PROJECT_ROOT
+from ttrpgdataman import patch
+from ttrpgdataman.db import dispose_engine
+from ttrpgdataman.db import list_all_npcs
+from ttrpgdataman.db import setup_database
+from ttrpgdataman.gui import init as launch_gui
+from ttrpgdataman.paths import PROJECT_ROOT
 
 # lazi imports only actually imported when used,
 # helps to speed up loading and the use of optional imports.
@@ -25,7 +25,7 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
     import structlog
     from rich.console import Console
 
-    from final_project import LogLevels
+    from ttrpgdataman import LogLevels
 
 
 ################## GLOBAL SETTINGS ###################################
@@ -33,7 +33,7 @@ with lazi:  # type: ignore[attr-defined] # lazi has incorrectly typed code
 settings = gorilla.Settings(allow_hit=True)
 OK = 0
 ERROR = 1
-logger = structlog.getLogger("final_project")
+logger = structlog.getLogger("ttrpgdataman")
 
 
 #######################################################################

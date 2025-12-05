@@ -20,7 +20,7 @@ class LogLevels(IntEnum):
 
 def version() -> str:
     """Return version of the project that is installed."""
-    return importlib.metadata.version("final_project")
+    return importlib.metadata.version("ttrpgdataman")
 
 
 if __name__ == "__main__":

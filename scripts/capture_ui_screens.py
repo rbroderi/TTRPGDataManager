@@ -17,7 +17,7 @@ from PIL import ImageGrab
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
-MAIN_ENTRY = SRC_ROOT / "final_project" / "main.py"
+MAIN_ENTRY = SRC_ROOT / "ttrpgdataman" / "main.py"
 SCREENSHOT_DIR = REPO_ROOT / "docs" / "images" / "screenshots"
 APP_TITLE = "TTRPG Data Manager"
 SAMPLE_DIALOG_TITLE = "Sample Data"

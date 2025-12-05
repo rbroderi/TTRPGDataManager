@@ -1186,7 +1186,7 @@
     <optimization-time pass="2" time="0.00" />
     <module_usages />
   </module>
-  <module name="__main__" kind="PythonMainModule" usage="root_module" reason="Root module" source_path="${cwd}\src\final_project\main.py">
+  <module name="__main__" kind="PythonMainModule" usage="root_module" reason="Root module" source_path="${cwd}\src\ttrpgdataman\main.py">
     <optimization-time pass="1" time="1.25" micro_passes="5" max_branch_merge="45" merged_total="1018" />
     <optimization-time pass="2" time="0.04" micro_passes="1" max_branch_merge="44" merged_total="202" />
     <distribution-usages>
@@ -1200,13 +1200,13 @@
       <module_usage name="contextlib" finding="absolute" line="4" />
       <module_usage name="lazi.core" finding="absolute" line="6" />
       <module_usage name="lazi.core.lazi" finding="not-found" line="6" />
-      <module_usage name="final_project" finding="absolute" line="8" />
-      <module_usage name="final_project.patch" finding="not-found" line="8" />
-      <module_usage name="final_project.db" finding="absolute" line="9" />
-      <module_usage name="final_project.db" finding="absolute" line="10" />
-      <module_usage name="final_project.db" finding="absolute" line="11" />
-      <module_usage name="final_project.gui" finding="absolute" line="12" />
-      <module_usage name="final_project.paths" finding="absolute" line="13" />
+      <module_usage name="ttrpgdataman" finding="absolute" line="8" />
+      <module_usage name="ttrpgdataman.patch" finding="not-found" line="8" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="9" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="10" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="11" />
+      <module_usage name="ttrpgdataman.gui" finding="absolute" line="12" />
+      <module_usage name="ttrpgdataman.paths" finding="absolute" line="13" />
       <module_usage name="logging" finding="absolute" line="18" />
       <module_usage name="collections.abc" finding="not-found" line="19" />
       <module_usage name="typing" finding="absolute" line="20" />
@@ -1215,8 +1215,8 @@
       <module_usage name="rich.markdown" finding="absolute" line="24" />
       <module_usage name="structlog" finding="absolute" line="25" />
       <module_usage name="rich.console" finding="absolute" line="26" />
-      <module_usage name="final_project" finding="absolute" line="28" />
-      <module_usage name="final_project.LogLevels" finding="not-found" line="28" />
+      <module_usage name="ttrpgdataman" finding="absolute" line="28" />
+      <module_usage name="ttrpgdataman.LogLevels" finding="not-found" line="28" />
       <module_usage name="_collections_abc" finding="absolute" line="1" />
       <module_usage name="_opcode_metadata" finding="absolute" line="1" />
       <module_usage name="_weakrefset" finding="absolute" line="1" />
@@ -1520,7 +1520,7 @@
       <module_usage name="zipfile._path.glob" finding="absolute" line="1" />
     </module_usages>
   </module>
-  <module name="__parents_main__" kind="CompiledPythonModule" usage="plugins" reason="Auto enable multiprocessing freeze support" source_path="${cwd}\src\final_project\main.py">
+  <module name="__parents_main__" kind="CompiledPythonModule" usage="plugins" reason="Auto enable multiprocessing freeze support" source_path="${cwd}\src\ttrpgdataman\main.py">
     <optimization-time pass="1" time="0.05" micro_passes="5" max_branch_merge="45" merged_total="1336" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="44" merged_total="243" />
     <distribution-usages>
@@ -1534,13 +1534,13 @@
       <module_usage name="contextlib" finding="absolute" line="4" />
       <module_usage name="lazi.core" finding="absolute" line="6" />
       <module_usage name="lazi.core.lazi" finding="not-found" line="6" />
-      <module_usage name="final_project" finding="absolute" line="8" />
-      <module_usage name="final_project.patch" finding="not-found" line="8" />
-      <module_usage name="final_project.db" finding="absolute" line="9" />
-      <module_usage name="final_project.db" finding="absolute" line="10" />
-      <module_usage name="final_project.db" finding="absolute" line="11" />
-      <module_usage name="final_project.gui" finding="absolute" line="12" />
-      <module_usage name="final_project.paths" finding="absolute" line="13" />
+      <module_usage name="ttrpgdataman" finding="absolute" line="8" />
+      <module_usage name="ttrpgdataman.patch" finding="not-found" line="8" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="9" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="10" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="11" />
+      <module_usage name="ttrpgdataman.gui" finding="absolute" line="12" />
+      <module_usage name="ttrpgdataman.paths" finding="absolute" line="13" />
       <module_usage name="logging" finding="absolute" line="18" />
       <module_usage name="collections.abc" finding="not-found" line="19" />
       <module_usage name="typing" finding="absolute" line="20" />
@@ -1549,8 +1549,8 @@
       <module_usage name="rich.markdown" finding="absolute" line="24" />
       <module_usage name="structlog" finding="absolute" line="25" />
       <module_usage name="rich.console" finding="absolute" line="26" />
-      <module_usage name="final_project" finding="absolute" line="28" />
-      <module_usage name="final_project.LogLevels" finding="not-found" line="28" />
+      <module_usage name="ttrpgdataman" finding="absolute" line="28" />
+      <module_usage name="ttrpgdataman.LogLevels" finding="not-found" line="28" />
       <module_usage name="sys" finding="absolute" line="179" />
       <module_usage name="multiprocessing.spawn" finding="absolute" line="182" />
     </module_usages>
@@ -10530,7 +10530,7 @@
       <module_usage name="getopt" finding="absolute" line="427" />
     </module_usages>
   </module>
-  <module name="final_project" kind="CompiledPythonPackage" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\__init__.py">
+  <module name="ttrpgdataman" kind="CompiledPythonPackage" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\__init__.py">
     <optimization-time pass="1" time="0.06" micro_passes="5" max_branch_merge="33" merged_total="694" />
     <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="33" merged_total="116" />
     <distribution-usages>
@@ -10538,16 +10538,16 @@
     </distribution-usages>
     <module_usages>
       <module_usage name="os" finding="absolute" line="1" />
-      <module_usage name="final_project.consts" finding="relative" line="4" />
-      <module_usage name="final_project.consts" finding="relative" line="5" />
-      <module_usage name="final_project.patch_rich" finding="relative" line="6" />
-      <module_usage name="final_project.patch_beartype" finding="relative" line="8" />
+      <module_usage name="ttrpgdataman.consts" finding="relative" line="4" />
+      <module_usage name="ttrpgdataman.consts" finding="relative" line="5" />
+      <module_usage name="ttrpgdataman.patch_rich" finding="relative" line="6" />
+      <module_usage name="ttrpgdataman.patch_beartype" finding="relative" line="8" />
       <module_usage name="logging" finding="absolute" line="9" />
       <module_usage name="structlog" finding="absolute" line="10" />
       <module_usage name="sys" finding="absolute" line="11" />
     </module_usages>
   </module>
-  <module name="final_project.campaign_dialog" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\campaign_dialog.py">
+  <module name="ttrpgdataman.campaign_dialog" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\campaign_dialog.py">
     <optimization-time pass="1" time="0.03" micro_passes="5" max_branch_merge="122" merged_total="1128" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="99" merged_total="216" />
     <distribution-usages>
@@ -10563,16 +10563,16 @@
       <module_usage name="customtkinter" finding="absolute" line="14" />
       <module_usage name="lazi.core" finding="absolute" line="15" />
       <module_usage name="lazi.core.lazi" finding="not-found" line="15" />
-      <module_usage name="final_project" finding="absolute" line="17" />
-      <module_usage name="final_project.dialogs" finding="relative" line="17" />
-      <module_usage name="final_project.db" finding="absolute" line="18" />
+      <module_usage name="ttrpgdataman" finding="absolute" line="17" />
+      <module_usage name="ttrpgdataman.dialogs" finding="relative" line="17" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="18" />
       <module_usage name="datetime" finding="absolute" line="21" />
       <module_usage name="datetime" finding="absolute" line="22" />
       <module_usage name="tkinter" finding="absolute" line="23" />
       <module_usage name="tkinter.messagebox" finding="relative" line="23" />
     </module_usages>
   </module>
-  <module name="final_project.consts" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\consts.py">
+  <module name="ttrpgdataman.consts" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\consts.py">
     <optimization-time pass="1" time="0.04" micro_passes="7" max_branch_merge="26" merged_total="580" />
     <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="26" merged_total="82" />
     <distribution-usages>
@@ -10586,7 +10586,7 @@
       <module_usage name="enum" finding="absolute" line="8" />
     </module_usages>
   </module>
-  <module name="final_project.db" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\db.py">
+  <module name="ttrpgdataman.db" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\db.py">
     <optimization-time pass="1" time="2.01" micro_passes="7" max_branch_merge="172" merged_total="26809" />
     <optimization-time pass="2" time="0.19" micro_passes="1" max_branch_merge="168" merged_total="3766" />
     <distribution-usages>
@@ -10679,14 +10679,14 @@
       <module_usage name="pydantic.fields" finding="absolute" line="57" />
       <module_usage name="tabulate" finding="absolute" line="58" />
       <module_usage name="tabulate.tabulate" finding="not-found" line="58" />
-      <module_usage name="final_project" finding="absolute" line="60" />
-      <module_usage name="final_project.LogLevels" finding="not-found" line="60" />
-      <module_usage name="final_project.paths" finding="absolute" line="61" />
-      <module_usage name="final_project.settings_manager" finding="absolute" line="62" />
+      <module_usage name="ttrpgdataman" finding="absolute" line="60" />
+      <module_usage name="ttrpgdataman.LogLevels" finding="not-found" line="60" />
+      <module_usage name="ttrpgdataman.paths" finding="absolute" line="61" />
+      <module_usage name="ttrpgdataman.settings_manager" finding="absolute" line="62" />
       <module_usage name="mysql.connector" finding="absolute" line="65" />
     </module_usages>
   </module>
-  <module name="final_project.dialogs" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\dialogs.py">
+  <module name="ttrpgdataman.dialogs" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\dialogs.py">
     <optimization-time pass="1" time="0.72" micro_passes="8" max_branch_merge="138" merged_total="14791" />
     <optimization-time pass="2" time="0.07" micro_passes="1" max_branch_merge="104" merged_total="1732" />
     <distribution-usages>
@@ -10703,10 +10703,10 @@
       <module_usage name="customtkinter" finding="absolute" line="8" />
       <module_usage name="lazi.core" finding="absolute" line="9" />
       <module_usage name="lazi.core.lazi" finding="not-found" line="9" />
-      <module_usage name="final_project" finding="absolute" line="11" />
-      <module_usage name="final_project.settings_manager" finding="relative" line="11" />
-      <module_usage name="final_project.paths" finding="absolute" line="12" />
-      <module_usage name="final_project.widgets" finding="absolute" line="13" />
+      <module_usage name="ttrpgdataman" finding="absolute" line="11" />
+      <module_usage name="ttrpgdataman.settings_manager" finding="relative" line="11" />
+      <module_usage name="ttrpgdataman.paths" finding="absolute" line="12" />
+      <module_usage name="ttrpgdataman.widgets" finding="absolute" line="13" />
       <module_usage name="ast" finding="absolute" line="16" />
       <module_usage name="json" finding="absolute" line="17" />
       <module_usage name="tkinter" finding="absolute" line="18" />
@@ -10726,7 +10726,7 @@
       <module_usage name="PIL.Image" finding="relative" line="31" />
     </module_usages>
   </module>
-  <module name="final_project.gui" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\gui.py">
+  <module name="ttrpgdataman.gui" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\gui.py">
     <optimization-time pass="1" time="2.39" micro_passes="6" max_branch_merge="189" merged_total="28960" />
     <optimization-time pass="2" time="0.18" micro_passes="1" max_branch_merge="175" merged_total="4475" />
     <distribution-usages>
@@ -10747,33 +10747,33 @@
       <module_usage name="lazi.core.lazi" finding="not-found" line="10" />
       <module_usage name="customtkinter" finding="absolute" line="11" />
       <module_usage name="customtkinter.windows.widgets.ctk_entry" finding="absolute" line="12" />
-      <module_usage name="final_project" finding="absolute" line="15" />
-      <module_usage name="final_project.version" finding="not-found" line="15" />
-      <module_usage name="final_project.dialogs" finding="absolute" line="16" />
-      <module_usage name="final_project.dialogs" finding="absolute" line="17" />
-      <module_usage name="final_project.dialogs" finding="absolute" line="18" />
-      <module_usage name="final_project.dialogs" finding="absolute" line="19" />
-      <module_usage name="final_project.dialogs" finding="absolute" line="20" />
-      <module_usage name="final_project.dialogs" finding="absolute" line="21" />
-      <module_usage name="final_project.dialogs" finding="absolute" line="22" />
-      <module_usage name="final_project.logic" finding="absolute" line="23" />
-      <module_usage name="final_project.logic" finding="absolute" line="24" />
-      <module_usage name="final_project.logic" finding="absolute" line="25" />
-      <module_usage name="final_project.llmrunner" finding="absolute" line="26" />
-      <module_usage name="final_project.llmrunner" finding="absolute" line="27" />
-      <module_usage name="final_project.llmrunner" finding="absolute" line="28" />
-      <module_usage name="final_project.llmrunner" finding="absolute" line="29" />
-      <module_usage name="final_project.llmrunner" finding="absolute" line="30" />
-      <module_usage name="final_project.llmrunner" finding="absolute" line="31" />
-      <module_usage name="final_project.llmrunner" finding="absolute" line="32" />
-      <module_usage name="final_project.llmrunner" finding="absolute" line="33" />
-      <module_usage name="final_project.llmrunner" finding="absolute" line="34" />
-      <module_usage name="final_project.llmrunner" finding="absolute" line="35" />
-      <module_usage name="final_project.llmrunner" finding="absolute" line="36" />
-      <module_usage name="final_project.paths" finding="absolute" line="37" />
-      <module_usage name="final_project.widgets" finding="absolute" line="38" />
-      <module_usage name="final_project.widgets" finding="absolute" line="39" />
-      <module_usage name="final_project.widgets" finding="absolute" line="40" />
+      <module_usage name="ttrpgdataman" finding="absolute" line="15" />
+      <module_usage name="ttrpgdataman.version" finding="not-found" line="15" />
+      <module_usage name="ttrpgdataman.dialogs" finding="absolute" line="16" />
+      <module_usage name="ttrpgdataman.dialogs" finding="absolute" line="17" />
+      <module_usage name="ttrpgdataman.dialogs" finding="absolute" line="18" />
+      <module_usage name="ttrpgdataman.dialogs" finding="absolute" line="19" />
+      <module_usage name="ttrpgdataman.dialogs" finding="absolute" line="20" />
+      <module_usage name="ttrpgdataman.dialogs" finding="absolute" line="21" />
+      <module_usage name="ttrpgdataman.dialogs" finding="absolute" line="22" />
+      <module_usage name="ttrpgdataman.logic" finding="absolute" line="23" />
+      <module_usage name="ttrpgdataman.logic" finding="absolute" line="24" />
+      <module_usage name="ttrpgdataman.logic" finding="absolute" line="25" />
+      <module_usage name="ttrpgdataman.llmrunner" finding="absolute" line="26" />
+      <module_usage name="ttrpgdataman.llmrunner" finding="absolute" line="27" />
+      <module_usage name="ttrpgdataman.llmrunner" finding="absolute" line="28" />
+      <module_usage name="ttrpgdataman.llmrunner" finding="absolute" line="29" />
+      <module_usage name="ttrpgdataman.llmrunner" finding="absolute" line="30" />
+      <module_usage name="ttrpgdataman.llmrunner" finding="absolute" line="31" />
+      <module_usage name="ttrpgdataman.llmrunner" finding="absolute" line="32" />
+      <module_usage name="ttrpgdataman.llmrunner" finding="absolute" line="33" />
+      <module_usage name="ttrpgdataman.llmrunner" finding="absolute" line="34" />
+      <module_usage name="ttrpgdataman.llmrunner" finding="absolute" line="35" />
+      <module_usage name="ttrpgdataman.llmrunner" finding="absolute" line="36" />
+      <module_usage name="ttrpgdataman.paths" finding="absolute" line="37" />
+      <module_usage name="ttrpgdataman.widgets" finding="absolute" line="38" />
+      <module_usage name="ttrpgdataman.widgets" finding="absolute" line="39" />
+      <module_usage name="ttrpgdataman.widgets" finding="absolute" line="40" />
       <module_usage name="json" finding="absolute" line="43" />
       <module_usage name="threading" finding="absolute" line="44" />
       <module_usage name="logging" finding="absolute" line="45" />
@@ -10814,7 +10814,7 @@
       <module_usage name="pywinstyles" finding="absolute" line="580" />
     </module_usages>
   </module>
-  <module name="final_project.llmrunner" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\llmrunner.py">
+  <module name="ttrpgdataman.llmrunner" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\llmrunner.py">
     <optimization-time pass="1" time="1.33" micro_passes="7" max_branch_merge="85" merged_total="12434" />
     <optimization-time pass="2" time="0.06" micro_passes="1" max_branch_merge="77" merged_total="1713" />
     <distribution-usages>
@@ -10832,9 +10832,9 @@
       <module_usage name="typing" finding="absolute" line="7" />
       <module_usage name="lazi.core" finding="absolute" line="9" />
       <module_usage name="lazi.core.lazi" finding="not-found" line="9" />
-      <module_usage name="final_project" finding="absolute" line="11" />
-      <module_usage name="final_project.settings_manager" finding="relative" line="11" />
-      <module_usage name="final_project.paths" finding="absolute" line="12" />
+      <module_usage name="ttrpgdataman" finding="absolute" line="11" />
+      <module_usage name="ttrpgdataman.settings_manager" finding="relative" line="11" />
+      <module_usage name="ttrpgdataman.paths" finding="absolute" line="12" />
       <module_usage name="atexit" finding="absolute" line="15" />
       <module_usage name="contextlib" finding="absolute" line="16" />
       <module_usage name="hashlib" finding="absolute" line="17" />
@@ -10868,7 +10868,7 @@
       <module_usage name="pydantic.functional_validators" finding="absolute" line="44" />
     </module_usages>
   </module>
-  <module name="final_project.logic" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\logic.py">
+  <module name="ttrpgdataman.logic" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\logic.py">
     <optimization-time pass="1" time="0.35" micro_passes="6" max_branch_merge="100" merged_total="5747" />
     <optimization-time pass="2" time="0.05" micro_passes="1" max_branch_merge="46" merged_total="836" />
     <distribution-usages>
@@ -10885,32 +10885,32 @@
       <module_usage name="datetime" finding="absolute" line="12" />
       <module_usage name="typing" finding="absolute" line="13" />
       <module_usage name="structlog" finding="absolute" line="15" />
-      <module_usage name="final_project.db" finding="absolute" line="17" />
-      <module_usage name="final_project.db" finding="absolute" line="18" />
-      <module_usage name="final_project.db" finding="absolute" line="19" />
-      <module_usage name="final_project.db" finding="absolute" line="20" />
-      <module_usage name="final_project.db" finding="absolute" line="21" />
-      <module_usage name="final_project.db" finding="absolute" line="22" />
-      <module_usage name="final_project.db" finding="absolute" line="23" />
-      <module_usage name="final_project.db" finding="absolute" line="24" />
-      <module_usage name="final_project.db" finding="absolute" line="25" />
-      <module_usage name="final_project.db" finding="absolute" line="26" />
-      <module_usage name="final_project.db" finding="absolute" line="27" />
-      <module_usage name="final_project.db" finding="absolute" line="28" />
-      <module_usage name="final_project.db" finding="absolute" line="29" />
-      <module_usage name="final_project.db" finding="absolute" line="30" />
-      <module_usage name="final_project.db" finding="absolute" line="31" />
-      <module_usage name="final_project.db" finding="absolute" line="32" />
-      <module_usage name="final_project.db" finding="absolute" line="33" />
-      <module_usage name="final_project.db" finding="absolute" line="34" />
-      <module_usage name="final_project.db" finding="absolute" line="35" />
-      <module_usage name="final_project.db" finding="absolute" line="36" />
-      <module_usage name="final_project.db" finding="absolute" line="37" />
-      <module_usage name="final_project.db" finding="absolute" line="38" />
-      <module_usage name="final_project.db" finding="absolute" line="39" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="17" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="18" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="19" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="20" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="21" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="22" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="23" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="24" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="25" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="26" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="27" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="28" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="29" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="30" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="31" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="32" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="33" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="34" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="35" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="36" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="37" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="38" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="39" />
     </module_usages>
   </module>
-  <module name="final_project.patch_beartype" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\patch_beartype.py">
+  <module name="ttrpgdataman.patch_beartype" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\patch_beartype.py">
     <optimization-time pass="1" time="0.03" micro_passes="5" max_branch_merge="17" merged_total="490" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="13" merged_total="80" />
     <distribution-usages>
@@ -10937,7 +10937,7 @@
       <module_usage name="beartype.roar.BeartypeDoorHintViolation" finding="not-found" line="17" />
     </module_usages>
   </module>
-  <module name="final_project.patch_rich" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\patch_rich.py">
+  <module name="ttrpgdataman.patch_rich" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\patch_rich.py">
     <optimization-time pass="1" time="0.06" micro_passes="5" max_branch_merge="75" merged_total="1401" />
     <optimization-time pass="2" time="0.01" micro_passes="1" max_branch_merge="70" merged_total="268" />
     <distribution-usages>
@@ -10969,7 +10969,7 @@
       <module_usage name="io" finding="absolute" line="58" />
     </module_usages>
   </module>
-  <module name="final_project.paths" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\paths.py">
+  <module name="ttrpgdataman.paths" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\paths.py">
     <optimization-time pass="1" time="0.01" micro_passes="5" max_branch_merge="14" merged_total="222" />
     <optimization-time pass="2" time="0.00" micro_passes="1" max_branch_merge="12" merged_total="43" />
     <module_usages>
@@ -10978,7 +10978,7 @@
       <module_usage name="pathlib.Path" finding="not-found" line="5" />
     </module_usages>
   </module>
-  <module name="final_project.settings_manager" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\settings_manager.py">
+  <module name="ttrpgdataman.settings_manager" kind="CompiledPythonModule" usage="import fromlist" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\settings_manager.py">
     <optimization-time pass="1" time="0.15" micro_passes="7" max_branch_merge="37" merged_total="2908" />
     <optimization-time pass="2" time="0.02" micro_passes="1" max_branch_merge="27" merged_total="400" />
     <distribution-usages>
@@ -10989,7 +10989,7 @@
       <module_usage name="__future__" finding="absolute" line="3" />
       <module_usage name="lazi.core" finding="absolute" line="5" />
       <module_usage name="lazi.core.lazi" finding="not-found" line="5" />
-      <module_usage name="final_project.paths" finding="absolute" line="7" />
+      <module_usage name="ttrpgdataman.paths" finding="absolute" line="7" />
       <module_usage name="copy" finding="absolute" line="10" />
       <module_usage name="json" finding="absolute" line="11" />
       <module_usage name="os" finding="absolute" line="12" />
@@ -11003,7 +11003,7 @@
       <module_usage name="structlog" finding="absolute" line="20" />
     </module_usages>
   </module>
-  <module name="final_project.widgets" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\final_project\widgets.py">
+  <module name="ttrpgdataman.widgets" kind="CompiledPythonModule" usage="import" reason="Instructed by user to follow to all modules." source_path="${cwd}\src\ttrpgdataman\widgets.py">
     <optimization-time pass="1" time="0.75" micro_passes="7" max_branch_merge="277" merged_total="14146" />
     <optimization-time pass="2" time="0.09" micro_passes="1" max_branch_merge="198" merged_total="1870" />
     <distribution-usages>
@@ -11021,12 +11021,12 @@
       <module_usage name="customtkinter" finding="absolute" line="13" />
       <module_usage name="lazi.core" finding="absolute" line="14" />
       <module_usage name="lazi.core.lazi" finding="not-found" line="14" />
-      <module_usage name="final_project.campaign_dialog" finding="absolute" line="16" />
-      <module_usage name="final_project.db" finding="absolute" line="17" />
-      <module_usage name="final_project.db" finding="absolute" line="18" />
-      <module_usage name="final_project.db" finding="absolute" line="19" />
-      <module_usage name="final_project.db" finding="absolute" line="20" />
-      <module_usage name="final_project.paths" finding="absolute" line="21" />
+      <module_usage name="ttrpgdataman.campaign_dialog" finding="absolute" line="16" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="17" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="18" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="19" />
+      <module_usage name="ttrpgdataman.db" finding="absolute" line="20" />
+      <module_usage name="ttrpgdataman.paths" finding="absolute" line="21" />
       <module_usage name="logging" finding="absolute" line="24" />
       <module_usage name="re" finding="absolute" line="25" />
       <module_usage name="textwrap" finding="absolute" line="26" />
@@ -31136,19 +31136,19 @@
     <module_data filename="module.dotenv.main.const" blob_name="dotenv.main" blob_size="6080" input_size="8202" />
     <module_data filename="module.dotenv.parser.const" blob_name="dotenv.parser" blob_size="2236" input_size="4055" />
     <module_data filename="module.dotenv.variables.const" blob_name="dotenv.variables" blob_size="1219" input_size="2159" />
-    <module_data filename="module.final_project.campaign_dialog.const" blob_name="final_project.campaign_dialog" blob_size="2378" input_size="3885" />
-    <module_data filename="module.final_project.const" blob_name="final_project" blob_size="1709" input_size="3036" />
-    <module_data filename="module.final_project.consts.const" blob_name="final_project.consts" blob_size="594" input_size="1121" />
-    <module_data filename="module.final_project.db.const" blob_name="final_project.db" blob_size="17520" input_size="25435" />
-    <module_data filename="module.final_project.dialogs.const" blob_name="final_project.dialogs" blob_size="15687" input_size="22093" />
-    <module_data filename="module.final_project.gui.const" blob_name="final_project.gui" blob_size="46450" input_size="62292" />
-    <module_data filename="module.final_project.llmrunner.const" blob_name="final_project.llmrunner" blob_size="14734" input_size="21005" />
-    <module_data filename="module.final_project.logic.const" blob_name="final_project.logic" blob_size="11506" input_size="14506" />
-    <module_data filename="module.final_project.patch_beartype.const" blob_name="final_project.patch_beartype" blob_size="1885" input_size="2694" />
-    <module_data filename="module.final_project.patch_rich.const" blob_name="final_project.patch_rich" blob_size="1654" input_size="3180" />
-    <module_data filename="module.final_project.paths.const" blob_name="final_project.paths" blob_size="518" input_size="894" />
-    <module_data filename="module.final_project.settings_manager.const" blob_name="final_project.settings_manager" blob_size="3090" input_size="4776" />
-    <module_data filename="module.final_project.widgets.const" blob_name="final_project.widgets" blob_size="17617" input_size="25853" />
+    <module_data filename="module.ttrpgdataman.campaign_dialog.const" blob_name="ttrpgdataman.campaign_dialog" blob_size="2378" input_size="3885" />
+    <module_data filename="module.ttrpgdataman.const" blob_name="ttrpgdataman" blob_size="1709" input_size="3036" />
+    <module_data filename="module.ttrpgdataman.consts.const" blob_name="ttrpgdataman.consts" blob_size="594" input_size="1121" />
+    <module_data filename="module.ttrpgdataman.db.const" blob_name="ttrpgdataman.db" blob_size="17520" input_size="25435" />
+    <module_data filename="module.ttrpgdataman.dialogs.const" blob_name="ttrpgdataman.dialogs" blob_size="15687" input_size="22093" />
+    <module_data filename="module.ttrpgdataman.gui.const" blob_name="ttrpgdataman.gui" blob_size="46450" input_size="62292" />
+    <module_data filename="module.ttrpgdataman.llmrunner.const" blob_name="ttrpgdataman.llmrunner" blob_size="14734" input_size="21005" />
+    <module_data filename="module.ttrpgdataman.logic.const" blob_name="ttrpgdataman.logic" blob_size="11506" input_size="14506" />
+    <module_data filename="module.ttrpgdataman.patch_beartype.const" blob_name="ttrpgdataman.patch_beartype" blob_size="1885" input_size="2694" />
+    <module_data filename="module.ttrpgdataman.patch_rich.const" blob_name="ttrpgdataman.patch_rich" blob_size="1654" input_size="3180" />
+    <module_data filename="module.ttrpgdataman.paths.const" blob_name="ttrpgdataman.paths" blob_size="518" input_size="894" />
+    <module_data filename="module.ttrpgdataman.settings_manager.const" blob_name="ttrpgdataman.settings_manager" blob_size="3090" input_size="4776" />
+    <module_data filename="module.ttrpgdataman.widgets.const" blob_name="ttrpgdataman.widgets" blob_size="17617" input_size="25853" />
     <module_data filename="module.gorilla.const" blob_name="gorilla" blob_size="15939" input_size="18207" />
     <module_data filename="module.greenlet.const" blob_name="greenlet" blob_size="884" input_size="1233" />
     <module_data filename="module.idna.const" blob_name="idna" blob_size="1141" input_size="1295" />
@@ -31755,9 +31755,9 @@
     <option value="--include-data-dir=docs=docs" />
     <option value="--msvc=latest" />
     <option value="--output-dir=cache" />
-    <option value="--output-filename=final_project.exe" />
+    <option value="--output-filename=ttrpgdataman.exe" />
     <option value="--remove-output" />
-    <option value="src/final_project/main.py" />
+    <option value="src/ttrpgdataman/main.py" />
   </command_line>
   <plugins>
     <plugin name="anti-bloat" user_enabled="no" />
@@ -31827,7 +31827,7 @@
   <python python_exe="${sys.prefix}\Scripts\python.exe" python_flavor="Unknown" python_version="3.13.2" os_name="Windows" os_release="11" arch_name="x86_64" filesystem_encoding="utf-8" gil="yes">
     <search_path>
       <path value="${cwd}" />
-      <path value="${cwd}\src\final_project" />
+      <path value="${cwd}\src\ttrpgdataman" />
       <path value="${sys.real_prefix}\DLLs" />
       <path value="${sys.real_prefix}\Lib" />
       <path value="${sys.real_prefix}" />
@@ -31837,5 +31837,5 @@
       <path value="${sys.prefix}\Lib\site-packages\setuptools\_vendor" />
     </search_path>
   </python>
-  <output run_filename="${cwd}\cache\final_project.exe" />
+  <output run_filename="${cwd}\cache\ttrpgdataman.exe" />
 </nuitka-compilation-report>

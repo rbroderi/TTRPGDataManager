@@ -1,6 +1,6 @@
 [project]
-name = "final-project"
-version = "2025.11.30.2"
+name = "ttrpgdataman"
+version = "2025.11.30.3"
 description = "TTRPG Data Manager"
 readme = "README.md"
 authors = [
@@ -52,7 +52,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.mypy]
-files = ["src/final_project"]
+files = ["src/ttrpgdataman"]
 exclude = "./typings"
 strict = true
 follow_imports = "silent"

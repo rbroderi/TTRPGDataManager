@@ -16,15 +16,15 @@ PROJECT_SRC = Path(__file__).resolve().parents[1] / "src"
 if str(PROJECT_SRC) not in sys.path:
     sys.path.insert(0, str(PROJECT_SRC))
 
-import final_project  # noqa: E402
-from final_project import consts  # noqa: E402
+import ttrpgdataman  # noqa: E402
+from ttrpgdataman import consts  # noqa: E402
 
 
 def _discover_package_modules() -> list[str]:
-    """Return every importable module inside the final_project package."""
-    module_names: set[str] = {final_project.__name__}
-    package_paths = getattr(final_project, "__path__", [])
-    prefix = f"{final_project.__name__}."
+    """Return every importable module inside the ttrpgdataman package."""
+    module_names: set[str] = {ttrpgdataman.__name__}
+    package_paths = getattr(ttrpgdataman, "__path__", [])
+    prefix = f"{ttrpgdataman.__name__}."
     for module_info in pkgutil.walk_packages(package_paths, prefix):
         module_names.add(module_info.name)
     return sorted(module_names)
@@ -43,13 +43,13 @@ def test_pytest_cov_plugin_available(pytestconfig: pytest.Config) -> None:
     """Fail fast when pytest-cov is missing so coverage cannot regress quietly."""
     assert pytestconfig.pluginmanager.hasplugin("pytest_cov"), (
         "Install pytest-cov and rerun: uv tool install pytest-cov && "
-        "pytest --cov=final_project --cov-report=term-missing"
+        "pytest --cov=ttrpgdataman --cov-report=term-missing"
     )
 
 
 def test_semantic_sorter_orders_keys() -> None:
     """SemanticSorter should emit configured keys first and preserve leftovers."""
-    sorter = final_project.SemanticSorter(["b", "a"])
+    sorter = ttrpgdataman.SemanticSorter(["b", "a"])
     event = {"a": 1, "b": 2, "c": 3}
     logger_obj = logging.getLogger("semantic-sorter")
     result = sorter(logger_obj, "info", event)
@@ -69,18 +69,18 @@ def test_semantic_sorter_orders_keys() -> None:
 )
 def test_determine_log_level_variants(argv: list[str], expected: int) -> None:
     """_determine_log_level should respect -v flag counts."""
-    determine = getattr(final_project, "_determine_log_level")  # noqa: B009
+    determine = getattr(ttrpgdataman, "_determine_log_level")  # noqa: B009
     assert determine(argv) == expected
 
 
 @pytest.mark.parametrize(
     ("loglevel", "expected_call"),
     [
-        (final_project.LogLevels.DEBUG, ("debug", "Log level set to DEBUG")),
-        (final_project.LogLevels.INFO, ("info", "Log level set to INFO")),
-        (final_project.LogLevels.WARNING, ("warning", "Log level set to WARNING")),
-        (final_project.LogLevels.ERROR, ("error", "Log level set to ERROR")),
-        (final_project.LogLevels.CRITICAL, ("critical", "Log level set to CRITICAL")),
+        (ttrpgdataman.LogLevels.DEBUG, ("debug", "Log level set to DEBUG")),
+        (ttrpgdataman.LogLevels.INFO, ("info", "Log level set to INFO")),
+        (ttrpgdataman.LogLevels.WARNING, ("warning", "Log level set to WARNING")),
+        (ttrpgdataman.LogLevels.ERROR, ("error", "Log level set to ERROR")),
+        (ttrpgdataman.LogLevels.CRITICAL, ("critical", "Log level set to CRITICAL")),
         (9999, ("error", "Log level set to UNKNOWN LEVEL")),
     ],
 )
@@ -117,8 +117,8 @@ def test_setup_logger_routes_levels(
     def fake_configure(**_: object) -> None:
         configure_called["value"] = True
 
-    monkeypatch.setattr(final_project, "logger", dummy_logger)
-    monkeypatch.setattr(final_project.structlog, "configure", fake_configure)
+    monkeypatch.setattr(ttrpgdataman, "logger", dummy_logger)
+    monkeypatch.setattr(ttrpgdataman.structlog, "configure", fake_configure)
 
     def fake_make_logger(min_level: int | str) -> type:
         class _BoundLogger:  # pragma: no cover - simple stand-in type
@@ -127,12 +127,12 @@ def test_setup_logger_routes_levels(
         return _BoundLogger
 
     monkeypatch.setattr(
-        final_project.structlog,
+        ttrpgdataman.structlog,
         "make_filtering_bound_logger",
         fake_make_logger,
     )
 
-    setup_logger = getattr(final_project, "_setup_logger")  # noqa: B009
+    setup_logger = getattr(ttrpgdataman, "_setup_logger")  # noqa: B009
     setup_logger(loglevel)
 
     assert configure_called["value"]
@@ -147,7 +147,7 @@ def test_consts_version_uses_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
         return f"{name}-1.0"
 
     monkeypatch.setattr(consts.importlib.metadata, "version", fake_version)
-    assert consts.version() == "final_project-1.0"
+    assert consts.version() == "ttrpgdataman-1.0"
 
 
 def test_consts_main_prints_version(
@@ -166,6 +166,6 @@ def test_consts_main_prints_version(
     )
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
-        runpy.run_module("final_project.consts", run_name="__main__", alter_sys=True)
+        runpy.run_module("ttrpgdataman.consts", run_name="__main__", alter_sys=True)
     output = capsys.readouterr().out.strip()
     assert output == "demo-version"
