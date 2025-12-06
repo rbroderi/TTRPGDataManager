@@ -12,7 +12,7 @@ mypy:
     @# grep is workaround for typings directory being included in errors.
 
 create_stub package:
-    pyright --createstub {{ package }}     
+    uv run pyright --createstub {{ package }}     
 
 gen_presentation:
     {{ env_var("D2PATH") }}D2.exe docs/presentation.d2 docs/presentation.pptx

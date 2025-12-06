@@ -57,6 +57,8 @@ exclude = "./typings"
 strict = true
 follow_imports = "silent"
 mypy_path = "./typings"
+plugins = ["pydantic.mypy"]
+
 
 [[tool.mypy.overrides]]
 module = "typings.*"
