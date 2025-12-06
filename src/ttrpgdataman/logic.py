@@ -14,31 +14,31 @@ with lazi:  # type: ignore[attr-defined]
 
     import structlog
 
-from final_project.db import Encounter
-from final_project.db import ImageStore
-from final_project.db import Location
-from final_project.db import NPC
-from final_project.db import assign_faction_member
-from final_project.db import clear_faction_membership as db_clear_faction_membership
-from final_project.db import core_tables_empty
-from final_project.db import delete_encounter_participant
-from final_project.db import delete_relationship
-from final_project.db import get_encounter_participants
-from final_project.db import get_faction_details
-from final_project.db import get_faction_membership
-from final_project.db import get_factions
-from final_project.db import get_locations
-from final_project.db import get_npc_identity_rows
-from final_project.db import get_relationship_rows
-from final_project.db import get_session
-from final_project.db import get_species
-from final_project.db import is_text_column
-from final_project.db import load_all_sample_data
-from final_project.db import save_relationship
-from final_project.db import upsert_encounter_participant
-from final_project.db import upsert_faction
+from ttrpgdataman.db import Encounter
+from ttrpgdataman.db import ImageStore
+from ttrpgdataman.db import Location
+from ttrpgdataman.db import NPC
+from ttrpgdataman.db import assign_faction_member
+from ttrpgdataman.db import clear_faction_membership as db_clear_faction_membership
+from ttrpgdataman.db import core_tables_empty
+from ttrpgdataman.db import delete_encounter_participant
+from ttrpgdataman.db import delete_relationship
+from ttrpgdataman.db import get_encounter_participants
+from ttrpgdataman.db import get_faction_details
+from ttrpgdataman.db import get_faction_membership
+from ttrpgdataman.db import get_factions
+from ttrpgdataman.db import get_locations
+from ttrpgdataman.db import get_npc_identity_rows
+from ttrpgdataman.db import get_relationship_rows
+from ttrpgdataman.db import get_session
+from ttrpgdataman.db import get_species
+from ttrpgdataman.db import is_text_column
+from ttrpgdataman.db import load_all_sample_data
+from ttrpgdataman.db import save_relationship
+from ttrpgdataman.db import upsert_encounter_participant
+from ttrpgdataman.db import upsert_faction
 
-logger = structlog.getLogger("final_project")
+logger = structlog.getLogger("ttrpgdataman")
 
 
 @dataclass(slots=True)

@@ -12,32 +12,33 @@ import customtkinter as ctk  # type: ignore[import-untyped]
 from customtkinter.windows.widgets.ctk_entry import (  # type: ignore[import-untyped]
     CTkEntry,
 )
-from final_project import version
-from final_project.dialogs import EncounterMembersDialog
-from final_project.dialogs import FactionDialog
-from final_project.dialogs import LLMProgressDialog
-from final_project.dialogs import NpcOption
-from final_project.dialogs import RelationshipDialog
-from final_project.dialogs import ReadmeDialog
-from final_project.dialogs import SettingsDialog
-from final_project.logic import DataLogic
-from final_project.logic import DuplicateRecordError
-from final_project.logic import FieldSpec
-from final_project.llmrunner import LLMAssetDownloadSpec
-from final_project.llmrunner import LLM_DOWNLOAD_SIZE_GB
-from final_project.llmrunner import did_text_llm_server_fail
-from final_project.llmrunner import download_llm_asset
-from final_project.llmrunner import generate_portrait_from_image_llm
-from final_project.llmrunner import get_llm_asset_requirements
-from final_project.llmrunner import get_missing_llm_assets
-from final_project.llmrunner import get_random_name_from_text_llm
-from final_project.llmrunner import is_text_llm_server_ready
-from final_project.llmrunner import reload_image_generation_defaults
-from final_project.llmrunner import start_text_llm_server_async
-from final_project.paths import PROJECT_ROOT
-from final_project.widgets import AppMenuBar
-from final_project.widgets import RadioField
-from final_project.widgets import RandomIcon
+from ttrpgdataman import version
+from ttrpgdataman.dialogs import EncounterMembersDialog
+from ttrpgdataman.dialogs import FactionDialog
+from ttrpgdataman.dialogs import LLMProgressDialog
+from ttrpgdataman.dialogs import NpcOption
+from ttrpgdataman.dialogs import RelationshipDialog
+from ttrpgdataman.dialogs import ReadmeDialog
+from ttrpgdataman.dialogs import SettingsDialog
+from ttrpgdataman.logic import DataLogic
+from ttrpgdataman.logic import DuplicateRecordError
+from ttrpgdataman.logic import FieldSpec
+from ttrpgdataman.llmrunner import LLMAssetDownloadSpec
+from ttrpgdataman.llmrunner import LLM_DOWNLOAD_SIZE_GB
+from ttrpgdataman.llmrunner import did_text_llm_server_fail
+from ttrpgdataman.llmrunner import download_llm_asset
+from ttrpgdataman.llmrunner import generate_portrait_from_image_llm
+from ttrpgdataman.llmrunner import get_llm_asset_requirements
+from ttrpgdataman.llmrunner import get_missing_llm_assets
+from ttrpgdataman.llmrunner import get_random_name_from_text_llm
+from ttrpgdataman.llmrunner import is_text_llm_server_ready
+from ttrpgdataman.llmrunner import reload_image_generation_defaults
+from ttrpgdataman.llmrunner import start_text_llm_server_async
+from ttrpgdataman.paths import PROJECT_ROOT
+from ttrpgdataman.widgets import AppMenuBar
+from ttrpgdataman.widgets import RadioField
+from ttrpgdataman.widgets import RandomIcon
+from ttrpgdataman.pyphen_compat import stabilize_pyphen_language_paths
 
 with lazi:  # type: ignore[attr-defined]
     import json
@@ -74,11 +75,14 @@ with lazi:  # type: ignore[attr-defined]
     if not hasattr(Image, "ANTIALIAS") and hasattr(Image, "Resampling"):
         Image.ANTIALIAS = Image.Resampling.LANCZOS  # type: ignore[attr-defined]
 
+    # Nuitka's resource loader hands Pyphen unhashable resource entries.
+    stabilize_pyphen_language_paths()
+
 # disable debug in pillow
 pil_logger = logging.getLogger("PIL")
 pil_logger.setLevel(logging.INFO)
 
-logger = structlog.getLogger("final_project")
+logger = structlog.getLogger("ttrpgdataman")
 
 PLACEHOLDER_IMG = PROJECT_ROOT / "data" / "img" / "placeholder.png"
 SOFT_HYPHEN = "\u00ad"
@@ -2275,7 +2279,7 @@ class TTRPGDataManager(ctk.CTk):  # type: ignore[misc]
                 "Download LLM Models",
                 (
                     "LLM-powered features will remain unavailable until the models "
-                    "are installed. You can add the files to data/llm manually at "
+                    "are installed. You can add the files to assets/ manually at "
                     "any time."
                 ),
             )

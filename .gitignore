@@ -206,8 +206,8 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 .venv
-data/llm/*.safetensors
-data/llm/*.llamafile
+assets/*.safetensors
+assets/*.llamafile
 typings/
 .env
 .synctex.gz
@@ -215,3 +215,8 @@ typings/
 string.txt
 desktop.ini
 *.log
+cache/
+*.sqlite3
+bin/
+data/db/*
+.synsort_cache.json

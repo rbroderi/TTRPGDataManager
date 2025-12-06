@@ -3,9 +3,9 @@ image_size = 256
 image_steps = 15
 text_dir = "data/llm"
 text_binary = "llamafile-0.9.3"
-text_model = "google_gemma-3-4b-it-Q8_0.llamafile"
+text_model = "assets/google_gemma-3-4b-it-Q8_0.llamafile"
 sd_binary = "sdfile-0.9.3"
-image_model = "dreamshaper_8.safetensors"
+image_model = "assets/dreamshaper_8.safetensors"
 name_prompt = """
 "Give your response as START Firstname Lastname, such as START John Smith END. All other information will be ignored. For a TTRPG, Create a first and last name for a {vartext} ." --log-disable --grammar "root ::= [a-zA-Z ]+" --predict 10 --silent-prompt -s 1 --temp 1.5 --fast
 """

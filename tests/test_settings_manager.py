@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from final_project import settings_manager as sm
+from ttrpgdataman import settings_manager as sm
 
 DEFAULT_IMAGE_STEPS = 15
 OVERRIDE_IMAGE_STEPS = 20
@@ -225,7 +225,7 @@ def test_resolve_user_settings_path_darwin(
         home_dir
         / "Library"
         / "Application Support"
-        / ".final_project"
+        / ".ttrpgdataman"
         / "settings.toml"
     )
     assert sm._resolve_user_settings_path() == expected
@@ -242,5 +242,5 @@ def test_resolve_user_settings_path_linux(
     monkeypatch.setenv("XDG_CONFIG_HOME", str(xdg_dir))
     sm._STATE.user_settings_path = None
 
-    expected = xdg_dir / ".final_project" / "settings.toml"
+    expected = xdg_dir / ".ttrpgdataman" / "settings.toml"
     assert sm._resolve_user_settings_path() == expected

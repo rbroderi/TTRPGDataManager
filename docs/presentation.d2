@@ -102,7 +102,7 @@ layers: {
 
 			- **UI Layer:** CustomTkinter (`gui.py`, `widgets.py`) + async helpers for LLM dialogs.
 			- **Logic Layer:** `logic.py` / `llmrunner.py` orchestrate validation, data binding, and background tasks.
-			- **Data Layer:** `db.py` centralizes SQLAlchemy models, DDL loaders (SQLAlchemy + mysql-connector).
+			- **Data Layer:** `db.py` centralizes SQLAlchemy models plus the `ysaqml` YAML-backed engine/session helpers.
 			- **Tooling:** `uv` for deps, `structlog` for JSON logs, `ruff/mypy/pyright` for static linting/type checking.
 		|
 	}
@@ -113,8 +113,8 @@ layers: {
 			- The more separated the concerns are the better, it makes it much easier to test.
 			- Use protocols and dataclasses to generalize data that is passed between methods.
 			- SQLAlchemy can simplify many aspects of database handling.
-			  - It also abstracts what type of database is connected.
-			  - This is used in testing as a small in-memory SQLite database is used to test some methods.
+			  - It also abstracts what type of database is connected, which made the `ysaqml` swap straightforward.
+			  - Tests still lean on an in-memory SQLite engine for speed even though runtime persistence now lives in YAML.
 		|
 	}
 }

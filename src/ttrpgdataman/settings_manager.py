@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from lazi.core import lazi
 
-from final_project.paths import PROJECT_ROOT
+from ttrpgdataman.paths import PROJECT_ROOT
 
 with lazi:  # type: ignore[attr-defined]
     import copy
@@ -19,7 +19,7 @@ with lazi:  # type: ignore[attr-defined]
 
     import structlog
 
-logger = structlog.getLogger("final_project")
+logger = structlog.getLogger("ttrpgdataman")
 
 
 class _SettingsState:
@@ -192,7 +192,7 @@ def _resolve_user_settings_path() -> Path:
         base_dir = home / "Library" / "Application Support"
     else:
         base_dir = Path(os.environ.get("XDG_CONFIG_HOME", home))
-    return base_dir / ".final_project" / "settings.toml"
+    return base_dir / ".ttrpgdataman" / "settings.toml"
 
 
 def _format_toml_value(value: Any) -> str:

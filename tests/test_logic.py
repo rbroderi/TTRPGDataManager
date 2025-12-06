@@ -1,6 +1,6 @@
 # pyright: reportGeneralTypeIssues=false
 
-"""Unit tests for final_project.logic."""
+"""Unit tests for ttrpgdataman.logic."""
 
 from __future__ import annotations
 
@@ -11,11 +11,11 @@ from typing import Any
 
 import pytest
 
-from final_project import logic
-from final_project.logic import DataLogic
-from final_project.logic import DuplicateRecordError
-from final_project.logic import FieldSpec
-from final_project.logic import PersistenceResult
+from ttrpgdataman import logic
+from ttrpgdataman.logic import DataLogic
+from ttrpgdataman.logic import DuplicateRecordError
+from ttrpgdataman.logic import FieldSpec
+from ttrpgdataman.logic import PersistenceResult
 
 
 class ColumnCollection:

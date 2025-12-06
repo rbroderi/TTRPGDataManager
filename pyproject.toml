@@ -1,6 +1,6 @@
 [project]
-name = "final-project"
-version = "2025.11.30.2"
+name = "ttrpgdataman"
+version = "2025.11.30.3"
 description = "TTRPG Data Manager"
 readme = "README.md"
 authors = [
@@ -11,11 +11,9 @@ dependencies = [
     "beartype>=0.22.5",
     "chafa-py>=1.2.0",
     "customtkinter>=5.2.2",
-    "dotenv>=0.9.9",
     "gorilla>=0.4.0",
     "lazi>=1.9.161",
     "mistletoe>=1.5.0",
-    "mysql-connector-python>=9.5.0",
     "pillow>=12.0.0",
     "pydantic>=2.12.4",
     "pygments>=2.19.2",
@@ -29,14 +27,13 @@ dependencies = [
     "structlog>=25.5.0",
     "tkhtmlview>=0.1.1.post1",
     "tabulate>=0.9.0",
+    "ysaqml>=2025.12.6.post4",
 ]
 
 [project.optional-dependencies]
-optimize = [
-    "mysqlclient>=2.2.7",
-]
 dev = [
     "mypy>=1.18.2",
+    "nuitka>=2.8.9",
     "pyautogui>=0.9.54",
     "pyright>=1.1.407",
     "pytest>=9.0.1",
@@ -55,11 +52,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.mypy]
-files = ["src/final_project"]
+files = ["src/ttrpgdataman"]
 exclude = "./typings"
 strict = true
 follow_imports = "silent"
 mypy_path = "./typings"
+plugins = ["pydantic.mypy"]
+
 
 [[tool.mypy.overrides]]
 module = "typings.*"
@@ -179,6 +178,9 @@ project-unknown-keys = "warning"
 project-dependency-updates = { level = "hint" }
 project-dependencies-version-bounds = "off"
 project-requires-python-bounds = "off"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 
 [tool.coverage.report]

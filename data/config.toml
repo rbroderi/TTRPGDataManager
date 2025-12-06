@@ -1,5 +1,3 @@
 [DB]
-drivername = "mysql+mysqlconnector"
-host = "localhost"
-port = 3_306
-database = "final_project"
+drivername = "ysaqml"
+database = "data/db"

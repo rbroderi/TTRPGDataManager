@@ -8,9 +8,9 @@ from pathlib import Path
 import customtkinter as ctk  # type: ignore[import-untyped]
 from lazi.core import lazi
 
-from final_project import settings_manager
-from final_project.paths import PROJECT_ROOT
-from final_project.widgets import HtmlPreviewWindow
+from ttrpgdataman import settings_manager
+from ttrpgdataman.paths import PROJECT_ROOT
+from ttrpgdataman.widgets import HtmlPreviewWindow
 
 with lazi:  # type: ignore[attr-defined]
     import ast
@@ -30,7 +30,7 @@ with lazi:  # type: ignore[attr-defined]
     import structlog
     from PIL import Image
 
-logger = structlog.getLogger("final_project")
+logger = structlog.getLogger("ttrpgdataman")
 TRASH_ICON_PATH = PROJECT_ROOT / "data" / "img" / "trashcan.png"
 
 try:

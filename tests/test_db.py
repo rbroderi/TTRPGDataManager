@@ -1,4 +1,4 @@
-"""Tests for final_project.db using an in-memory SQLite database."""
+"""Tests for ttrpgdataman.db (runtime backend is ysaqml)."""
 
 # pyright: reportPrivateUsage=false
 # pyright: reportUnknownMemberType=false
@@ -7,8 +7,6 @@
 from __future__ import annotations
 
 import ast
-import builtins
-import importlib
 import io
 import sys
 import textwrap
@@ -18,9 +16,7 @@ from contextlib import nullcontext
 from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
-from types import TracebackType
 from typing import Any
-from typing import Self
 from typing import cast
 
 import pytest
@@ -31,8 +27,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from final_project import LogLevels
-from final_project import db
+from ttrpgdataman import LogLevels
+from ttrpgdataman import db
 
 
 def _clear_cache(func: Callable[..., object]) -> None:
@@ -217,29 +213,18 @@ def _run_cli_block(
     exec(compiled, globals_dict)  # noqa: S102 - executing known project code
 
 
-def test_get_env_var_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("DB_USERNAME", "demo")
-    assert db._get_env_var("DB_USERNAME") == "demo"
-
-
-def test_get_env_var_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("MISSING", raising=False)
-    with pytest.raises(RuntimeError, match="Unable to find: MISSING"):
-        db._get_env_var("MISSING")
-
-
 def test_read_config_round_trip(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     config_file = tmp_path / "config.toml"
-    config_file.write_text("[DB]\ndrivername = 'sqlite'\n", encoding="utf-8")
+    config_file.write_text("[DB]\ndrivername = 'ysaqml'\n", encoding="utf-8")
     monkeypatch.setattr(db, "CONFIG_PATH", config_file)
     result = db._read_config()
-    assert result == {"DB": {"drivername": "sqlite"}}
+    assert result == {"DB": {"drivername": "ysaqml"}}
     # cached value reused even if file changes
     config_file.write_text("[DB]\ndrivername='other'\n", encoding="utf-8")
-    assert db._read_config() == {"DB": {"drivername": "sqlite"}}
+    assert db._read_config() == {"DB": {"drivername": "ysaqml"}}
 
 
 def test_load_sample_data_variants(
@@ -313,20 +298,24 @@ def test_coerce_optional_path(value: object, expected: Path | None) -> None:
     assert db._coerce_optional_path(value) == expected
 
 
-def test_connector_factory_caches_engine(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(db, "_get_env_var", lambda name: f"{name.lower()}_value")
+def test_connector_factory_caches_engine(
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+) -> None:
     monkeypatch.setattr(
         db,
         "_read_config",
         lambda: {
             "DB": {
-                "drivername": "sqlite+pysqlite",
-                "database": ":memory:",
+                "drivername": "ysaqml",
+                "database": "data/db",
                 "host": None,
                 "port": None,
             },
         },
     )
+    db.engine_manager.dispose()
+    request.addfinalizer(db.engine_manager.dispose)
 
     class DummyEngine:
         def __init__(self) -> None:
@@ -336,17 +325,66 @@ def test_connector_factory_caches_engine(monkeypatch: pytest.MonkeyPatch) -> Non
             self.connect_calls += 1
             return nullcontext()
 
+        def dispose(self) -> None:  # pragma: no cover - test double convenience
+            return None
+
     dummy_engine = DummyEngine()
 
     def fake_create_engine(*_: Any, **__: Any) -> DummyEngine:
         return dummy_engine
 
-    monkeypatch.setattr(db, "create_engine", fake_create_engine)
+    monkeypatch.setattr(db, "create_yaml_engine", fake_create_engine)
+    monkeypatch.setattr(db.event, "listen", lambda *_args, **_kwargs: None)
     factory = db._connector_factory()
     engine_a = factory(LogLevels.DEBUG)
     engine_b = factory(LogLevels.INFO)
     assert engine_a is engine_b
     assert dummy_engine.connect_calls == 1
+
+
+def test_connector_factory_purges_yaml_before_engine_creation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    request: pytest.FixtureRequest,
+) -> None:
+    db.engine_manager.dispose()
+    request.addfinalizer(db.engine_manager.dispose)
+    storage = tmp_path / "db"
+    storage.mkdir()
+    yaml_file = storage / "campaign.yaml"
+    yaml_file.write_text("bad", encoding="utf-8")
+
+    monkeypatch.setattr(
+        db,
+        "_read_config",
+        lambda: {
+            "DB": {
+                "drivername": "ysaqml",
+                "database": str(storage),
+            },
+        },
+    )
+
+    class EngineWithDispose:
+        def connect(self) -> nullcontext[None]:
+            return nullcontext()
+
+        def dispose(self) -> None:  # pragma: no cover - interface shim
+            return None
+
+    creation_checks: list[bool] = []
+
+    def fake_create_yaml_engine(*_args: Any, **_kwargs: Any) -> EngineWithDispose:
+        creation_checks.append(yaml_file.exists())
+        return EngineWithDispose()
+
+    monkeypatch.setattr(db, "create_yaml_engine", fake_create_yaml_engine)
+    monkeypatch.setattr(db.event, "listen", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(db.engine_manager, "yaml_storage_path", None)
+    monkeypatch.setattr(db.engine_manager, "purge_requested", True)
+    factory = db._connector_factory()
+    factory()
+    assert creation_checks == [False]
 
 
 def test_get_session_factory_reuses_sessionmaker(
@@ -522,33 +560,19 @@ def test_load_all_sample_encounters(
     session.close()
 
 
-def test_mysql_connector_optional_import(monkeypatch: pytest.MonkeyPatch) -> None:
-    original_import = builtins.__import__
-
-    def fake_import(name: str, *args: Any, **kwargs: Any) -> Any:
-        if name == "mysql.connector":
-            msg = "forced missing dependency"
-            raise ImportError(msg)
-        return original_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", fake_import)
-    importlib.reload(db)
-    assert db.mysql_connector is None
-    monkeypatch.setattr(builtins, "__import__", original_import)
-    importlib.reload(db)
-
-
 def test_connector_factory_handles_connection_failure(
     monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
 ) -> None:
-    monkeypatch.setattr(db, "_get_env_var", lambda name: f"{name.lower()}_value")
+    db.engine_manager.dispose()
+    request.addfinalizer(db.engine_manager.dispose)
     monkeypatch.setattr(
         db,
         "_read_config",
         lambda: {
             "DB": {
-                "drivername": "sqlite+pysqlite",
-                "database": ":memory:",
+                "drivername": "ysaqml",
+                "database": "data/db",
                 "host": "localhost",
                 "port": 0,
             },
@@ -564,12 +588,16 @@ def test_connector_factory_handles_connection_failure(
             msg = "boom"
             raise RuntimeError(msg)
 
+        def dispose(self) -> None:  # pragma: no cover - test double convenience
+            return None
+
     failing_engine = FailingEngine()
 
     def fake_create_engine(*_args: Any, **_kwargs: Any) -> FailingEngine:
         return failing_engine
 
-    monkeypatch.setattr(db, "create_engine", fake_create_engine)
+    monkeypatch.setattr(db, "create_yaml_engine", fake_create_engine)
+    monkeypatch.setattr(db.event, "listen", lambda *_args, **_kwargs: None)
     factory = db._connector_factory()
     engine = factory(LogLevels.DEBUG)
     assert engine is failing_engine
@@ -1161,6 +1189,7 @@ def test_get_types_returns_expected() -> None:
 def test_setup_database_rebuild(
     memory_engine: Engine,
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     drop_calls: list[Engine] = []
     create_calls: list[Engine] = []
@@ -1171,238 +1200,20 @@ def test_setup_database_rebuild(
     def fake_create(engine: Engine) -> None:
         create_calls.append(engine)
 
+    storage_dir = tmp_path / "db"
+    storage_dir.mkdir()
+    yaml_file = storage_dir / "campaign.yaml"
+    yaml_file.write_text("junk", encoding="utf-8")
+
     monkeypatch.setattr(db.Base.metadata, "drop_all", fake_drop)
     monkeypatch.setattr(db.Base.metadata, "create_all", fake_create)
+    monkeypatch.setattr(db.engine_manager, "yaml_storage_path", storage_dir)
     factory = db.setup_database(rebuild=True, loglevel=LogLevels.DEBUG)
     assert drop_calls == [memory_engine]
     assert create_calls == [memory_engine]
+    assert not yaml_file.exists()
     session = factory()
     session.close()
-
-
-def test_apply_external_schema_missing_file(tmp_path: Path) -> None:
-    missing = tmp_path / "missing.ddl"
-    db.apply_external_schema_with_connector(path=missing)
-
-
-def test_apply_external_schema_empty_file(tmp_path: Path) -> None:
-    empty = tmp_path / "empty.ddl"
-    empty.write_text("   ", encoding="utf-8")
-    db.apply_external_schema_with_connector(path=empty)
-
-
-def test_apply_external_schema_missing_connector(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ddl = tmp_path / "schema.ddl"
-    ddl.write_text("CREATE TABLE demo();", encoding="utf-8")
-    monkeypatch.setattr(db, "mysql_connector", None)
-    db.apply_external_schema_with_connector(path=ddl)
-
-
-def test_apply_external_schema_connect_failure(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ddl = tmp_path / "schema.ddl"
-    ddl.write_text("CREATE TABLE demo();", encoding="utf-8")
-    monkeypatch.setattr(db, "_read_config", lambda: {"DB": {}})
-    monkeypatch.setattr(db, "_get_env_var", lambda name: f"{name.lower()}_value")
-
-    class FailingConnector:
-        def connect(self, **_kwargs: Any) -> None:
-            msg = "connector fail"
-            raise RuntimeError(msg)
-
-    monkeypatch.setattr(db, "mysql_connector", FailingConnector())
-    db.apply_external_schema_with_connector(path=ddl)
-
-
-def test_apply_external_schema_success(  # noqa: C901 - helper classes inline
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ddl = tmp_path / "schema.ddl"
-    ddl.write_text("CREATE TABLE demo();", encoding="utf-8")
-    monkeypatch.setattr(db, "_read_config", lambda: {"DB": {"database": "demo"}})
-    monkeypatch.setattr(db, "_get_env_var", lambda name: f"{name.lower()}_value")
-
-    class DummyCursor:
-        def __init__(self) -> None:
-            self.executed: list[str] = []
-
-        def __enter__(self) -> Self:
-            return self
-
-        def __exit__(
-            self,
-            _exc_type: type[BaseException] | None,
-            _exc: BaseException | None,
-            _tb: TracebackType | None,
-        ) -> None:
-            return None
-
-        def execute(self, sql: str) -> None:
-            self.executed.append(sql)
-
-        def fetchsets(self) -> list[tuple[str, list[str]]]:
-            return [("statement", ["ok"])]
-
-    class DummyConnection:
-        def __init__(self) -> None:
-            self.committed = False
-            self.closed = False
-            self.cursor_calls = 0
-
-        def cursor(self) -> DummyCursor:
-            self.cursor_calls += 1
-            return DummyCursor()
-
-        def commit(self) -> None:
-            self.committed = True
-
-        def rollback(self) -> None:
-            self.committed = False
-
-        def close(self) -> None:
-            self.closed = True
-
-    connection = DummyConnection()
-    monkeypatch.setattr(
-        db,
-        "mysql_connector",
-        type("Connector", (), {"connect": lambda **_kwargs: connection}),
-    )
-    db.apply_external_schema_with_connector(path=ddl)
-    assert connection.committed is True
-    assert connection.closed is True
-    assert connection.cursor_calls == 1
-
-
-def test_apply_external_schema_drop_database_first(  # noqa: C901 - helper classes inline
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ddl = tmp_path / "schema.ddl"
-    ddl.write_text("CREATE TABLE demo();", encoding="utf-8")
-    monkeypatch.setattr(db, "_read_config", lambda: {"DB": {"database": "demo"}})
-    monkeypatch.setattr(db, "_get_env_var", lambda name: f"{name.lower()}_value")
-
-    class RecordingCursor:
-        def __init__(self) -> None:
-            self.executed_sql: list[str] = []
-
-        def __enter__(self) -> Self:
-            return self
-
-        def __exit__(
-            self,
-            _exc_type: type[BaseException] | None,
-            _exc: BaseException | None,
-            _tb: TracebackType | None,
-        ) -> None:
-            return None
-
-        def execute(self, sql: str) -> None:
-            self.executed_sql.append(sql)
-
-        def fetchsets(self) -> list[tuple[str, list[str]]]:
-            return []
-
-    class RecordingConnection:
-        def __init__(self) -> None:
-            self.cursor_obj = RecordingCursor()
-            self.closed = False
-
-        def cursor(self) -> RecordingCursor:
-            return self.cursor_obj
-
-        def commit(self) -> None:
-            return None
-
-        def rollback(self) -> None:
-            return None
-
-        def close(self) -> None:
-            self.closed = True
-
-    connection = RecordingConnection()
-
-    def connect(**_kwargs: Any) -> RecordingConnection:
-        return connection
-
-    monkeypatch.setattr(
-        db,
-        "mysql_connector",
-        type("Connector", (), {"connect": connect}),
-    )
-    db.apply_external_schema_with_connector(path=ddl, drop_database_first=True)
-    assert connection.closed is True
-    assert connection.cursor_obj.executed_sql
-    recorded_sql = connection.cursor_obj.executed_sql[0]
-    assert recorded_sql.startswith("DROP DATABASE IF EXISTS `demo`")
-    assert recorded_sql.strip().endswith("CREATE TABLE demo();")
-
-
-def test_apply_external_schema_cursor_failure(  # noqa: C901 - helper classes inline
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    ddl = tmp_path / "schema.ddl"
-    ddl.write_text("CREATE TABLE demo();", encoding="utf-8")
-    monkeypatch.setattr(db, "_read_config", lambda: {"DB": {}})
-    monkeypatch.setattr(db, "_get_env_var", lambda name: f"{name.lower()}_value")
-
-    class ExplodingCursor:
-        def __enter__(self) -> Self:
-            return self
-
-        def __exit__(
-            self,
-            _exc_type: type[BaseException] | None,
-            _exc: BaseException | None,
-            _tb: TracebackType | None,
-        ) -> None:
-            return None
-
-        def execute(self, _sql: str) -> None:
-            msg = "cursor fail"
-            raise RuntimeError(msg)
-
-        def fetchsets(self) -> list[tuple[str, list[str]]]:
-            return []
-
-    class ExplodingConnection:
-        def __init__(self) -> None:
-            self.rolled_back = False
-            self.closed = False
-
-        def cursor(self) -> ExplodingCursor:
-            return ExplodingCursor()
-
-        def commit(self) -> None:
-            self.closed = False
-
-        def rollback(self) -> None:
-            self.rolled_back = True
-
-        def close(self) -> None:
-            self.closed = True
-
-    connection = ExplodingConnection()
-
-    def connect(**_kwargs: Any) -> ExplodingConnection:
-        return connection
-
-    monkeypatch.setattr(
-        db,
-        "mysql_connector",
-        type("Connector", (), {"connect": connect}),
-    )
-    db.apply_external_schema_with_connector(path=ddl)
-    assert connection.rolled_back is True
-    assert connection.closed is True
 
 
 def test_export_database_ddl_outputs_schema(
@@ -1411,10 +1222,9 @@ def test_export_database_ddl_outputs_schema(
 ) -> None:
     assert memory_engine is not None
     buffer = io.StringIO()
-    monkeypatch.setattr(db, "_read_config", lambda: {"DB": {"database": "demo"}})
     db.export_database_ddl(buffer)
     ddl_text = buffer.getvalue()
-    assert "CREATE DATABASE IF NOT EXISTS" in ddl_text
+    assert "-- Generated schema --" in ddl_text
     assert "CREATE TABLE" in ddl_text
 
 

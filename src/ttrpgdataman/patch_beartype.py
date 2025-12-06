@@ -16,7 +16,7 @@ from beartype.claw import beartype_this_package as _claw_beartype_this_package
 from beartype.roar import BeartypeCallHintViolation
 from beartype.roar import BeartypeDoorHintViolation
 
-logger = structlog.getLogger("final_project")
+logger = structlog.getLogger("ttrpgdataman")
 settings = gorilla.Settings(allow_hit=True)
 
 _ORIGINAL_OBJECT_FATAL = decorcore._beartype_object_fatal  # pyright: ignore[reportPrivateUsage, reportUnknownMemberType, reportUnknownVariableType] # noqa: SLF001

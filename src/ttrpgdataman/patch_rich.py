@@ -32,7 +32,7 @@ except ImportError:
     PILImage = None  # type: ignore[assignment]
 
 settings = gorilla.Settings(allow_hit=True)
-logger = structlog.getLogger("final_project")
+logger = structlog.getLogger("ttrpgdataman")
 
 
 @gorilla.patch(rich.markdown.ImageItem, settings=settings)  # type: ignore[no-untyped-call,misc] # pyright: ignore[reportUntypedFunctionDecorator, reportUnknownMemberType]
